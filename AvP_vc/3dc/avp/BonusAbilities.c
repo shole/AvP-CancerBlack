@@ -48,7 +48,7 @@ extern void InitialiseGrapplingHook(void)
 {
 	GrapplingHook.IsEngaged = 0;
 	GrapplingHook.IsEmbedded = 0;
-	GrapplingHook.ShapeIndex = GetLoadedShapeMSL("spear");
+	GrapplingHook.ShapeIndex = GetLoadedShapeMSL("prong");
 	GrapplingHook.DispPtr = 0;
 	
 }
@@ -126,7 +126,7 @@ static DISPLAYBLOCK* CreateGrapplingHook(void)
 		return NULL;
 	}
 
-	sbPtr->shapeIndex = GetLoadedShapeMSL("spear");
+	sbPtr->shapeIndex = GetLoadedShapeMSL("prong");
 
 	sbPtr->maintainVisibility = 0;
 	sbPtr->containingModule = ModuleFromPosition(&(sbPtr->DynPtr->Position), 0);

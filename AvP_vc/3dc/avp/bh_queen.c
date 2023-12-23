@@ -43,6 +43,8 @@ extern int NormalFrameTime;
 extern SECTION * GetNamedHierarchyFromLibrary(const char * rif_name, const char * hier_name);
 extern char LevelName[];
 extern unsigned char Null_Name[8];
+extern STRATEGYBLOCK *Alien_GetNewTarget(VECTORCH *alienpos, STRATEGYBLOCK *me);
+extern int Alien_TargetFilter(STRATEGYBLOCK *candidate);
 
 #define QueenAttackRange 3500
 
@@ -52,7 +54,7 @@ extern unsigned char Null_Name[8];
 static BOOL PlayerInTrench=FALSE;
 static BOOL PlayerInLocker=FALSE;
 static int AirlockTimeOpen=0;
-
+BOOL LockerDoorIsClosed();
 
 
 /*special hangar airlock state stuff*/
@@ -358,7 +360,12 @@ void InitQueenBehaviour(void* bhdata, STRATEGYBLOCK *sbPtr)
 			//int he predator version , make it more likely for the queen to go after the player
 			queenStatus->QueenPlayerBias=5;
 		}
+		//but why should she do that?
+		queenStatus->QueenPlayerBias=1;
+
+		//initiate Player as the Queen's target.. this will be changed during behaviour calls
 		queenStatus->QueenTargetSB=Player->ObStrategyBlock;
+
 		queenStatus->QueenTauntTimer=0;
 		queenStatus->QueenFireTimer=0;
 		
@@ -1144,7 +1151,7 @@ void QueenMove_Walk(STRATEGYBLOCK *sbPtr) {
 			else
 			{
 				VECTORCH velocity;
-				int walkSpeed;
+//				int walkSpeed;
 	
 				velocity.vx=sbPtr->DynPtr->OrientMat.mat31;
 				velocity.vy=0;
@@ -2370,13 +2377,11 @@ void Queen_Do_Swipe(STRATEGYBLOCK *sbPtr,int side)
 			default :
 				LOCALASSERT(1==0);
 		}
-			
-
 		GetTargetingPointOfObject(Player,&targetpos);
 		vectohand.vx=targetpos.vx-hand_section->World_Offset.vx;
 		vectohand.vy=0;//targetpos.vy-hand_section->World_Offset.vy;
 		vectohand.vz=targetpos.vz-hand_section->World_Offset.vz;
-
+		
 		range_to_player=Approximate3dMagnitude(&vectohand);
 	
 		//see if queen hit an intervening object
@@ -2396,8 +2401,10 @@ void Queen_Do_Swipe(STRATEGYBLOCK *sbPtr,int side)
 			{
 				if(LOS_ObjectHitPtr->ObStrategyBlock)
 				{
+					//Added AI here.. ugly but should work at least... :-/
 					if(LOS_ObjectHitPtr->ObStrategyBlock->I_SBtype==I_BehaviourInanimateObject || 
-					   LOS_ObjectHitPtr->ObStrategyBlock->I_SBtype==I_BehaviourTrackObject)
+					   LOS_ObjectHitPtr->ObStrategyBlock->I_SBtype==I_BehaviourTrackObject 
+					   )//|| LOS_ObjectHitPtr->ObStrategyBlock->I_SBtype==I_BehaviourMarine)
 					{
 						//damage the object instead of the player
 						//if(LOS_Lambda<QueenAttackRange)
@@ -2412,15 +2419,16 @@ void Queen_Do_Swipe(STRATEGYBLOCK *sbPtr,int side)
 		
 		/* ATM, target is always player. */
 
-		if (range_to_player<QueenAttackRange) 
+		//if (range_to_player<QueenAttackRange)
 		{
 			//do from .75 to 1.25 times base damage
-			CauseDamageToObject(Player->ObStrategyBlock,&TemplateAmmo[AMMO_NPC_PAQ_CLAW].MaxDamage[AvP.Difficulty],(ONE_FIXED*.75)+(FastRandom()&0x7fff),NULL);
+			//CauseDamageToObject(Player->ObStrategyBlock,&TemplateAmmo[AMMO_NPC_PAQ_CLAW].MaxDamage[AvP.Difficulty],(ONE_FIXED*.75)+(FastRandom()&0x7fff),NULL);
+			CauseDamageToObject(queenStatusPointer->QueenTargetSB,&TemplateAmmo[AMMO_NPC_PAQ_CLAW].MaxDamage[AvP.Difficulty],ONE_FIXED,NULL);
+
 			//set the taunt timer
 			queenStatusPointer->QueenTauntTimer=ONE_FIXED/2;						
 		}
 	}
-
 }
 
 
@@ -2680,7 +2688,7 @@ void KillQueen(STRATEGYBLOCK *sbPtr,DAMAGE_PROFILE *damage, int multiple,SECTION
 	GLOBALASSERT(queenStatusPointer);
 
 	/* make a sound.  Just this once without a check. */
-	Sound_Play(SID_ALIEN_KILL,"d",&sbPtr->DynPtr->Position);
+//	Sound_Play(SID_ALIEN_KILL,"d",&sbPtr->DynPtr->Position);
 
 	/*If queen has a death target ,send a request*/
 	if(queenStatusPointer->death_target_sbptr)
@@ -3205,8 +3213,19 @@ void QueenBehaviour(STRATEGYBLOCK *sbPtr)
 	}
 
 
-	HandleHangarAirlock();	
+	HandleHangarAirlock();
 	
+	//If the current target is the player, scan for a new... if there is no AI in sight,
+	//then the targeting should find the player again..
+	if (queenStatusPointer->QueenTargetSB == Player->ObStrategyBlock) {
+		queenStatusPointer->QueenTargetSB=Alien_GetNewTarget(&sbPtr->DynPtr->Position, sbPtr);
+	}
+	if (!queenStatusPointer->QueenTargetSB)
+		queenStatusPointer->QueenTargetSB = Player->ObStrategyBlock;
+
+	queenStatusPointer->TargetPos=queenStatusPointer->QueenTargetSB->DynPtr->Position;
+
+	if (!queenStatusPointer->QueenTargetSB) queenStatusPointer->QueenTargetSB=Player->ObStrategyBlock;
 
 	if(queenStatusPointer->QueenState==QBS_Dead)
 	{
@@ -3432,7 +3451,8 @@ void QueenBehaviour(STRATEGYBLOCK *sbPtr)
 							}
 						}
 
-						if(nextReport->ObstacleSBPtr==Player->ObStrategyBlock)
+						//Changed this!! -- Eldritch
+						if(nextReport->ObstacleSBPtr!=Player->ObStrategyBlock)
 						{
 							ConsiderJumpingForThisObject=FALSE;
 
@@ -3443,17 +3463,17 @@ void QueenBehaviour(STRATEGYBLOCK *sbPtr)
 								queenStatusPointer->next_move=QM_Standby;
 								queenStatusPointer->moveTimer=0;
 
-								{
-									//knock the player back
+								//do NOT knock back, looks silly! -- Eldritch
+								/*{
 									VECTORCH* player_impulse;
-									player_impulse=&Player->ObStrategyBlock->DynPtr->LinImpulse;
+									player_impulse=&nextReport->ObstacleSBPtr->DynPtr->LinImpulse;//&Player->ObStrategyBlock->DynPtr->LinImpulse;
 									player_impulse->vx+=dynPtr->OrientMat.mat31/4;
-									player_impulse->vy-=6000;
+									player_impulse->vy-=100;
 									player_impulse->vz+=dynPtr->OrientMat.mat33/4;
-								}
+								}*/
 								{
 									//do some damage
-									CauseDamageToObject(Player->ObStrategyBlock,&QueenButtDamage, ONE_FIXED,NULL);
+									CauseDamageToObject(nextReport->ObstacleSBPtr/*Player->ObStrategyBlock*/,&QueenButtDamage, ONE_FIXED,NULL);
 
 								}
 							}
@@ -3829,8 +3849,8 @@ void QueenBehaviour(STRATEGYBLOCK *sbPtr)
 
 		}	
 	}
-	textprint("Queen Bias - Object %d  Player %d\n",queenStatusPointer->QueenObjectBias,queenStatusPointer->QueenPlayerBias);
-	textprint("Queen Health %d\n",sbPtr->SBDamageBlock.Health>>16);	
+//	textprint("Queen Bias - Object %d  Player %d\n",queenStatusPointer->QueenObjectBias,queenStatusPointer->QueenPlayerBias);
+//	textprint("Queen Health %d\n",sbPtr->SBDamageBlock.Health>>16);	
 	
 						/*--------------------**
 						** 	Can queen attack? **
@@ -3995,8 +4015,8 @@ void QueenBehaviour(STRATEGYBLOCK *sbPtr)
 		}
 
 	}
-	textprint("Queen target distance %d\n",queenStatusPointer->TargetDistance);
-	textprint("Queen target position %d : %d : %d\n",queenStatusPointer->TargetPos.vx,queenStatusPointer->TargetPos.vy,queenStatusPointer->TargetPos.vz);
+//	textprint("Queen target distance %d\n",queenStatusPointer->TargetDistance);
+//	textprint("Queen target position %d : %d : %d\n",queenStatusPointer->TargetPos.vx,queenStatusPointer->TargetPos.vy,queenStatusPointer->TargetPos.vz);
 ///////////////////////////////////////////////////////////////////////	
 				/*--------------------**
 				** 	Airlock avoidance **
@@ -4435,9 +4455,12 @@ void QueenBehaviour(STRATEGYBLOCK *sbPtr)
 																	
 						if(nextReport->ObstacleSBPtr)
 						{
-							
+							// Added Preds, Civvies and Marines here! -- Eldritch
 							if(nextReport->ObstacleSBPtr==Player->ObStrategyBlock ||
 							   nextReport->ObstacleSBPtr->I_SBtype==I_BehaviourInanimateObject ||
+							   nextReport->ObstacleSBPtr->I_SBtype==I_BehaviourMarine ||
+							   nextReport->ObstacleSBPtr->I_SBtype==I_BehaviourPredator ||
+							   nextReport->ObstacleSBPtr->I_SBtype==I_BehaviourSeal ||
 							   (nextReport->ObstacleSBPtr->name && !strcmp(nextReport->ObstacleSBPtr->name,"locker door")))
 							{
 								
@@ -4590,7 +4613,7 @@ void HandleHangarAirlock()
 			int i = NumActiveBlocks;
 			extern DISPLAYBLOCK *ActiveBlockList[];
 			
-			textprint("Wind strength %d\n",wind_multiplier);
+//			textprint("Wind strength %d\n",wind_multiplier);
 			
 			
 			for(i=0;i<NumActiveBlocks;i++)
@@ -4860,7 +4883,7 @@ static BOOL TargetIsFiringFlamethrowerAtQueen(STRATEGYBLOCK *sbPtr)
 static void MakeNonFragable_Recursion(SECTION_DATA *this_section_data)
 {
 	SECTION_DATA *sdptr;
-	int health_increment;
+//	int health_increment;
 
 	sdptr=NULL;
 

@@ -119,6 +119,8 @@ extern "C" {
 
 extern void setup_shading_tables(void);
 extern void SetUpRunTimeLights ();
+extern void LoadRadioMessages(void);
+extern void LoadMusic(void);
 
 // copies all shapes and objects etc
 extern BOOL copy_chunks_from_environment(int flags);

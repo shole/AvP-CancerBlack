@@ -19,6 +19,7 @@ extern int DebouncedGotAnyKey;
 extern void MinimalNetCollectMessages(void);
 extern void NetSendMessages(void);
 extern void RenderGrabbedScreen(void);
+extern void RenderStringCentred(char *stringPtr, int centreX, int y, int colour);
 
 extern void ThisFramesRenderingHasBegun(void);
 extern void ThisFramesRenderingHasFinished(void);
@@ -35,17 +36,16 @@ static int BarTop;
 static int BarBottom;
 
 static const char* Loading_Image_Name="Menus\\Loading.rim";
-static const char* Loading_Bar_Empty_Image_Name="Menus\\Loadingbar_empty.rim";
-static const char* Loading_Bar_Full_Image_Name="Menus\\Loadingbar_full.rim";
+static const char* Loading_Bar_Empty_Image_Name="Menus\\biomechmenu.rim";
+static const char* Loading_Bar_Full_Image_Name="Menus\\starfield.rim";
 
 DDSurface *LoadingBarEmpty;
 DDSurface *LoadingBarFull;
+DDSurface *image;
 RECT LoadingBarEmpty_DestRect;
 RECT LoadingBarEmpty_SrcRect;
 RECT LoadingBarFull_DestRect;
 RECT LoadingBarFull_SrcRect;
-
-
 
 void Start_Progress_Bar()
 {
@@ -111,14 +111,12 @@ void Start_Progress_Bar()
 								0
 							);
 		}
-	}
-	DDSurface* image=0;
-	
+	}	
 	//set progress bar dimensions
-	BarLeft=ScreenDescriptorBlock.SDB_Width/6;
-	BarRight=(ScreenDescriptorBlock.SDB_Width*5)/6;
-	BarTop=(ScreenDescriptorBlock.SDB_Height*19)/22;
-	BarBottom=(ScreenDescriptorBlock.SDB_Height*21)/22;
+	BarLeft=0;
+	BarRight=ScreenDescriptorBlock.SDB_Width;
+	BarTop=0;
+	BarBottom=ScreenDescriptorBlock.SDB_Height-50;
 	
 	//load background image for bar
 	char buffer[100];
@@ -168,11 +166,11 @@ void Start_Progress_Bar()
 	LoadingBarEmpty_SrcRect.left=0;
 	LoadingBarEmpty_SrcRect.right=639;
 	LoadingBarEmpty_SrcRect.top=0;
-	LoadingBarEmpty_SrcRect.bottom=39;
+	LoadingBarEmpty_SrcRect.bottom=479;
 	LoadingBarEmpty_DestRect.left=0;
-	LoadingBarEmpty_DestRect.right=ScreenDescriptorBlock.SDB_Width-1;
-	LoadingBarEmpty_DestRect.top=(ScreenDescriptorBlock.SDB_Height *11)/12;
-	LoadingBarEmpty_DestRect.bottom=ScreenDescriptorBlock.SDB_Height-1;
+	LoadingBarEmpty_DestRect.right=ScreenDescriptorBlock.SDB_Width;
+	LoadingBarEmpty_DestRect.top=0;
+	LoadingBarEmpty_DestRect.bottom=ScreenDescriptorBlock.SDB_Height-50;
 	
 
 	for (int i=0; i<2; i++)
@@ -188,7 +186,7 @@ void Start_Progress_Bar()
 
 	 	ThisFramesRenderingHasBegun();
 
-		RenderBriefingText(ScreenDescriptorBlock.SDB_Height/2, ONE_FIXED);
+		RenderBriefingText(ScreenDescriptorBlock.SDB_Height, ONE_FIXED);
 
 		ThisFramesRenderingHasFinished();
 
@@ -204,14 +202,13 @@ void Start_Progress_Bar()
 		ReleaseDDSurface(LoadingBarEmpty);
 	}
 	CurrentPosition=0;
-
-
 }
 
 void Set_Progress_Bar_Position(int pos)
 {
 //	int NewPosition=((BarRight-BarLeft)*pos)/PBAR_LENGTH;
 	int NewPosition = DIV_FIXED(pos,PBAR_LENGTH);
+
 	if(NewPosition>CurrentPosition)
 	{
 		CurrentPosition=NewPosition;
@@ -219,11 +216,11 @@ void Set_Progress_Bar_Position(int pos)
 		LoadingBarFull_SrcRect.left=0;
 		LoadingBarFull_SrcRect.right=MUL_FIXED(639,NewPosition);
 		LoadingBarFull_SrcRect.top=0;
-		LoadingBarFull_SrcRect.bottom=39;
+		LoadingBarFull_SrcRect.bottom=479;
 		LoadingBarFull_DestRect.left=0;
-		LoadingBarFull_DestRect.right=MUL_FIXED(ScreenDescriptorBlock.SDB_Width-1,NewPosition);
-		LoadingBarFull_DestRect.top=(ScreenDescriptorBlock.SDB_Height *11)/12;
-		LoadingBarFull_DestRect.bottom=ScreenDescriptorBlock.SDB_Height-1;
+		LoadingBarFull_DestRect.right=MUL_FIXED(ScreenDescriptorBlock.SDB_Width,NewPosition);
+		LoadingBarFull_DestRect.top=0;
+		LoadingBarFull_DestRect.bottom=ScreenDescriptorBlock.SDB_Height-50;
 		
 		if (LoadingBarFull) lpDDSBack->Blt(&LoadingBarFull_DestRect,LoadingBarFull,&LoadingBarFull_SrcRect,DDBLT_WAIT,0);
 		FlipBuffers();	
@@ -234,7 +231,7 @@ void Set_Progress_Bar_Position(int pos)
 		Has nothing to do with the progress bar , but this is a convenient place to
 		do the check.
 		*/
-		
+
 		if(AvP.Network != I_No_Network)
 		{
 			static int LastSendTime;
@@ -249,7 +246,6 @@ void Set_Progress_Bar_Position(int pos)
 				NetSendMessages();
 			}
 		}
-		
 	}
 }
 
@@ -259,8 +255,6 @@ extern "C"
 void Game_Has_Loaded(void)
 {
 	extern int NormalFrameTime;
-	extern void RenderStringCentred(char *stringPtr, int centreX, int y, int colour);
-
 
 	SoundSys_StopAll();
 	SoundSys_Management();

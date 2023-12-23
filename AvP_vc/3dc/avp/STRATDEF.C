@@ -40,6 +40,7 @@ unsigned int IncrementalSBname;
 /**** improted globals ************/
 
 extern int cosine[], sine[];
+extern void SetSeededFastRandom(int seed);
 
 /*
 

@@ -31,9 +31,23 @@ extern int NumVertices;
 extern int WireFrameMode;
 extern int DrawingAReflection;
 
+extern void SetFogDistance(int fogDistance);
+extern void ReflectObject(DISPLAYBLOCK *dPtr);
+extern void ClearTranslucentPolyList();
+extern void RenderPlayersImageInMirror();
+
+/* Eld: 3rd-person test */
+
+extern void Render3rdPersonPlayer(void);
+extern int ThirdPersonActive;
+
+/* Eld: 3rd-person test */
+
+extern void AddHierarchicalShape(DISPLAYBLOCK *dptr, VIEWDESCRIPTORBLOCK *VDB_Ptr);
+
 struct KItem KItemList[maxpolyptrs]={0,};
 static struct KItem KItemList2[maxpolyptrs]={0,};
-
+static int PointIsInModule(VECTORCH *pointPtr,MODULE *modulePtr);
 static struct KObject VisibleModules[MAX_NUMBER_OF_VISIBLE_MODULES]={0,};
 static struct KObject VisibleModules2[MAX_NUMBER_OF_VISIBLE_MODULES]={0,};
 static struct KObject *SortedModules;
@@ -413,7 +427,7 @@ void KRenderItems(VIEWDESCRIPTORBLOCK *VDBPtr)
    			if(numVisMods>MAX_NUMBER_OF_VISIBLE_MODULES)
 			{
 				/* outside the environment! */
-				textprint("MAX_NUMBER_OF_VISIBLE_MODULES (%d) exceeded!\n",MAX_NUMBER_OF_VISIBLE_MODULES);
+//				textprint("MAX_NUMBER_OF_VISIBLE_MODULES (%d) exceeded!\n",MAX_NUMBER_OF_VISIBLE_MODULES);
 				textprint("Possibly outside the environment!\n");
 //				LOCALASSERT(0);
 				return;
@@ -432,8 +446,8 @@ void KRenderItems(VIEWDESCRIPTORBLOCK *VDBPtr)
 		}
    	}
 	ProfileStop("SORTSETUP");
-	textprint("numvismods %d\n",numVisMods);
-	textprint("numvisobjs %d\n",numVisObjs);
+//	textprint("numvismods %d\n",numVisMods);
+//	textprint("numvisobjs %d\n",numVisObjs);
 
 	ProfileStart();
 	#if 1
@@ -715,6 +729,13 @@ void KRenderItems(VIEWDESCRIPTORBLOCK *VDBPtr)
 		}
 
 	#endif
+
+		/* Eld: 3rd-person test */
+		
+		if (ThirdPersonActive)
+			Render3rdPersonPlayer();
+
+		/* Eld: 3rd-person test */
 
 		#if 0//SupportWindows95
 		if (ScanDrawMode != ScanDrawDirectDraw)

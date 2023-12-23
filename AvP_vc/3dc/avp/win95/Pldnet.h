@@ -98,6 +98,9 @@ typedef enum netmessagetype
 	NetMT_SpeciesScores,
 	NetMT_FarAlienPosition,
 	NetMT_SpotOtherSound,
+	// SHOULDER LAMP IN MULTI
+	NetMT_ShoulderLampOffset,
+	// END OF SHOULDER LAMP IN MULTI
 }NETMESSAGETYPE;
 
 /* ---------------------------------------------------------------------
@@ -281,6 +284,9 @@ typedef struct netgame_gamedata
 	BOOL pistolInfiniteAmmo;
 	BOOL specialistPistols;
 
+	/* Alien Lifecycle -- Eld */
+	BOOL LifeCycle;		//forces aliens to start out as huggers... nasty!
+
 	//don't bother tring to synch strategies if the checksum values are different
 	int myStrategyCheckSum; 
 
@@ -291,7 +297,11 @@ typedef struct netgame_gamedata
 
 	NETGAME_CONNECTIONTYPE connectionType;
 	
-	unsigned int landingNoise:1;
+	unsigned int landingNoise:4;
+
+	//AMP Additions
+	unsigned int trackerNoise:5;
+	unsigned int footstepNoise:1;
 
 	int joiningGameStatus;
 
@@ -383,6 +393,9 @@ typedef struct netmessage_gamedescription
 	unsigned int pistolInfiniteAmmo:1;
 	unsigned int specialistPistols:1;
 
+	/* Alien Lifecycle -- Eld */
+	unsigned int LifeCycle:1;
+
 }NETMESSAGE_GAMEDESCRIPTION;
 
 typedef struct netmessage_playerdescription
@@ -406,6 +419,11 @@ typedef struct netmessage_playerstate
 	unsigned char sequence;
 	unsigned char currentWeapon;
 	unsigned short CloakingEffectiveness;
+	// AMP Additions
+	unsigned short ArmorType;
+	unsigned int Class;
+	unsigned int SpecialSequence;
+	DPID Grab;
 
 	unsigned int Elevation : 12;
 	unsigned int IHaveAMuzzleFlash: 2;
@@ -430,7 +448,14 @@ typedef struct netmessage_playerstate
 	int velocity_y :10;	//in 10's of cm/second
 	int velocity_z :10;	//in 10's of cm/second
 #endif
-	unsigned int landingNoise:1;
+	unsigned int landingNoise:4;
+
+	//AMP Additions
+	unsigned int trackerNoise:5;
+	unsigned int footstepNoise:1;
+	// SHOULDER LAMP IN MULTI
+	unsigned int IAmUsingShoulderLamp:1;
+	// END OF SHOULDER LAMP IN MULTI
 
 }NETMESSAGE_PLAYERSTATE;
 
@@ -445,8 +470,15 @@ typedef struct netmessage_playerstate_minimal
 	unsigned char IHaveADisk:	1;
 	unsigned char IHaveLifeLeft:1;
 	unsigned char Special:1;
+	// SHOULDER LAMP IN MULTI
+	unsigned char IAmUsingShoulderLamp:1;
+	// END OF SHOULDER LAMP IN MULTI
 
 	unsigned char CloakingEffectiveness;
+	unsigned char ArmorType;
+	unsigned int Class;
+	unsigned int SpecialSequence;
+	DPID Grab;
 }NETMESSAGE_PLAYERSTATE_MINIMAL;
 
 typedef struct netmessage_playerstate_medium
@@ -904,6 +936,19 @@ typedef struct multiplayer_start
 
 #pragma pack(pop)
 
+// SHOULDER LAMP IN MULTI
+
+// Offset of shoulder lamp from player
+
+typedef struct netmessage_shoulder_lamp_offset
+{
+	signed char vx;	
+	signed char vy;	
+	signed char vz;	
+
+}NETMESSAGE_SHOULDERLAMP_OFFSET;
+
+// END OF SHOULDER LAMP IN MULTI
 
 /* ---------------------------------------------------------------------
    Some prototypes
@@ -977,6 +1022,9 @@ extern void AddNetMsg_RespawnPickups();
 
 extern void AddNetMsg_Gibbing(STRATEGYBLOCK* sbPtr,int gibbFactor,int seed);
 extern void AddNetMsg_SpotOtherSound(enum soundindex SoundIndex,VECTORCH *position,int explosion);
+// SHOULDER LAMP IN MULTI
+extern void AddNetMsg_ShoulderLampOffset (STRATEGYBLOCK *sbPtr);
+// END OF SHOULDER LAMP IN MULTI
 
 extern void TransmitEndOfGameNetMsg(void);
 extern void TransmitPlayerLeavingNetMsg(void);
@@ -1008,9 +1056,17 @@ extern int numMarineStartPos;
 extern int numAlienStartPos;
 extern int numPredatorStartPos;
 
+//hugger addition
+extern int numHuggerStartPos;
+//
+
 extern MULTIPLAYER_START* marineStartPositions;
 extern MULTIPLAYER_START* alienStartPositions;
 extern MULTIPLAYER_START* predatorStartPositions;
+
+//hugger addition
+extern MULTIPLAYER_START* huggerStartPositions;
+//
 
 #define LobbiedGame_NotLobbied 0
 #define LobbiedGame_Server 1

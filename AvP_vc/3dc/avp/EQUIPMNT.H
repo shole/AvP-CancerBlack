@@ -53,6 +53,64 @@ enum WEAPON_STATE
 #define WEAPONSTATE_INITIALTIMEOUTCOUNT 65536
 #define WEAPONSTATE_INSTANTTIMEOUT		0
 
+// Multiplayer classes
+
+#define CLASS_NONE			0
+#define CLASS_RIFLEMAN		1
+#define CLASS_SMARTGUNNER	2
+#define CLASS_INC_SPEC		3
+#define CLASS_MEDIC_PR		4
+#define CLASS_MEDIC_FT		5
+#define CLASS_AA_SPEC		6
+#define CLASS_COM_TECH		7
+#define CLASS_EXF_INFANTRY	8
+#define CLASS_ENGINEER		9
+#define CLASS_ARMORER		10
+#define CLASS_EXF_W_SPEC	11
+#define CLASS_EXF_SNIPER	12
+#define CLASS_PRED_WARRIOR	13
+#define CLASS_PRED_HUNTER	14
+#define CLASS_RENEGADE		15
+#define CLASS_ELDER			16
+#define CLASS_ALIEN_DRONE	17
+#define CLASS_ALIEN_WARRIOR	18
+#define CLASS_TANK_ALIEN	19
+
+// Weapon Icons for Weapon Browser system
+
+#define ICON_WB_FLAMER			137
+#define ICON_WB_SMARTGUN		138
+#define ICON_WB_SHOTGUN			139
+#define ICON_WB_LP40			140
+#define ICON_WB_HVG				141
+#define ICON_WB_PISTOL			142
+#define ICON_WB_PLASMA			143
+#define ICON_WB_PULSERIFLE		177
+#define ICON_WB_BYPASSKIT		147
+#define ICON_WB_WELDER			148
+
+#define ICON_WB_TAIL			151
+#define ICON_WB_CLAW			152
+#define ICON_WB_JAWS			176
+
+#define ICON_WB_WRISTBLADE		154
+#define ICON_WB_COMBISTICK		158
+#define ICON_WB_SHOULDERCANNON	156
+#define ICON_WB_DISC			157
+#define ICON_WB_PLASMA_PISTOL	155
+#define ICON_WB_MEDICOMP		159
+#define ICON_WB_SPEARGUN		149
+#define ICON_WB_WRISTLAUNCHER	150
+
+// Icons for equipment HUD
+
+#define ICON_EQ_HANDGRENADE		128
+#define ICON_EQ_PGC				129
+#define ICON_EQ_MEDIKIT			130
+#define ICON_EQ_MT				132
+#define ICON_EQ_II				133
+#define ICON_EQ_SENTRY			134
+
 /* KJL 10:42:38 09/19/96 - Weapon Enumerations */
 enum WEAPON_ID
 {

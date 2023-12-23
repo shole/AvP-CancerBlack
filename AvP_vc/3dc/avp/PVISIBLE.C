@@ -64,6 +64,16 @@ extern int NormalFrameTime;
 extern int GlobalFrameCounter;
 
 extern void ActivateSelfDestructSequence(int seconds);
+extern int ThisObjectIsInAModuleVisibleFromCurrentlyVisibleModules(STRATEGYBLOCK *sbPtr);
+extern void MakePlacedLightNear(STRATEGYBLOCK *sbPtr);
+extern void MakeSentrygunNear(STRATEGYBLOCK *sbPtr);
+extern void MakeCorpseNear(STRATEGYBLOCK *sbPtr);
+extern void MakeSentrygunFar(STRATEGYBLOCK *sbPtr);
+extern void MakeCorpseFar(STRATEGYBLOCK *sbPtr);
+extern void HandleEffectsOfExplosion(STRATEGYBLOCK *objectToIgnorePtr, VECTORCH *centrePtr, int maxRange, DAMAGE_PROFILE *maxDamage, int flat);
+extern void RespawnLight(STRATEGYBLOCK *sbPtr);
+extern int GetLoadedShapeMSL(const char *shapename);
+extern void MakeNewVolumetricExplosionAt(VECTORCH *positionPtr, enum EXPLOSION_ID explosionID);
 
 extern SOUND3DDATA Explosion_SoundData;
 
@@ -229,7 +239,7 @@ void DoObjectVisibility(STRATEGYBLOCK *sbPtr)
                 module. However, we will do a paranoia check for a null containingModule... */ 
                 if(!sbPtr->containingModule)    
                 {
-                        textprint("Calling Far EmergencyRelocateObject, On object %x, type %d!\n",(int)sbPtr, sbPtr->I_SBtype);
+//                        textprint("Calling Far EmergencyRelocateObject, On object %x, type %d!\n",(int)sbPtr, sbPtr->I_SBtype);
                         IdentifyObject(sbPtr);
                         if(!(EmergencyRelocateObject(sbPtr))) {
                                 textprint("Relocate failed!\n");
@@ -425,7 +435,7 @@ void DoObjectVisibility(STRATEGYBLOCK *sbPtr)
                 if(!(newModule))
                 {
                         /* attempt to relocate object */
-                        textprint("Calling Near EmergencyRelocateObject, On object %x, type %d!\n",(int)sbPtr, sbPtr->I_SBtype);
+//                        textprint("Calling Near EmergencyRelocateObject, On object %x, type %d!\n",(int)sbPtr, sbPtr->I_SBtype);
                         IdentifyObject(sbPtr);
                         if(!(EmergencyRelocateObject(sbPtr))) {
                                 textprint("Relocate failed!\n");
@@ -1131,8 +1141,8 @@ void InitInanimateObject(void* bhdata, STRATEGYBLOCK *sbPtr)
         2. integrity */
         switch(objectstatusptr->typeId)
         {
-                case IOT_HitMeAndIllDestroyBase:
                 case IOT_Static:
+				case IOT_HitMeAndIllDestroyBase:
                 {
                         sbPtr->DynPtr = AllocateDynamicsBlock(DYNAMICS_TEMPLATE_STATIC);
                         if(!sbPtr->DynPtr)
@@ -1156,7 +1166,7 @@ void InitInanimateObject(void* bhdata, STRATEGYBLOCK *sbPtr)
                         }
                         break;
                 }                               
-                case IOT_Furniture:     
+                case IOT_Furniture:
                 {
                         sbPtr->DynPtr = AllocateDynamicsBlock(inanimateDynamicsInitialiser);
                         if(!sbPtr->DynPtr)
@@ -1179,7 +1189,27 @@ void InitInanimateObject(void* bhdata, STRATEGYBLOCK *sbPtr)
                                 sbPtr->integrity = (DEFAULT_OBJECT_INTEGRITY)*(toolsData->integrity);
                         }
                         break;
-                }                               
+                }
+				case IOT_Key:
+				{
+						sbPtr->DynPtr = AllocateDynamicsBlock(DYNAMICS_TEMPLATE_PICKUPOBJECT);
+						if(!sbPtr->DynPtr)
+                        {
+                                RemoveBehaviourStrategy(sbPtr);
+                                return;
+                        }
+						objectstatusptr->Indestructable = Yes;
+						sbPtr->integrity = DEFAULT_OBJECT_INTEGRITY;
+
+						// Set Mass on 'Glass' intangible so players cannot pass through it.
+						if (objectstatusptr->subType == 18)
+						{
+							sbPtr->DynPtr->Mass = 65536;
+							sbPtr->DynPtr->IsInanimate = 1;
+							sbPtr->DynPtr->IsStatic = 1;
+						}
+						break;
+				}
                 case IOT_Weapon:
                 {
                         sbPtr->DynPtr = AllocateDynamicsBlock(DYNAMICS_TEMPLATE_PICKUPOBJECT);
@@ -1193,6 +1223,15 @@ void InitInanimateObject(void* bhdata, STRATEGYBLOCK *sbPtr)
 						{
 							//flamethrowers explode using a molotov explosion
 							objectstatusptr->explosionType=3;							
+						}
+						/* Hand Welder and Bypass Kit */
+						if (strstr(sbPtr->name,"welder"))
+						{
+							objectstatusptr->subType = WEAPON_PLASMAGUN;
+						}
+						if (strstr(sbPtr->name,"bypass"))
+						{
+							objectstatusptr->subType = WEAPON_AUTOSHOTGUN;
 						}
                         break;
                 }                               
@@ -1237,19 +1276,7 @@ void InitInanimateObject(void* bhdata, STRATEGYBLOCK *sbPtr)
 
                         sbPtr->integrity = DEFAULT_OBJECT_INTEGRITY;
                         break;
-                }                               
-                case IOT_Key:
-                {
-                        sbPtr->DynPtr = AllocateDynamicsBlock(DYNAMICS_TEMPLATE_PICKUPOBJECT);
-                        if(!sbPtr->DynPtr)
-                        {
-                                RemoveBehaviourStrategy(sbPtr);
-                                return;
-                        }
-
-                        sbPtr->integrity = DEFAULT_OBJECT_INTEGRITY;
-                        break;
-                }                               
+                }                                                      
                 case IOT_BoxedSentryGun:
                 {
                         sbPtr->DynPtr = AllocateDynamicsBlock(inanimateDynamicsInitialiser);
@@ -1284,7 +1311,7 @@ void InitInanimateObject(void* bhdata, STRATEGYBLOCK *sbPtr)
                         sbPtr->integrity = DEFAULT_OBJECT_INTEGRITY;
                         break;
                 }
-        case IOT_MTrackerUpgrade:
+				case IOT_MTrackerUpgrade:
                 {
                         sbPtr->DynPtr = AllocateDynamicsBlock(DYNAMICS_TEMPLATE_PICKUPOBJECT);
                         if(!sbPtr->DynPtr)
@@ -1708,9 +1735,12 @@ void InanimateObjectIsDamaged(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int 
                         {
                                 if(sbPtr->SBDamageBlock.Health <= 0) 
                                 {
-                                        FragmentInanimateObject(sbPtr);
-                                        if(AvP.Network==I_No_Network) DestroyAnyStrategyBlock(sbPtr);
-                                        else KillFragmentalObjectForRespawn(sbPtr);                     
+									FragmentInanimateObject(sbPtr);
+                                    if(AvP.Network==I_No_Network) DestroyAnyStrategyBlock(sbPtr);
+                                    else KillInanimateObjectForRespawn(sbPtr);
+
+									if (sbPtr->SBDamageBlock.IsOnFire)
+										sbPtr->SBDamageBlock.IsOnFire=0;
                                 }
                         }
                         break;
@@ -1722,7 +1752,11 @@ void InanimateObjectIsDamaged(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int 
                                 if(sbPtr->SBDamageBlock.Health <= 0)
                                 {
                                         FragmentInanimateObject(sbPtr);
-                                        DestroyAnyStrategyBlock(sbPtr);
+                                        if(AvP.Network==I_No_Network) DestroyAnyStrategyBlock(sbPtr);
+                                        else KillInanimateObjectForRespawn(sbPtr);
+
+										if (sbPtr->SBDamageBlock.IsOnFire)
+											sbPtr->SBDamageBlock.IsOnFire=0;
                                 }
                         }
                         break;
@@ -1733,7 +1767,10 @@ void InanimateObjectIsDamaged(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int 
                         {
                                 FragmentInanimateObject(sbPtr);
                                 if(AvP.Network==I_No_Network) DestroyAnyStrategyBlock(sbPtr);
-                                else KillInanimateObjectForRespawn(sbPtr);                      
+                                else KillInanimateObjectForRespawn(sbPtr);
+
+								if (sbPtr->SBDamageBlock.IsOnFire)
+									sbPtr->SBDamageBlock.IsOnFire=0;
                         }
                         break;
                 }                               
@@ -1741,9 +1778,28 @@ void InanimateObjectIsDamaged(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int 
                 {
                         if(sbPtr->SBDamageBlock.Health <= 0)
                         {
-                                FragmentInanimateObject(sbPtr);
-                                if(AvP.Network==I_No_Network) DestroyAnyStrategyBlock(sbPtr);
-                                else KillInanimateObjectForRespawn(sbPtr);                      
+							// Certain ammo types explode if they are burning
+							if (sbPtr->SBDamageBlock.IsOnFire)
+							{
+								INANIMATEOBJECT_STATUSBLOCK* objPtr = sbPtr->SBdataptr;
+								if (objPtr->subType == AMMO_10MM_CULW ||
+									objPtr->subType == AMMO_SMARTGUN ||
+									objPtr->subType == AMMO_PULSE_GRENADE ||
+									objPtr->subType == AMMO_PLASMA)
+								{
+									MakeVolumetricExplosionAt(&(sbPtr->DynPtr->Position),EXPLOSION_SMALL_NOCOLLISIONS);
+									if (AvP.Network != I_No_Network) {
+										AddNetMsg_MakeExplosion(&(sbPtr->DynPtr->Position),EXPLOSION_SMALL_NOCOLLISIONS);
+									}
+									Explosion_SoundData.position=sbPtr->DynPtr->Position;
+									Sound_Play(SID_NADEEXPLODE,"n",&Explosion_SoundData);
+								}
+									
+								sbPtr->SBDamageBlock.IsOnFire=0;
+							}
+                            FragmentInanimateObject(sbPtr);
+                            if(AvP.Network==I_No_Network) DestroyAnyStrategyBlock(sbPtr);
+                            else KillInanimateObjectForRespawn(sbPtr);                      
                         }
                         break;
                 }                               
@@ -1753,7 +1809,10 @@ void InanimateObjectIsDamaged(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int 
                         {
                                 FragmentInanimateObject(sbPtr);
                                 if(AvP.Network==I_No_Network) DestroyAnyStrategyBlock(sbPtr);
-                                else KillInanimateObjectForRespawn(sbPtr);                      
+                                else KillInanimateObjectForRespawn(sbPtr);
+								
+								if (sbPtr->SBDamageBlock.IsOnFire)
+									sbPtr->SBDamageBlock.IsOnFire=0;
                         }
                         break;
                 }                               
@@ -1763,7 +1822,10 @@ void InanimateObjectIsDamaged(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int 
                         {
                                 FragmentInanimateObject(sbPtr);
                                 if(AvP.Network==I_No_Network) DestroyAnyStrategyBlock(sbPtr);
-                                else KillInanimateObjectForRespawn(sbPtr);                      
+                                else KillInanimateObjectForRespawn(sbPtr);
+								
+								if (sbPtr->SBDamageBlock.IsOnFire)
+									sbPtr->SBDamageBlock.IsOnFire=0;
                         }
                         break;
                 }                               
@@ -1778,7 +1840,10 @@ void InanimateObjectIsDamaged(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int 
                         {
                                 ExplodeInanimateObject(sbPtr);
                                 if(AvP.Network==I_No_Network) DestroyAnyStrategyBlock(sbPtr);
-                                else KillInanimateObjectForRespawn(sbPtr);                      
+                                else KillInanimateObjectForRespawn(sbPtr);
+								
+								if (sbPtr->SBDamageBlock.IsOnFire)
+									sbPtr->SBDamageBlock.IsOnFire=0;
                         }
                         break;
                 }                               
@@ -1788,34 +1853,63 @@ void InanimateObjectIsDamaged(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int 
                         {
                                 ExplodeInanimateObject(sbPtr);
                                 if(AvP.Network==I_No_Network) DestroyAnyStrategyBlock(sbPtr);
-                                else KillInanimateObjectForRespawn(sbPtr);                      
+                                else KillInanimateObjectForRespawn(sbPtr);
+								
+								if (sbPtr->SBDamageBlock.IsOnFire)
+									sbPtr->SBDamageBlock.IsOnFire=0;
                         }
                         break;
                 }                               
                 case IOT_DataTape:
                 {
-                        /* do nothing */
+                        if(sbPtr->SBDamageBlock.Health <= 0) 
+                        {
+                                ExplodeInanimateObject(sbPtr);
+                                if(AvP.Network==I_No_Network) DestroyAnyStrategyBlock(sbPtr);
+                                else KillInanimateObjectForRespawn(sbPtr);
+								
+								if (sbPtr->SBDamageBlock.IsOnFire)
+									sbPtr->SBDamageBlock.IsOnFire=0;
+                        }
                         break;
                 }
-        case IOT_MTrackerUpgrade:
+				case IOT_MTrackerUpgrade:
                 {
                         if(sbPtr->SBDamageBlock.Health <= 0) 
                         {
                                 ExplodeInanimateObject(sbPtr);
                                 if(AvP.Network==I_No_Network) DestroyAnyStrategyBlock(sbPtr);
-                                else KillInanimateObjectForRespawn(sbPtr);                      
+                                else KillInanimateObjectForRespawn(sbPtr);
+								
+								if (sbPtr->SBDamageBlock.IsOnFire)
+									sbPtr->SBDamageBlock.IsOnFire=0;
                         }
                         break;
                 }                               
                 case IOT_PheromonePod:
                 {
-                        if(sbPtr->SBDamageBlock.Health <= 0) 
-                        {
-                                ExplodeInanimateObject(sbPtr);
-                                if(AvP.Network==I_No_Network) DestroyAnyStrategyBlock(sbPtr);
-                                else KillInanimateObjectForRespawn(sbPtr);                      
-                        }
-                        break;
+					unsigned int i;
+					VECTORCH Explosion;
+
+                    if(sbPtr->SBDamageBlock.Health <= 0) 
+                    {
+						for (i=0; i<5; i++) {
+							Explosion.vx = sbPtr->DynPtr->Position.vx+(FastRandom()%2048);
+							Explosion.vx -= (FastRandom()%4096);
+							Explosion.vy = sbPtr->DynPtr->Position.vy+(FastRandom()%2048);
+							Explosion.vy -= (FastRandom()%4096);
+							Explosion.vz = sbPtr->DynPtr->Position.vz+(FastRandom()%2048);
+							Explosion.vz -= (FastRandom()%4096);
+							MakeNewVolumetricExplosionAt(&Explosion,EXPLOSION_HUGE_NOCOLLISIONS);
+						}
+                        FragmentInanimateObject(sbPtr);
+                        if(AvP.Network==I_No_Network) DestroyAnyStrategyBlock(sbPtr);
+                        else KillInanimateObjectForRespawn(sbPtr);
+								
+						if (sbPtr->SBDamageBlock.IsOnFire)
+							sbPtr->SBDamageBlock.IsOnFire=0;
+                    }
+                    break;
                 }                               
                 case IOT_SpecialPickupObject:
                 {
@@ -1825,30 +1919,24 @@ void InanimateObjectIsDamaged(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int 
                         	{
                         	        FragmentInanimateObject(sbPtr);
                         	        if(AvP.Network==I_No_Network) DestroyAnyStrategyBlock(sbPtr);
-                        	        else KillInanimateObjectForRespawn(sbPtr);                      
+                        	        else KillInanimateObjectForRespawn(sbPtr);
+									
+									if (sbPtr->SBDamageBlock.IsOnFire)
+										sbPtr->SBDamageBlock.IsOnFire=0;
                         	}
                         }
                         break;
                 }
                 case IOT_HitMeAndIllDestroyBase:
                 {
-                        if (damage->Penetrative>0) {
-                                /* Destroy base. */
-                                if (AvP.DestructTimer==-1) {
-                                        textprint("Boom!  You've blown up the base!\n");
-                                        ActivateSelfDestructSequence(60);
-                                        /* Dummy switch hack. */
-                                        {
-                                                STRATEGYBLOCK *evil_switch_SBPtr;
-                                                char Evil_Switch_SBname[] = {0x46,0xb9,0x01,0xf0,0x63,0xe4,0x56,0x0,};
-                                        
-                                                evil_switch_SBPtr=FindSBWithName(Evil_Switch_SBname);
-                                        
-                                                GLOBALASSERT(evil_switch_SBPtr);
-
-                                                RequestState(evil_switch_SBPtr,1,Player->ObStrategyBlock);
-                                        }
-                                }
+                        if(sbPtr->SBDamageBlock.Health <= 0) 
+                        {
+                        	    FragmentInanimateObject(sbPtr);
+                        	    if(AvP.Network==I_No_Network) DestroyAnyStrategyBlock(sbPtr);
+                        	    else KillInanimateObjectForRespawn(sbPtr);
+								
+								if (sbPtr->SBDamageBlock.IsOnFire)
+									sbPtr->SBDamageBlock.IsOnFire=0;
                         }
                         break;
                 }
@@ -1858,7 +1946,10 @@ void InanimateObjectIsDamaged(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int 
                         {
                                 FragmentInanimateObject(sbPtr);
                                 if(AvP.Network==I_No_Network) DestroyAnyStrategyBlock(sbPtr);
-                                else KillInanimateObjectForRespawn(sbPtr);                      
+                                else KillInanimateObjectForRespawn(sbPtr);
+								
+								if (sbPtr->SBDamageBlock.IsOnFire)
+									sbPtr->SBDamageBlock.IsOnFire=0;
                         }
                         break;
                 }                               
@@ -2094,7 +2185,7 @@ void IdentifyObject(STRATEGYBLOCK *sbPtr) {
                                         }
         
                                         default:
-                                                textprint("Object is unknown weapon (subtype %d).\n",(int)objStatPtr->subType);
+//                                                textprint("Object is unknown weapon (subtype %d).\n",(int)objStatPtr->subType);
                                                 break;
                                 }
                                 break;
@@ -2144,7 +2235,7 @@ void IdentifyObject(STRATEGYBLOCK *sbPtr) {
                                                 break;
                                         }
                                         default:
-                                                textprint("Object is unlisted ammo (subtype %d).\n",(int)objStatPtr->subType);
+//                                                textprint("Object is unlisted ammo (subtype %d).\n",(int)objStatPtr->subType);
                                                 break;
                                 }
                                 
@@ -2167,7 +2258,7 @@ void IdentifyObject(STRATEGYBLOCK *sbPtr) {
                         }
                         default:
                         {
-                                textprint("Object is unlisted subtype (%d).\n",(int)objStatPtr->subType);
+//                                textprint("Object is unlisted subtype (%d).\n",(int)objStatPtr->subType);
                                 break;
                         }
                 }
@@ -2176,7 +2267,7 @@ void IdentifyObject(STRATEGYBLOCK *sbPtr) {
                         case I_BehaviourMarine:
                         {
                                 textprint("Object is a marine.\n");
-                                textprint("Marine is in %s\n",sbPtr->containingModule->name);
+//                                textprint("Marine is in %s\n",sbPtr->containingModule->name);
                                 break;
                         }
                         case I_BehaviourAlien:
@@ -2200,7 +2291,7 @@ void IdentifyObject(STRATEGYBLOCK *sbPtr) {
         if (!sbPtr->DynPtr) {
                 textprint("Object has no dynamics block!\n");
         } else {
-                textprint("Object world co-ords: %d %d %d\n",sbPtr->DynPtr->Position.vx,sbPtr->DynPtr->Position.vy,sbPtr->DynPtr->Position.vz);
+//                textprint("Object world co-ords: %d %d %d\n",sbPtr->DynPtr->Position.vx,sbPtr->DynPtr->Position.vy,sbPtr->DynPtr->Position.vz);
         }
 
 }

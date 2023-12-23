@@ -78,6 +78,9 @@ Extern Engine Varibles
 
 extern void (*UpdateScreen[]) (void);
 extern int VideoMode;
+extern int OnLadder;
+extern int Ladder[20];
+extern int CurrentLadder;
 
 #if PSX
 #else
@@ -94,6 +97,20 @@ extern int Resolution;
 unsigned char Null_Name[8];
 
 extern int PlaySounds;
+
+/* Eld: 3rd-person test */
+
+extern void Create3rdPersonPlayer(void);
+
+/* Eld: 3rd-person test */
+
+extern void CreatePlayersImageInMirror();
+extern void InitialiseTriggeredFMVs();
+extern void CurrentGameStats_Initialise();
+extern void AllNewModuleHandler();
+extern void MessageHistory_Initialise();
+extern void MessageHistory_Maintain();
+extern void TimeScaleThingy();
 
 /*******************************
 EXPORTED GLOBALS
@@ -268,6 +285,12 @@ void StartGame(void)
 	}
 	#endif
 
+	/* Eld: 3rd-person test */
+
+	Create3rdPersonPlayer();
+
+	/* Eld: 3rd-person test */
+
 	/* KJL 16:13:30 01/05/98 - rubber ducks! */
 	CreateRubberDucks();
 	
@@ -288,6 +311,7 @@ void StartGame(void)
 		extern SCREENDESCRIPTORBLOCK ScreenDescriptorBlock;
 		extern int MotionTrackerScale;
 		MotionTrackerScale = DIV_FIXED(ScreenDescriptorBlock.SDB_Width,640);
+		MotionTrackerScale = (MotionTrackerScale*0.8);
 	}
  //	BuildInvSqrtTable();
 
@@ -375,7 +399,6 @@ void UpdateGame(void)
 	-------------------------------------------------*/
 	DoHive();
 	DoSquad();
-	
 
    	#if PROFILING_ON
 	ProfileStart();
@@ -552,7 +575,13 @@ void NewAndOldModules(int num_new, MODULE **m_new, int num_old, MODULE **m_old, 
 
 void LevelSpecificChecks(void)
 {
-/* ahem, level specific hacks might be more accurate */
+	unsigned int i;
+	/* Reset Ladder array */
+	for (i=0; i<20; i++)
+	{
+		Ladder[i]=0;
+		CurrentLadder=0;
+	}
 }
 
 extern void CheckCDStatus(void)

@@ -25,6 +25,8 @@
 #include "ourasert.h"
 #include "ShowCmds.h"
 #include "sfx.h"
+#include "bh_marin.h"
+#include "bh_corpse.h"
 
 #define HUGGER_STATE_PRINT	0
 
@@ -46,6 +48,8 @@ static void Execute_FHNS_Float(STRATEGYBLOCK *sbPtr);
 static void Execute_FHNS_Jumping(STRATEGYBLOCK *sbPtr);
 static void Execute_FHNS_AboutToJump(STRATEGYBLOCK *sbPtr);
 
+STRATEGYBLOCK *poorvictim; // Poor, poor victim.. :-/
+
 void Wake_Hugger(STRATEGYBLOCK *sbPtr);
 
 static int HuggerShouldAttackPlayer(void);
@@ -56,6 +60,133 @@ static int InContactWithPlayer(DYNAMICSBLOCK *dynPtr);
 static void JumpAtPlayer(STRATEGYBLOCK *sbPtr);
 
 extern SECTION *GetHierarchyFromLibrary(const char *rif_name);
+extern void CurrentGameStats_CreatureKilled(STRATEGYBLOCK *sbPtr, SECTION_DATA *sectionDataPtr);
+extern STRATEGYBLOCK *Alien_GetNewTarget(VECTORCH *alienpos, STRATEGYBLOCK *me);
+extern int NPCOrientateToVector_Horizontal(STRATEGYBLOCK *sbPtr, VECTORCH *zAxisVector, int turnspeed, VECTORCH *offset);
+
+// This was used for testing purposes.
+#define TESTING 1
+
+/* Additional functions to accomodate for Alien Egg routines. */
+void CreateHuggerBot(VECTORCH *Position)
+{
+	STRATEGYBLOCK* sbPtr;
+
+	/* create and initialise a strategy block */
+	sbPtr = CreateActiveStrategyBlock();
+
+	if(!sbPtr)
+	{
+		return; /* failure */
+	}
+	InitialiseSBValues(sbPtr);
+
+	sbPtr->I_SBtype = I_BehaviourFaceHugger;
+
+	AssignNewSBName(sbPtr);
+			
+	/* create, initialise and attach a dynamics block */
+	sbPtr->DynPtr = AllocateDynamicsBlock(DYNAMICS_TEMPLATE_ALIEN_NPC);
+	if(sbPtr->DynPtr)
+	{
+		DYNAMICSBLOCK	*PlayerDyn = Player->ObStrategyBlock->DynPtr;
+		EULER zeroEuler = {0,-PlayerDyn->OrientEuler.EulerY, 0};
+		DYNAMICSBLOCK *dynPtr = sbPtr->DynPtr;
+      	dynPtr->PrevPosition = dynPtr->Position = *Position;
+		dynPtr->OrientEuler = zeroEuler;
+		CreateEulerMatrix(&dynPtr->OrientEuler, &dynPtr->OrientMat);
+		TransposeMatrixCH(&dynPtr->OrientMat);
+		
+		dynPtr->LinVelocity.vx = 0;
+		dynPtr->LinVelocity.vy = 0;
+		dynPtr->LinVelocity.vz = 0;
+		dynPtr->Mass = 10;
+	}
+	else
+	{
+		/* dynamics block allocation failed... */
+		RemoveBehaviourStrategy(sbPtr);
+		return;
+	}
+
+	sbPtr->shapeIndex = 0;
+
+	sbPtr->maintainVisibility = 1;
+	sbPtr->containingModule = ModuleFromPosition(&(sbPtr->DynPtr->Position), (MODULE*)0);
+
+	{
+		NPC_DATA *NpcData;
+
+		NpcData=GetThisNpcData(I_NPC_FaceHugger);
+		LOCALASSERT(NpcData);
+		sbPtr->SBDamageBlock.Health=NpcData->StartingStats.Health<<ONE_FIXED_SHIFT;
+		sbPtr->SBDamageBlock.Armour=NpcData->StartingStats.Armour<<ONE_FIXED_SHIFT;
+		sbPtr->SBDamageBlock.SB_H_flags=NpcData->StartingStats.SB_H_flags;
+	}
+
+	/* create, initialise and attach an alien data block */
+	sbPtr->SBdataptr = (void *)AllocateMem(sizeof(FACEHUGGER_STATUS_BLOCK));
+	if(sbPtr->SBdataptr)
+	{
+		SECTION *root_section;
+		FACEHUGGER_STATUS_BLOCK *alienStatus = (FACEHUGGER_STATUS_BLOCK *)sbPtr->SBdataptr;
+		int i;
+
+		NPC_InitMovementData(&(alienStatus->moveData));    	
+
+		/* Initialise alien's stats */
+
+		alienStatus->health = FACEHUGGER_STARTING_HEALTH;
+   		sbPtr->integrity = alienStatus->health;
+		alienStatus->stateTimer = 0;
+		alienStatus->DoomTimer = 0;
+		alienStatus->CurveRadius = 0;
+		alienStatus->CurveLength = 0;
+		alienStatus->CurveTimeOut = 0;
+		alienStatus->jumping = 1;
+
+		alienStatus->soundHandle = SOUND_NOACTIVEINDEX;
+		alienStatus->soundHandle2 = SOUND_NOACTIVEINDEX;
+		
+		//alien created by generator won't have a death target
+		for(i=0;i<SB_NAME_LENGTH;i++) alienStatus->death_target_ID[i] =0; 
+		alienStatus->death_target_sbptr=0;
+
+		root_section=GetHierarchyFromLibrary("hnpchugger");
+				
+		if (!root_section) {
+			RemoveBehaviourStrategy(sbPtr);
+			return;
+		}
+		Create_HModel(&alienStatus->HModelController,root_section);
+
+		InitHModelSequence(&alienStatus->HModelController,0,0,ONE_FIXED);
+
+		alienStatus->nearBehaviourState = FHNS_Jumping;
+	   	SetHuggerAnimationSequence(sbPtr,HSS_Jump,ONE_FIXED);
+
+		/* Containment test NOW! */
+		if(!(sbPtr->containingModule))
+		{
+			/* no containing module can be found... abort*/
+			RemoveBehaviourStrategy(sbPtr);
+			return;
+		}
+		LOCALASSERT(sbPtr->containingModule);
+
+		poorvictim = Alien_GetNewTarget(&sbPtr->DynPtr->Position,sbPtr);
+
+		if (!poorvictim) poorvictim = Player->ObStrategyBlock;
+
+		MakeFacehuggerNear(sbPtr);
+	}
+	else
+	{
+		/* no data block can be allocated */
+		RemoveBehaviourStrategy(sbPtr);
+		return;
+	}
+}
 
 /* -------------------------------------------------------------------
    Initilaiser, damage, and visibility functions + behaviour shell
@@ -103,6 +234,10 @@ void InitFacehuggerBehaviour(void* bhdata, STRATEGYBLOCK *sbPtr)
 		RemoveBehaviourStrategy(sbPtr);
 		return;
 	}
+
+	poorvictim = Alien_GetNewTarget(&sbPtr->DynPtr->Position, sbPtr);
+
+	if (!poorvictim) poorvictim = Player->ObStrategyBlock;
 
 	/* Initialise hugger's stats */
 	{
@@ -185,6 +320,86 @@ void FacehuggerBehaviour(STRATEGYBLOCK *sbPtr)
 	sbPtr->DynPtr->LinVelocity.vx = 0;
 	sbPtr->DynPtr->LinVelocity.vy = 0;
 	sbPtr->DynPtr->LinVelocity.vz = 0;
+
+	// Target definitions...
+	if (facehuggerStatusPointer->nearBehaviourState != FHNS_Floating &&
+		facehuggerStatusPointer->nearBehaviourState != FHNS_Attack &&
+		facehuggerStatusPointer->nearBehaviourState != FHNS_Dying) {
+		if (!poorvictim)
+			poorvictim = Alien_GetNewTarget(&sbPtr->DynPtr->Position, sbPtr);
+
+		if (poorvictim==Player->ObStrategyBlock)
+			poorvictim = Alien_GetNewTarget(&sbPtr->DynPtr->Position, sbPtr);
+
+	} else if ((poorvictim) && (facehuggerStatusPointer->health)) {
+		if (poorvictim != Player->ObStrategyBlock)
+		{
+			// Hugging an AI.. align to head.
+			SECTION_DATA *head=NULL;
+			HMODELCONTROLLER *HModelController=NULL;
+			DYNAMICSBLOCK *VictDyn = poorvictim->DynPtr;
+			VECTORCH HuggerVector={0,0,0};
+			//MATRIXCH HuggerMat=VictDyn->OrientMat;
+
+			switch(poorvictim->I_SBtype)
+			{
+			case I_BehaviourNetCorpse:
+				{
+					NETCORPSEDATABLOCK *corpseData = (NETCORPSEDATABLOCK *) poorvictim->SBdataptr;
+					
+					HModelController=&corpseData->HModelController;
+					head=GetThisSectionData(HModelController->section_data, "head");
+
+					sbPtr->DynPtr->Position.vx = head->World_Offset.vx;
+					sbPtr->DynPtr->Position.vy = head->World_Offset.vy-100;
+					sbPtr->DynPtr->Position.vz = head->World_Offset.vz-500;
+
+					HuggerVector.vx = poorvictim->DynPtr->Position.vx - sbPtr->DynPtr->Position.vx;
+					HuggerVector.vy = poorvictim->DynPtr->Position.vy - sbPtr->DynPtr->Position.vy;
+					HuggerVector.vz = poorvictim->DynPtr->Position.vz + sbPtr->DynPtr->Position.vz;
+					NPCOrientateToVector(sbPtr,&HuggerVector,8000,NULL);
+
+					if (facehuggerStatusPointer->soundHandle == SOUND_NOACTIVEINDEX)
+					{
+						Sound_Play(SID_FHUG_ATTACKLOOP,"edl",&facehuggerStatusPointer->soundHandle,&sbPtr->DynPtr->Position);
+					}
+					break;
+				}
+			case I_BehaviourMarine:
+			case I_BehaviourSeal:
+				{
+					MARINE_STATUS_BLOCK *marineStatus = (MARINE_STATUS_BLOCK *) poorvictim->SBdataptr;
+
+					HModelController=&marineStatus->HModelController;
+					head=GetThisSectionData(HModelController->section_data, "head");
+
+					sbPtr->DynPtr->Position.vx = head->World_Offset.vx;
+					sbPtr->DynPtr->Position.vy = head->World_Offset.vy;
+					sbPtr->DynPtr->Position.vz = head->World_Offset.vz-200;
+
+					HuggerVector.vx = poorvictim->DynPtr->Position.vx - sbPtr->DynPtr->Position.vx;
+					HuggerVector.vy = 0;
+					HuggerVector.vz = poorvictim->DynPtr->Position.vz - sbPtr->DynPtr->Position.vz;
+					NPCOrientateToVector(sbPtr,&HuggerVector,8000,NULL);
+					break;
+				}
+			case I_BehaviourPredator:
+				{
+					PREDATOR_STATUS_BLOCK *predStatus = (PREDATOR_STATUS_BLOCK *) poorvictim->SBdataptr;
+					
+					HModelController=&predStatus->HModelController;
+					head=GetThisSectionData(HModelController->section_data, "head");
+
+					sbPtr->DynPtr->Position.vx = head->World_Offset.vx;
+					sbPtr->DynPtr->Position.vy = head->World_Offset.vy;
+					sbPtr->DynPtr->Position.vz = head->World_Offset.vz;
+
+					//sbPtr->DynPtr->OrientEuler = HuggerRotation;
+					break;
+				}
+			}
+		}
+	}
 
 	if (sbPtr->SBDamageBlock.IsOnFire) {
 
@@ -461,10 +676,10 @@ static void KillFaceHugger(STRATEGYBLOCK *sbPtr,DAMAGE_PROFILE *damage)
 			{
 				SetHuggerAnimationSequence(sbPtr,HSS_DieOnFire,FACEHUGGER_DYINGTIME>>3);
 			} else {
-				SetHuggerAnimationSequence(sbPtr,HSS_Dies,FACEHUGGER_DYINGTIME>>3);
+				SetHuggerAnimationSequence(sbPtr,HSS_DieOnFire,FACEHUGGER_DYINGTIME>>3);
 			}
 		} else {
-			SetHuggerAnimationSequence(sbPtr,HSS_Dies,FACEHUGGER_DYINGTIME>>3);
+			SetHuggerAnimationSequence(sbPtr,HSS_DieOnFire,FACEHUGGER_DYINGTIME>>3);
 		}
 		fhugStatusPointer->HModelController.Looped=0;
 		fhugStatusPointer->HModelController.LoopAfterTweening=0;
@@ -480,7 +695,7 @@ static void KillFaceHugger(STRATEGYBLOCK *sbPtr,DAMAGE_PROFILE *damage)
 		dynPtr->LinImpulse.vz=sbPtr->DynPtr->LinVelocity.vz;
 		dynPtr->LinVelocity.vx = sbPtr->DynPtr->LinVelocity.vy = sbPtr->DynPtr->LinVelocity.vz = 0;
 		/* Okay... */
-
+		poorvictim=NULL;
 	}
 }
 
@@ -520,9 +735,12 @@ static void Execute_FHNS_Approach(STRATEGYBLOCK *sbPtr)
 	dynPtr->UseStandardGravity=1;
 	/* If you think I'm going to let facehuggers climb on walls for *
 	 * ONE SECOND, you are INSANE, Jack!!! */
+
+	/* Why not? Yeah, looked pretty dumb... -- Eldritch */
  	
  	/* target acquisition ? */
-	{
+	/* Rewrote this to target AI as well... -- Eldritch */
+	if (!poorvictim) {
 		extern DISPLAYBLOCK *Player;
 		if (sbPtr->SBDamageBlock.IsOnFire==0) {
 			targetPos=Player->ObStrategyBlock->DynPtr->Position;
@@ -533,6 +751,11 @@ static void Execute_FHNS_Approach(STRATEGYBLOCK *sbPtr)
 			targetPos.vy+=((FastRandom()&8191)-4096);
 			targetPos.vz+=((FastRandom()&8191)-4096);
 		}
+	} else {
+		targetPos=poorvictim->DynPtr->Position;
+		targetPos.vx+=((FastRandom()&8191)-4096);
+		targetPos.vy+=((FastRandom()&8191)-4096);
+		targetPos.vz+=((FastRandom()&8191)-4096);
 	}
 
 	/* translate target into hugger local space */
@@ -633,6 +856,7 @@ static void Execute_FHNS_Approach(STRATEGYBLOCK *sbPtr)
 			PLAYER_STATUS *playerStatusPointer= (PLAYER_STATUS *) (Player->ObStrategyBlock->SBdataptr);
 			
 			playerStatusPointer->MyFaceHugger=sbPtr;
+			playerStatusPointer->ChestbursterTimer = ONE_FIXED*30;
 		}
 		return;
 	}
@@ -649,7 +873,7 @@ static void Execute_FHNS_Approach(STRATEGYBLOCK *sbPtr)
 	#if 1
 	/* should we jump at the player? */
 	if (sbPtr->SBDamageBlock.IsOnFire==0) {
-		int distanceToPlayer = VectorDistance(&(dynPtr->Position),&(Player->ObStrategyBlock->DynPtr->Position));
+		int distanceToPlayer = VectorDistance(&(dynPtr->Position),&(poorvictim->DynPtr->Position));
 		if((distanceToPlayer<=FACEHUGGER_JUMPDISTANCE)&&(dynPtr->IsInContactWithFloor))
 		{
 			#if 0
@@ -798,7 +1022,7 @@ static void Execute_FHNS_Attack(STRATEGYBLOCK *sbPtr)
 
 	/* Make not vis */	
 	
-	sbPtr->SBdptr->ObFlags|=ObFlag_NotVis;
+	//sbPtr->SBdptr->ObFlags|=ObFlag_NotVis;
 
 	/* do damage */
 	facehuggerStatusPointer->DoomTimer += NormalFrameTime;
@@ -806,10 +1030,11 @@ static void Execute_FHNS_Attack(STRATEGYBLOCK *sbPtr)
 	if(facehuggerStatusPointer->stateTimer <= 0)
 	{
 		facehuggerStatusPointer->stateTimer = FACEHUGGER_NEARATTACKTIME;
-		CauseDamageToObject(Player->ObStrategyBlock, &TemplateAmmo[AMMO_FACEHUGGER].MaxDamage[AvP.Difficulty], ONE_FIXED,NULL);
-		/* FRI? */
-	}
 
+		// Only cause damage to AI since players get impregnated... hihihi -- Eldritch
+		if (poorvictim != Player->ObStrategyBlock)
+			CauseDamageToObject(poorvictim, &TemplateAmmo[AMMO_FACEHUGGER].MaxDamage[AvP.Difficulty], ONE_FIXED,NULL);
+	}
 }
 
 static void Execute_FHNS_Wait(STRATEGYBLOCK *sbPtr)
@@ -925,6 +1150,7 @@ static int HuggerShouldAttackPlayer(void)
 		}
 
 		if (playerStatusPointer->MyFaceHugger!=NULL) return(0);
+		if (playerStatusPointer->ChestbursterTimer!=0) return(0);
 	}
 
 	/* test for player being an alien */
@@ -943,7 +1169,10 @@ static int InContactWithPlayer(DYNAMICSBLOCK *dynPtr)
 	/* walk the collision report list, looking for collisions against the player */
 	while(nextReport)
 	{
-		if(nextReport->ObstacleSBPtr == Player->ObStrategyBlock) return 1;
+		/*if(nextReport->ObstacleSBPtr == Player->ObStrategyBlock) return 1;
+		if(nextReport->ObstacleSBPtr->I_SBtype == I_BehaviourMarine) return 1;
+		if(nextReport->ObstacleSBPtr->I_SBtype == I_BehaviourSeal) return 1;*/
+		if (nextReport->ObstacleSBPtr == poorvictim) return 1;
 		nextReport = nextReport->NextCollisionReportPtr;
 	}
 	
@@ -987,8 +1216,9 @@ static void FHugApplyPounceImpulse(STRATEGYBLOCK *sbPtr) {
 	LOCALASSERT(fhugStatusPointer);
 	LOCALASSERT(dynPtr);
 
-	GetTargetingPointOfObject(Player,&targetPoint);
-	
+	// This might not work -- Eldritch
+	GetTargetingPointOfObject(/*Player*/poorvictim->SBdptr,&targetPoint);
+
 	dist = VectorDistance(&(dynPtr->Position),&targetPoint);
 
 	/* Apply a correction based on range. */
@@ -1028,6 +1258,14 @@ static void Execute_FHNS_Jumping(STRATEGYBLOCK *sbPtr)
 	/* don't climb on walls, etc */
 	dynPtr->UseStandardGravity=1;
 
+	/* go to hunting if the target is a corpse... this is getting ridiculous! */
+	if (poorvictim->I_SBtype == I_BehaviourNetCorpse) {
+		poorvictim = Player->ObStrategyBlock;
+		fhugStatusPointer->nearBehaviourState=FHNS_Approach;
+		fhugStatusPointer->stateTimer = 0;
+		fhugStatusPointer->CurveTimeOut = 0;
+	}
+
 	/* Firstly, are we actually pouncing yet? */
 	/* NearStateTimer is a status flag. */
 
@@ -1045,9 +1283,10 @@ static void Execute_FHNS_Jumping(STRATEGYBLOCK *sbPtr)
 			VECTORCH orientationDirn;
 			int i;
 
-			orientationDirn.vx = Player->ObWorld.vx - dynPtr->Position.vx;
+			// Changed this! I hope it's gonna work... -- Eldritch
+			orientationDirn.vx = /*Player->ObWorld.vx*/poorvictim->SBdptr->ObWorld.vx - dynPtr->Position.vx;
 			orientationDirn.vy = 0;
-			orientationDirn.vz = Player->ObWorld.vz - dynPtr->Position.vz;
+			orientationDirn.vz = /*Player->ObWorld.vz*/poorvictim->SBdptr->ObWorld.vz - dynPtr->Position.vz;
 			i = NPCOrientateToVector(sbPtr, &orientationDirn,NPC_TURNRATE<<2,NULL);
 			
 			if (i==0) {
@@ -1081,6 +1320,72 @@ static void Execute_FHNS_Jumping(STRATEGYBLOCK *sbPtr)
 			fhugStatusPointer->CurveTimeOut = 0;
 
 			if (hitSbPtr) {
+				if ((hitSbPtr->I_SBtype == I_BehaviourMarine || hitSbPtr->I_SBtype == I_BehaviourSeal)
+					&&(sbPtr->SBDamageBlock.IsOnFire==0))
+				{
+					MARINE_STATUS_BLOCK *marineStatus = hitSbPtr->SBdataptr;
+					SECTION_DATA *head;
+					HMODELCONTROLLER *HModelController;
+
+					if (marineStatus)
+						HModelController=&marineStatus->HModelController;
+
+					if (HModelController)
+						head=GetThisSectionData(HModelController->section_data,"head");
+
+					if (HModelController && head) {
+						if ((head->flags&section_data_notreal)==0) {
+							Sound_Play(SID_ED_FACEHUGGERSLAP,"d",&sbPtr->DynPtr->Position);
+							
+							sbPtr->DynPtr->Position.vx = head->World_Offset.vx;
+							sbPtr->DynPtr->Position.vy = head->World_Offset.vy-200;
+							sbPtr->DynPtr->Position.vz = head->World_Offset.vz;
+							
+							fhugStatusPointer->nearBehaviourState = FHNS_Floating;
+							fhugStatusPointer->stateTimer = FACEHUGGER_NEARATTACKTIME;
+							SetHuggerAnimationSequence(sbPtr,HSS_Attack/*HSS_Floats*/,ONE_FIXED<<1);
+							dynPtr->DynamicsType = DYN_TYPE_NO_COLLISIONS; 	/* turn off collisons */	
+							/*dynPtr->GravityOn = 0;*/							/* turn off gravity */
+							/*sbPtr->maintainVisibility = 0;*/				/* turn off visibility support- be carefull! */
+							CauseDamageToObject(hitSbPtr,&TemplateAmmo[AMMO_FACEHUGGER].MaxDamage[AvP.Difficulty],ONE_FIXED,NULL);
+						}
+					}
+					return;
+				}
+				else
+				if ((hitSbPtr->I_SBtype == I_BehaviourPredator)
+					&&(sbPtr->SBDamageBlock.IsOnFire==0))
+				{
+					PREDATOR_STATUS_BLOCK *predStatus = hitSbPtr->SBdataptr;
+					SECTION_DATA *head;
+					HMODELCONTROLLER *HModelController;
+
+					if (predStatus)
+						HModelController=&predStatus->HModelController;
+
+					if (HModelController)
+						head=GetThisSectionData(HModelController->section_data,"head");
+
+					if (HModelController && head) {
+						if ((head->flags&section_data_notreal)==0) {
+							Sound_Play(SID_ED_FACEHUGGERSLAP,"d",&sbPtr->DynPtr->Position);
+							
+							sbPtr->DynPtr->Position.vx = head->World_Offset.vx;
+							sbPtr->DynPtr->Position.vy = head->World_Offset.vy;
+							sbPtr->DynPtr->Position.vz = head->World_Offset.vz;
+							
+							fhugStatusPointer->nearBehaviourState = FHNS_Floating;
+							fhugStatusPointer->stateTimer = FACEHUGGER_NEARATTACKTIME;
+							SetHuggerAnimationSequence(sbPtr,HSS_Attack/*Floats*/,ONE_FIXED<<1);		
+							dynPtr->DynamicsType = DYN_TYPE_NO_COLLISIONS; 	/* turn off collisons */	
+							/*dynPtr->GravityOn = 0;*/							/* turn off gravity */
+							/*sbPtr->maintainVisibility = 0;*/				/* turn off visibility support- be carefull! */
+							CauseDamageToObject(hitSbPtr,&TemplateAmmo[AMMO_FACEHUGGER].MaxDamage[AvP.Difficulty],ONE_FIXED,NULL);
+						}
+					}
+					return;
+				} 
+				else
 				if ((hitSbPtr->SBdptr==Player)&&(sbPtr->SBDamageBlock.IsOnFire==0)) {
 					/* Got him, My Precious, we've Got Him! */
 	
@@ -1099,9 +1404,9 @@ static void Execute_FHNS_Jumping(STRATEGYBLOCK *sbPtr)
 						PLAYER_STATUS *playerStatusPointer= (PLAYER_STATUS *) (Player->ObStrategyBlock->SBdataptr);
 						
 						playerStatusPointer->MyFaceHugger=sbPtr;
+						playerStatusPointer->ChestbursterTimer = ONE_FIXED*30;
 					}
 					return;
-
 				}
 			}
 
@@ -1154,6 +1459,15 @@ static void Execute_FHNS_Float(STRATEGYBLOCK *sbPtr)
 	dynPtr->GravityOn=0;
 
 	/* Just float there... */
+
+	/* Actually, this is used for facehuggers being attached to AI, so check for that.. */
+	if (poorvictim) {
+#if TESTING
+		facehuggerStatusPointer->DoomTimer+=NormalFrameTime;
+		if (poorvictim != Player->ObStrategyBlock)
+			CauseDamageToObject(poorvictim, &TemplateAmmo[AMMO_FACEHUGGER].MaxDamage[AvP.Difficulty],ONE_FIXED,NULL);
+#endif
+	}
 }
 
 void Wake_Hugger(STRATEGYBLOCK *sbPtr)
@@ -1195,9 +1509,10 @@ static void Execute_FHNS_AboutToJump(STRATEGYBLOCK *sbPtr)
 		VECTORCH orientationDirn;
 		int i;
 
-		orientationDirn.vx = Player->ObWorld.vx - dynPtr->Position.vx;
+		// Changed here too.. hope it's still working -- Eldritch
+		orientationDirn.vx = /*Player->ObWorld.vx*/poorvictim->SBdptr->ObWorld.vx - dynPtr->Position.vx;
 		orientationDirn.vy = 0;
-		orientationDirn.vz = Player->ObWorld.vz - dynPtr->Position.vz;
+		orientationDirn.vz = /*Player->ObWorld.vz*/poorvictim->SBdptr->ObWorld.vz - dynPtr->Position.vz;
 		i = NPCOrientateToVector(sbPtr, &orientationDirn,NPC_TURNRATE,NULL);
 		
 		if (i==0) {
@@ -1205,7 +1520,7 @@ static void Execute_FHNS_AboutToJump(STRATEGYBLOCK *sbPtr)
 			return;
 		} else {
 			/* Okay, pounce! */
-			int distanceToPlayer = VectorDistance(&(dynPtr->Position),&(Player->ObStrategyBlock->DynPtr->Position));
+			int distanceToPlayer = VectorDistance(&(dynPtr->Position),&(poorvictim->DynPtr->Position));
 			if((distanceToPlayer<=FACEHUGGER_JUMPDISTANCE)&&(dynPtr->IsInContactWithFloor)
 				&&(sbPtr->SBDamageBlock.IsOnFire==0)) {
 				JumpAtPlayer(sbPtr);

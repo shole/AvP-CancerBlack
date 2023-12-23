@@ -24,6 +24,10 @@
   set it in ReadPlayerGameInput.
   -------------------------------------------------*/ 
 #include "avp_menus.h"
+
+// For AMP's extended controls...
+#define EXTENDED_CONTROLS 1
+
 #if 0
 typedef struct player_input_configuration
 {
@@ -198,11 +202,13 @@ typedef struct
 	{									
 		unsigned char ZoomOut;			// Predator
 		unsigned char MarineTaunt;		// Marine
+		unsigned char Alien_ChangeSpecies;
 	};
 	union
 	{
 		unsigned char GrapplingHook;    // Predator	
 		unsigned char Marine_MessageHistory; // Marine
+		unsigned char Alien_ChangeClass;
 	};
 	union
 	{
@@ -219,11 +225,31 @@ typedef struct
 		unsigned char Predator_MessageHistory; // Predator
 		unsigned char Marine_ShowScores; // Marine
 	};
-	unsigned char Predator_Say;
-	unsigned char Predator_SpeciesSay;
-	unsigned char Predator_ShowScores;
-	unsigned char ExpansionSpace7;
-	unsigned char ExpansionSpace8;
+	union
+	{
+		unsigned char Predator_Say;
+		unsigned char Marine_Grenade;
+	};
+	union
+	{
+		unsigned char Marine_Medikit;
+		unsigned char Predator_SpeciesSay;
+	};
+	union
+	{
+		unsigned char Marine_SentryGun;
+		unsigned char Predator_ShowScores;
+	};
+	union
+	{
+		unsigned char Predator_ChangeSpecies;
+		unsigned char Marine_ChangeSpecies;
+	};
+	union
+	{
+		unsigned char Predator_ChangeClass;
+		unsigned char Marine_ChangeClass;
+	};
 
 } PLAYER_INPUT_CONFIGURATION;
 

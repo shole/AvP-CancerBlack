@@ -673,7 +673,8 @@ AwTl::SurfUnion AwBackupTexture::CreateTexture(AwTl::CreateTextureParms const & 
 			All nonmipmapped textures must have widths and heights specified as powers of two if this flag is set.
 			(Note that all mipmapped textures must always have dimensions that are powers of two.)
 			*/
-			if (128==pLoadInfo->surface_width && 128==pLoadInfo->surface_height)
+			if ((pLoadInfo->surface_width==128) && (pLoadInfo->surface_height==128) &&
+				(pLoadInfo->textureP))
 			{
 				ddsd.ddsCaps.dwCaps |= DDSCAPS_MIPMAP | DDSCAPS_COMPLEX;
 				ddsd.dwFlags |= DDSD_MIPMAPCOUNT;
@@ -823,7 +824,8 @@ AwTl::SurfUnion AwBackupTexture::CreateTexture(AwTl::CreateTextureParms const & 
 			}
 		
 			#if MIPMAPTEST
-			if (128==surface_width && 128==surface_height)
+			if ((pLoadInfo->surface_width==128) && (pLoadInfo->surface_height==128) &&
+				(pLoadInfo->textureP))
 			{
 				// test if we can get attached surfaces...
 				DDSCAPS ddscaps;

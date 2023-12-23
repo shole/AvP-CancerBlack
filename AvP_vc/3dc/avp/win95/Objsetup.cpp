@@ -2499,6 +2499,7 @@ static void add_marine(AVP_Generator_Chunk * agc)
 	switch (agc->sub_type)
 	{
 		case 0:	//pulse rifle
+		case 70:
 			tdm->marine_type=MNPCW_PulseRifle;	
 			break;
 
@@ -2539,10 +2540,10 @@ static void add_marine(AVP_Generator_Chunk * agc)
 			tdm->marine_type=MNPCW_SADAR;
 			break;
 
-		case 70://Minigun
-			tdm->marine_type=MNPCW_Minigun;
+		/*case 70://Minigun
+			tdm->marine_type=MNPCW_Minigun;   Changed! -- ELD
 	   		break;
-		
+		*/
 		case 100://Civilian flamer
 			tdm->marine_type=MNPCW_MFlamer;
 			break;
@@ -3171,6 +3172,11 @@ void setup_generators (Environment_Data_Chunk * envd)
 			numAlienStartPos=0;
 			numPredatorStartPos=0;
 
+			//hugger addition
+			numHuggerStartPos=0;
+			huggerStartPositions=0;
+			//
+
 			marineStartPositions=0;
 			alienStartPositions=0;
 			predatorStartPositions=0;
@@ -3191,6 +3197,10 @@ void setup_generators (Environment_Data_Chunk * envd)
 				if(agc->flags & AVPGENFLAG_AVPGAMEMODEALIEN) numAlienStartPos++;
 				if(agc->flags & AVPGENFLAG_AVPGAMEMODEMARINE) numMarineStartPos++;
 				if(agc->flags & AVPGENFLAG_AVPGAMEMODEPREDATOR) numPredatorStartPos++;
+
+				//hugger addition
+				if(strstr(agc->name, "hugger_")) numHuggerStartPos++;
+				//
 			}
 
 			if(numMarineStartPos)
@@ -3205,10 +3215,21 @@ void setup_generators (Environment_Data_Chunk * envd)
 			{
 				alienStartPositions=(MULTIPLAYER_START*) PoolAllocateMem(sizeof(MULTIPLAYER_START)*numAlienStartPos);
 			}
+
+			//hugger addition
+			if(numHuggerStartPos)
+			{
+				huggerStartPositions=(MULTIPLAYER_START*) PoolAllocateMem(sizeof(MULTIPLAYER_START)*numHuggerStartPos);
+			}
+			//
 			
 			int mpos=0;
 			int apos=0;
 			int ppos=0;
+
+			//hugger addition
+			int hpos=0;
+			//
 
 			//go through the list a second time setting up the positions
 			for(cli.restart();!cli.done();cli.next())
@@ -3232,6 +3253,10 @@ void setup_generators (Environment_Data_Chunk * envd)
 				if(agc->flags & AVPGENFLAG_AVPGAMEMODEALIEN) alienStartPositions[apos++]=start_pos;
 				if(agc->flags & AVPGENFLAG_AVPGAMEMODEMARINE) marineStartPositions[mpos++]=start_pos;
 				if(agc->flags & AVPGENFLAG_AVPGAMEMODEPREDATOR) predatorStartPositions[ppos++]=start_pos;
+
+				//hugger addition
+				if(strstr(agc->name, "hugger_")) huggerStartPositions[hpos++]=start_pos;
+				//
 			}
 		}
 	}

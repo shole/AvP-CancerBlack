@@ -33,7 +33,7 @@
 #ifdef AVP_DEBUG_VERSION
 	#define ASSERT_SYSTEM_ON 1
 #else
-	#define ASSERT_SYSTEM_ON 0
+	#define ASSERT_SYSTEM_ON 0 // Remove before release! -- ELDRITCH
 #endif
 
 
@@ -104,7 +104,7 @@
 	#define LocalAssertCode  0xfffe
 
 
-	#if 0//debug
+	#if 0//changed here too -- ELDRITCH
 
 		#define GLOBALASSERT(x) \
 		     (void)((x) ? 1 : \

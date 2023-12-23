@@ -302,6 +302,7 @@ void LoadMultiplayerConfiguration(const char* name)
 	fread(&netGameData.preDestroyLights,sizeof(BOOL),1,file);
 	fread(&netGameData.disableFriendlyFire,sizeof(BOOL),1,file);
 	fread(&netGameData.fallingDamage,sizeof(BOOL),1,file);
+	fread(&netGameData.LifeCycle,sizeof(BOOL),1,file);
 	#if LOAD_NEW_MPCONFIG_ENTRIES
 	fread(&netGameData.maxMarineSmartDisc,sizeof(int),1,file);
 	fread(&netGameData.maxMarinePistols,sizeof(int),1,file);
@@ -410,6 +411,7 @@ void SaveMultiplayerConfiguration(const char* name)
 	fwrite(&netGameData.preDestroyLights,sizeof(BOOL),1,file);
 	fwrite(&netGameData.disableFriendlyFire,sizeof(BOOL),1,file);
 	fwrite(&netGameData.fallingDamage,sizeof(BOOL),1,file);
+	fwrite(&netGameData.LifeCycle,sizeof(BOOL),1,file);
 	#if SAVE_NEW_MPCONFIG_ENTRIES
 	fwrite(&netGameData.maxMarineSmartDisc,sizeof(int),1,file);
 	fwrite(&netGameData.maxMarinePistols,sizeof(int),1,file);
@@ -615,6 +617,9 @@ void BuildMultiplayerLevelNameArray()
 
 	HANDLE hFindFile = ::FindFirstFile(load_name,&wfd);
 	
+	int NumCustomCoop = 0;//levels containing (c)
+	int NumCustomMultiplayer = 0; 
+	
 	if (INVALID_HANDLE_VALUE != hFindFile)
 	{
 		char* custom_string = GetTextString(TEXTSTRING_CUSTOM_LEVEL); 
@@ -640,7 +645,16 @@ void BuildMultiplayerLevelNameArray()
 				strcpy(name,buffer);
 
 				CustomLevelNameList.add_entry(name);
-	
+
+				//update the coop / other level type count
+				if(strstr(name,"coop_"))
+				{
+					NumCustomCoop++;
+				}
+				else
+				{
+					NumCustomMultiplayer++;
+				}
 			}
 	
 		}while (::FindNextFile(hFindFile,&wfd));
@@ -652,8 +666,8 @@ void BuildMultiplayerLevelNameArray()
 	NumCustomLevels = CustomLevelNameList.size();
 
 
-	NumMultiplayerLevels = MAX_NO_OF_MULTIPLAYER_EPISODES + NumCustomLevels;
-	NumCoopLevels = MAX_NO_OF_COOPERATIVE_EPISODES + NumCustomLevels;
+	NumMultiplayerLevels = MAX_NO_OF_MULTIPLAYER_EPISODES + NumCustomMultiplayer;
+	NumCoopLevels = MAX_NO_OF_COOPERATIVE_EPISODES + NumCustomCoop;
 
 	MultiplayerLevelNames = (char**) AllocateMem(sizeof(char*)* NumMultiplayerLevels);
 
@@ -704,10 +718,18 @@ void BuildMultiplayerLevelNameArray()
 	}
 
 	//now add the custom level names
+	int coop_pos = MAX_NO_OF_COOPERATIVE_EPISODES;
+	int mp_pos = MAX_NO_OF_MULTIPLAYER_EPISODES;
 	for(i=0;i<NumCustomLevels;i++)
 	{
-		CoopLevelNames[i+MAX_NO_OF_COOPERATIVE_EPISODES] = CustomLevelNameList[i];
-		MultiplayerLevelNames[i+MAX_NO_OF_MULTIPLAYER_EPISODES] = CustomLevelNameList[i];
+		if(strstr(CustomLevelNameList[i],"coop_"))
+		{
+			CoopLevelNames[coop_pos++] = CustomLevelNameList[i];
+		}
+		else
+		{
+			MultiplayerLevelNames[mp_pos++] = CustomLevelNameList[i];
+		}
 	}
 	
 	

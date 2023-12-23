@@ -17,6 +17,7 @@
 extern int RealFrameTime;
 
 void NotifyTargetsForTrackPoint(TRACK_OBJECT_BEHAV_BLOCK* to_bhv,int point_num,int reversing);
+extern void AddNetMsg_InanimateObjectDestroyed(STRATEGYBLOCK *sbPtr);
 
 void* TrackObjectBehaveInit(void* bhdata,STRATEGYBLOCK* sbptr)
 {
@@ -390,19 +391,20 @@ void TrackObjectBehaveFun(STRATEGYBLOCK* sbptr)
 void TrackObjectIsDamaged(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int multiple)
 {
 	TRACK_OBJECT_BEHAV_BLOCK* to_bhv = sbPtr->SBdataptr;
+	int valid=0;
 	LOCALASSERT(to_bhv);
 
-	#if 0
+	#if 1
 	
-	if((AvP.Network==I_Peer)&&(!InanimateDamageFromNetHost))
+/*	if((AvP.Network==I_Peer)&&(!InanimateDamageFromNetHost))
 	{
 		//add track damaged net message
 		return;
 	}
-	else if(AvP.Network==I_Host) 
+	else*/ if(AvP.Network==I_Host) 
 	{
 		//add track damaged net message
-		//if(sbPtr->SBDamageBlock.Health <= 0) AddNetMsg_InanimateObjectDestroyed(sbPtr);
+		if(sbPtr->SBDamageBlock.Health <= 0) AddNetMsg_InanimateObjectDestroyed(sbPtr);
 	}
 	#endif
 
@@ -410,21 +412,24 @@ void TrackObjectIsDamaged(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int mult
 	{
 		//I don't want to consider destructable track objects in net games for the moment
 		//would screw up the strategy synching
-		return;
+		//return;
 	}
-		
+	if (damage->Id == AMMO_CUDGEL) valid=1;
+	if (damage->Id == AMMO_PRED_STAFF) valid=1;
+	if (damage->ExplosivePower > 0) valid=1;
+
 	if (!to_bhv->Indestructable)
 	{
-		
-		if(sbPtr->SBDamageBlock.Health <= 0) 
-		{
-			
+		if(sbPtr->SBDamageBlock.Health <= 0 && (valid)) 
+		{		
 			//notify target of destruction
 			if(to_bhv->destruct_target_sbptr)
 			{
 				RequestState(to_bhv->destruct_target_sbptr,to_bhv->destruct_target_request,0);
 			}
-				
+			if (AvP.Network != I_No_Network)
+				AddNetMsg_InanimateObjectDestroyed(sbPtr);
+
 			MakeFragments(sbPtr);
 			DestroyAnyStrategyBlock(sbPtr);
 		}

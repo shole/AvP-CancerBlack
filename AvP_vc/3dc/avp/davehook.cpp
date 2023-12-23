@@ -456,7 +456,7 @@ void DAVEHOOK_ScreenModeChange_Cleanup(void)
 
 	// Run program-generated batch file:
 	#if !(PREDATOR_DEMO|MARINE_DEMO||ALIEN_DEMO||DEATHMATCH_DEMO)
-	BatchFileProcessing :: Run("CONFIG.CFG");
+	BatchFileProcessing :: Run("cb_config.cfg");
 
 	// Run user-generated batch file:
 	BatchFileProcessing :: Run("STARTUP.CFG");
@@ -471,7 +471,7 @@ void Testing :: VVTest(void)
 }
 void Testing :: VITest(int i)
 {
-	textprint("Testing :: VITest(%i)\n",i);
+	//textprint("Testing :: VITest(%i)\n",i);
 }
 int Testing :: IVTest(void)
 {
@@ -481,7 +481,7 @@ int Testing :: IVTest(void)
 }
 int Testing :: IITest(int i)
 {
-	textprint("Testing :: IITest(%i)\n",i);
+	//textprint("Testing :: IITest(%i)\n",i);
 
 	return (i*2);
 }

@@ -339,7 +339,7 @@
    	Some defines....
    	--------------------------------------------*/
 	#define MARINE_STATE_PRINT					0
-	#define MARINE_STARTING_HEALTH				30
+	#define MARINE_STARTING_HEALTH				80//130
   	#define NO_OF_FRAGMENTS_FROM_DEAD_MARINE	10
 //	#define MARINE_NEAR_SPEED					6000 	/* mm/s */
 	/* Experiment.  Can they take the ramps? */
@@ -357,7 +357,7 @@
 	#define MARINE_CHANCEOFGRENADE				(3)
 	#define MARINE_TOO_CLOSE_TO_GRENADE_FOOL	3000
 	#define MARINE_PARANOIA_TIME				(ONE_FIXED*10)
-	#define MARINE_PANIC_TIME					(ONE_FIXED*120)
+	#define MARINE_PANIC_TIME					0//(ONE_FIXED*3)
 	#define SQUAD_PARANOIA_TIME					(ONE_FIXED)
 
 	/* 1.5-2 seconds in 1/16 second. NB DO NOT INCREASE THIS */

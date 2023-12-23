@@ -68,8 +68,9 @@ extern int NormalFrameTime;
 extern unsigned char Null_Name[8];
 extern ACTIVESOUNDSAMPLE ActiveSounds[];
 extern SECTION * GetNamedHierarchyFromLibrary(const char * rif_name, const char * hier_name);
-void CreateSentrygun(VECTORCH *Position,int type);
+extern void HandleWeaponImpact(VECTORCH *positionPtr, STRATEGYBLOCK *sbPtr, enum AMMO_ID AmmoID, VECTORCH *directionPtr, int multiple, SECTION_DATA *this_section_data);
 
+void CreateSentrygun(VECTORCH *Position,int type);
 void AGunMovement_ScanLeftRight(STRATEGYBLOCK *sbPtr,int rate);
 void AGunMovement_Centre(STRATEGYBLOCK *sbPtr,int rate);
 void Execute_AGun_Target(STRATEGYBLOCK *sbPtr);
@@ -110,9 +111,9 @@ void CastSentrygun(void) {
 	position=Player->ObStrategyBlock->DynPtr->Position;
 	position.vx+=MUL_FIXED(Player->ObStrategyBlock->DynPtr->OrientMat.mat31,BOTRANGE);		
 	position.vy+=MUL_FIXED(Player->ObStrategyBlock->DynPtr->OrientMat.mat32,BOTRANGE);		
-	position.vz+=MUL_FIXED(Player->ObStrategyBlock->DynPtr->OrientMat.mat33,BOTRANGE);		
+	position.vz+=MUL_FIXED(Player->ObStrategyBlock->DynPtr->OrientMat.mat33,BOTRANGE);
 
-	CreateSentrygun(&position, 0);
+	CreateSentrygun(&position, 1);
 
 }
 
@@ -137,11 +138,17 @@ void CreateSentrygun(VECTORCH *Position,int type)
 	sbPtr->DynPtr = AllocateDynamicsBlock(DYNAMICS_TEMPLATE_SPRITE_NPC);
 	if(sbPtr->DynPtr)
 	{
-		EULER zeroEuler = {0,0,0};
+		DYNAMICSBLOCK	*PlayerDyn = Player->ObStrategyBlock->DynPtr;
+		EULER GunEuler = {0, PlayerDyn->OrientEuler.EulerY, 0};
 		DYNAMICSBLOCK *dynPtr = sbPtr->DynPtr;
+
 		GLOBALASSERT(dynPtr);
+
+		if (Player==NULL) return;
+		if (Player->ObStrategyBlock==NULL) return;
+
       	dynPtr->PrevPosition = dynPtr->Position = *Position;
-		dynPtr->OrientEuler = zeroEuler;
+		dynPtr->OrientEuler = GunEuler;
 		CreateEulerMatrix(&dynPtr->OrientEuler, &dynPtr->OrientMat);
 		TransposeMatrixCH(&dynPtr->OrientMat);
 		dynPtr->UseDisplacement=0;
@@ -179,7 +186,7 @@ void CreateSentrygun(VECTORCH *Position,int type)
 			sbPtr->SBDamageBlock.SB_H_flags=NpcData->StartingStats.SB_H_flags;
 		}
 		
-		agunStatus->behaviourState=I_tracking;
+		agunStatus->behaviourState=I_inactive;
 		agunStatus->Target=NULL; 
 		COPY_NAME(agunStatus->Target_SBname,Null_Name);
 		agunStatus->targetTrackPos.vx=0;
@@ -254,7 +261,7 @@ void CreateSentrygun(VECTORCH *Position,int type)
 	
 		MakeSentrygunNear(sbPtr);
 
-		NewOnScreenMessage("SENTRYGUN CREATED");
+		NewOnScreenMessage("SENTRYGUN DEPLOYED");
 	}
 	else
 	{
@@ -667,7 +674,7 @@ int Autogun_TargetFilter(STRATEGYBLOCK *candidate) {
 						return(1);
 						break;
 					case I_Marine:
-						return(0);
+						return(1);
 						break;
 					default:
 						GLOBALASSERT(0);
@@ -715,7 +722,7 @@ int Autogun_TargetFilter(STRATEGYBLOCK *candidate) {
 				if (NPC_IsDead(candidate)) {
 					return(0);
 				} else {
-					return(0);
+					return(1);
 				}
 				break;
 			}

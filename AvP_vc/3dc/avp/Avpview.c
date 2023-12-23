@@ -30,6 +30,9 @@
  */
 																		
 extern void AllNewModuleHandler(void);
+extern void UpdateAllFMVTextures();
+extern void D3D_DrawBackdrop();
+extern int AVPViewVolumePlaneTest(CLIPPLANEBLOCK *cpb, DISPLAYBLOCK *dblockptr, int or);
 extern SCREENDESCRIPTORBLOCK ScreenDescriptorBlock;
 
 DISPLAYBLOCK *OnScreenBlockList[maxobjects];
@@ -42,6 +45,8 @@ extern int ScanDrawMode;
 /* JH 13/5/97 */
 extern int DrawMode;
 extern int ZBufferMode;
+
+extern int ThirdPersonActive;
 
 extern DPID MultiplayerObservedPlayer;
 
@@ -351,6 +356,7 @@ void InteriorType_Body()
 	static int zAxisTilt=0;
 	STRATEGYBLOCK *sbPtr;
 	DYNAMICSBLOCK *dynPtr;
+//	int Speed;
 	
 	sbPtr = subjectPtr->ObStrategyBlock;
 	LOCALASSERT(sbPtr);
@@ -393,6 +399,30 @@ void InteriorType_Body()
 		{
 			ioff.vy/=4;
 		}
+		// Facehuggers are real small...
+		if (playerStatusPtr->Class == CLASS_EXF_W_SPEC)
+		{
+			ioff.vy = extentsPtr->StandingTop;
+			ioff.vy/=4;
+		}
+
+		/* Eld: 3rd-person viewmode test */
+
+		ioff.vx = ioff.vz = 0;	// Needed initialization.
+
+		if (ThirdPersonActive)
+		{
+			/* Floating 1st-person */
+			//ioff.vz += 250;		// slightly forwards...
+			//ioff.vx += 1000;	// ...and right.
+
+			/* 3rd-person */
+			ioff.vy -= 700;		// slightly up...
+			ioff.vz -= 1200;	// ...and back.
+		}
+
+		/* Eld: 3rd-person viewmode test */
+
 		if (!playerStatusPtr->IsAlive && !MultiplayerObservedPlayer)
 		{
 			extern int deathFadeLevel;
@@ -404,15 +434,15 @@ void InteriorType_Body()
 				ioff.vy = -100;
 			}
 		}
-
 				
 		ioff.vx = 0;
-		ioff.vz = 0;//-extentsPtr->CollisionRadius*2;
+		ioff.vz += 0;//-extentsPtr->CollisionRadius*2;
 		ioff.vy += verticalSpeed/16+200;
 
 		RotateVector(&ioff, &subjectPtr->ObMat);
 		AddVector(&ioff, &Global_VDB_Ptr->VDB_World);
-		
+
+		// Shudder camera.
 		#if 0
 		{
 			static int i=-10;

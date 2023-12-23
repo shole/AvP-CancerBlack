@@ -113,8 +113,14 @@ static void SetupScanlinePoly(char const *filenamePtr, int width);
 extern void D3D_InitialiseMarineHUD(void);
 extern void D3D_BLTMotionTrackerToHUD(int scanLineSize);
 extern void D3D_BLTMotionTrackerBlipToHUD(int x, int y, int brightness);
+extern void D3D_BLTSonarToHUD(int scanLineSize);
+extern void D3D_BLTSonarBlipToHUD(int x, int y, int brightness, int color);
 extern void D3D_BLTDigitToHUD(char digit, int x, int y, int font);
 extern void D3D_BLTGunSightToHUD(int screenX, int screenY, enum GUNSIGHT_SHAPE gunsightShape);
+extern void D3D_BLTWaveformToHUD(int type);
+extern void D3D_BLTTargetingSightToHUD(int screenX, int screenY);
+extern void D3D_BLTIconsToHUD();
+extern void D3D_BLTDrawCell(int X, int Y);
 
 extern void LoadCommonTextures(void);
 /*KJL****************************************************************************************
@@ -521,6 +527,54 @@ void PlatformSpecificEnteringHUD(void)
 #endif
 }
 
+/*ELD************************
+* MULTIPLAYER STUFF         *
+****************************/
+void BLTDrawCell(int X, int Y)
+{
+	if ((ScanDrawMode != ScanDrawDirectDraw) && (ZBufferOn==ZBufferMode))
+	{
+		D3D_BLTDrawCell(X, Y);
+	}
+	return;
+}
+
+
+/*ELD************************
+* PREDATOR WAVEFORM ROUTINE *
+****************************/
+void BLTWaveformToHUD(int type)
+{
+	if ((ScanDrawMode != ScanDrawDirectDraw) && (ZBufferOn==ZBufferMode))
+	{
+		D3D_BLTWaveformToHUD(type);
+	}
+	return;
+}
+
+/*ELD**********************
+* ALIEN SONAR ROUTINES    *
+**************************/
+void BLTSonarToHUD(int scanLineSize)
+{
+ //	if (VideoModeType_8 != VideoModeTypeScreen) return;
+	if ((ScanDrawMode != ScanDrawDirectDraw) && (ZBufferOn==ZBufferMode))
+	{
+		D3D_BLTSonarToHUD(scanLineSize);
+	}
+	return;
+}
+
+void BLTSonarBlipToHUD(int x, int y, int brightness, int color)
+{
+	if ((ScanDrawMode != ScanDrawDirectDraw) && (ZBufferOn==ZBufferMode))
+	{
+		D3D_BLTSonarBlipToHUD(x,y,brightness,color);
+	}
+	return;
+}
+
+
 /*KJL**********************
 * MARINE DRAWING ROUTINES *
 **********************KJL*/
@@ -532,7 +586,6 @@ void BLTMotionTrackerToHUD(int scanLineSize)
 		D3D_BLTMotionTrackerToHUD(scanLineSize);
 	}
 	return;
-	
 }
 
 void BLTMotionTrackerBlipToHUD(int x, int y, int brightness)
@@ -542,9 +595,16 @@ void BLTMotionTrackerBlipToHUD(int x, int y, int brightness)
 		D3D_BLTMotionTrackerBlipToHUD(x,y,brightness);
 	}
 	return;
-
 }
 
+void BLTIconsToHUD()
+{
+	if ((ScanDrawMode != ScanDrawDirectDraw) && (ZBufferOn==ZBufferMode))
+	{
+		D3D_BLTIconsToHUD();
+	}
+	return;
+}
 
 /*KJL*******************
 * Draw numerics to HUD *
@@ -662,6 +722,15 @@ void BLTGunSightToScreen(int screenX, int screenY, enum GUNSIGHT_SHAPE gunsightS
 	if ((ScanDrawMode != ScanDrawDirectDraw) && (ZBufferOn==ZBufferMode))
 	{
 		D3D_BLTGunSightToHUD(screenX,screenY,gunsightShape);
+		return;
+	}
+}
+
+void BLTTargetingSightToScreen(int screenX, int screenY)
+{
+	if ((ScanDrawMode != ScanDrawDirectDraw) && (ZBufferOn==ZBufferMode))
+	{
+		D3D_BLTTargetingSightToHUD(screenX, screenY);
 		return;
 	}
 }

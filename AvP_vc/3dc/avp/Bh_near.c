@@ -36,6 +36,8 @@ extern int cosine[], sine[];
 extern int NormalFrameTime;
 extern int ShowHiveState;
 extern ACTIVESOUNDSAMPLE ActiveSounds[];
+extern int AlienHasPathToTarget(STRATEGYBLOCK *sbPtr);
+extern int SlotForThisWeapon(enum WEAPON_ID weaponID);
 
 /* Patrick 27/6/97 *********************************
 Prototypes for behaviour functions
@@ -53,7 +55,10 @@ void AlienNearState_Taunting(STRATEGYBLOCK *sbPtr);
 void AlienNearState_Dormant(STRATEGYBLOCK *sbPtr);
 void AlienNearState_Awakening(STRATEGYBLOCK *sbPtr);
 static int GoToJump(STRATEGYBLOCK *sbPtr);
+static int StartAlienPounce(STRATEGYBLOCK *sbPtr);
 int TargetIsFiringFlamethrowerAtAlien(STRATEGYBLOCK *sbPtr);
+int TargetIsFiringPistolAtPraetorian(STRATEGYBLOCK *sbPtr);
+int ValidateMercy(STRATEGYBLOCK *sbPtr);
 static int StartAlienTaunt(STRATEGYBLOCK *sbPtr);
 void StartAlienMovementSequence(STRATEGYBLOCK *sbPtr);
 
@@ -288,7 +293,7 @@ void NearAlienBehaviour(STRATEGYBLOCK *sbPtr)
 		
 		LOCALASSERT(thisModule);
 
-		PrintDebuggingText("Near %s alien is in module %d, %s\n",descriptor,thisModule->m_index,thisModule->name);
+//		PrintDebuggingText("Near %s alien is in module %d, %s\n",descriptor,thisModule->m_index,thisModule->name);
 
 	}
 
@@ -752,9 +757,14 @@ static void AlienNearDamageShell(STRATEGYBLOCK *sbPtr)
 					if (alienStatusPointer->Target->SBdptr->HModelControlBlock) {
 						HtoHDamageToHModel(alienStatusPointer->Target,&TemplateAmmo[GetAttackDamageType(sbPtr,flagnum)].MaxDamage[AvP.Difficulty], ONE_FIXED, sbPtr, &attack_dir);
 					} else {
-						
 						CauseDamageToObject(alienStatusPointer->Target,&TemplateAmmo[GetAttackDamageType(sbPtr,flagnum)].MaxDamage[AvP.Difficulty], ONE_FIXED,&attack_dir);
-					}		
+					}
+					// If we're pouncing, consider it a Ram attack.
+					if (alienStatusPointer->BehaviourState == ABS_Pounce)
+					{
+						CauseDamageToObject(alienStatusPointer->Target,&TemplateAmmo[AMMO_CUDGEL].MaxDamage[AvP.Difficulty], ONE_FIXED, &attack_dir);
+						Sound_Play(SID_ED_LARGEWEAPONDROP,"d",&sbPtr->DynPtr->Position);
+					}
 				} else {
 					VECTORCH rel_pos,attack_dir;
 	
@@ -1032,6 +1042,43 @@ static void AlienNearState_Approach(STRATEGYBLOCK *sbPtr)
 		}
 	}
 
+	/* Check for Mercy System - AMP */
+	if ((sbPtr->SBDamageBlock.IsOnFire==0) && (ValidateMercy(sbPtr))) {
+		if (distanceToPlayer<=ALIEN_POUNCE_STARTMAXRANGE) {
+			/* Just so Aliens DO attack when close to the target */
+		} else if ((distanceToPlayer<15000) &&
+	        (sbPtr->DynPtr->OrientMat.mat22>=63000) &&
+			(sbPtr->DynPtr->IsInContactWithFloor))
+		{
+			/* 40% chance of taunting */
+			if ((FastRandom()%5) <= 2) {
+				if (StartAlienTaunt(sbPtr))
+					return;
+			} else {
+				/* Stand ground... and crouch. */
+				alienStatusPointer->BehaviourState = ABS_Wait;
+				SetAlienShapeAnimSequence(sbPtr,HMSQT_AlienCrouch,(int)ACrSS_Standard,ONE_FIXED);
+				sbPtr->DynPtr->LinVelocity.vx = 0;
+				sbPtr->DynPtr->LinVelocity.vy = 0;
+				sbPtr->DynPtr->LinVelocity.vz = 0;
+				return;
+			}
+		} else if ((distanceToPlayer>=15000) &&
+			(sbPtr->DynPtr->OrientMat.mat22>=63000) &&
+			(sbPtr->DynPtr->IsInContactWithFloor)) {
+			/* Engage! */
+			NPC_InitMovementData(&(alienStatusPointer->moveData));
+			alienStatusPointer->BehaviourState = ABS_Approach;
+
+			StartAlienMovementSequence(sbPtr);
+			InitWaypointManager(&alienStatusPointer->waypointManager);
+
+			alienStatusPointer->NearStateTimer = 0;
+			alienStatusPointer->CurveTimeOut = 0;
+			return;
+		}
+	}
+
 	/* Hang on, should we be doing this? */
 	if (sbPtr->SBDamageBlock.IsOnFire==0) {
 		if ((distanceToPlayer<30000)
@@ -1047,6 +1094,13 @@ static void AlienNearState_Approach(STRATEGYBLOCK *sbPtr)
 					return;
 				}
 			}
+			if (TargetIsFiringPistolAtPraetorian(sbPtr)) {
+				/* Pause and taunt */
+				if (StartAlienTaunt(sbPtr)) {
+					/* My work is done */
+					return;
+				}
+			}
 		}
 	}
 
@@ -1055,10 +1109,8 @@ static void AlienNearState_Approach(STRATEGYBLOCK *sbPtr)
 
 		if ((distanceToPlayer<=ALIEN_POUNCE_STARTMAXRANGE) 
 			&&(distanceToPlayer>=ALIEN_POUNCE_MINRANGE)) {
-			/* Might want to pounce. */
 			if ((alienStatusPointer->EnablePounce)||(Alien_Special_Pounce_Condition(sbPtr))) {
 				if (StartAlienPounce(sbPtr)) {
-					/* Success. */
 					return;
 				}
 			}
@@ -1069,13 +1121,13 @@ static void AlienNearState_Approach(STRATEGYBLOCK *sbPtr)
 				switch (alienStatusPointer->Type) {
 					case AT_Standard:
 					default:
-						prob=ALIEN_JUMPINESS;
+						prob=0;//ALIEN_JUMPINESS;
 						break;
 					case AT_Predalien:
-						prob=PREDALIEN_JUMPINESS;
+						prob=0;//PREDALIEN_JUMPINESS;
 						break;
 					case AT_Praetorian:
-						prob=PRAETORIAN_JUMPINESS;
+						prob=0;//PRAETORIAN_JUMPINESS;
 						break;
 				}
 
@@ -1090,8 +1142,17 @@ static void AlienNearState_Approach(STRATEGYBLOCK *sbPtr)
 
 		if(distanceToPlayer<=ALIEN_ATTACKDISTANCE_MIN) {
 		
-			if (AlienIsAllowedToAttack(sbPtr)) {
-								 
+			if (AlienIsAllowedToAttack(sbPtr)) 
+			{
+				STRATEGYBLOCK *victimPtr = alienStatusPointer->Target;
+
+				// If the target is a Platform Lift (used as doors), the alien
+				// will attempt to ram it open.
+				if (victimPtr && victimPtr->I_SBtype == I_BehaviourPlatform)
+				{
+					if (StartAlienPounce(sbPtr))
+						return;
+				}
 				/* state and sequence change */
 				alienStatusPointer->BehaviourState = ABS_Attack;
 				alienStatusPointer->NearStateTimer=ALIEN_ATTACKTIME;
@@ -1107,7 +1168,8 @@ static void AlienNearState_Approach(STRATEGYBLOCK *sbPtr)
 				StartAlienAttackSequence(sbPtr);
 
 				/* this is because we have already set a velocity this frame */
-				dynPtr->LinVelocity.vx = dynPtr->LinVelocity.vy = dynPtr->LinVelocity.vz = 0;
+				// Do NOT reset the linear velocity! -- Eldritch
+				//dynPtr->LinVelocity.vx = dynPtr->LinVelocity.vy = dynPtr->LinVelocity.vz = 0;
 				return;
 			}
 		}
@@ -1645,7 +1707,7 @@ static void AlienNearState_Retreat(STRATEGYBLOCK *sbPtr)
 
 		if (targetModule) {
 			//textprint("Target module is %s\n",targetModule->name);
-			textprint("Target AI module found, %x.\n",(int)targetModule);
+//			textprint("Target AI module found, %x.\n",(int)targetModule);
 		} else {
 			textprint("Target module is NULL!\n");
 		}
@@ -1829,7 +1891,7 @@ static void AlienNearState_Hunt(STRATEGYBLOCK *sbPtr)
 
 		if (targetModule) {
 			//textprint("Target module is %s\n",targetModule->name);
-			textprint("Target AI module for hunt found, %x.\n",(int)targetModule);
+//			textprint("Target AI module for hunt found, %x.\n",(int)targetModule);
 		} else {
 			textprint("Target module is NULL!\n");
 		}
@@ -2856,6 +2918,267 @@ void AlienNearState_Taunting(STRATEGYBLOCK *sbPtr)
 
 }
 
+int ValidateMercy(STRATEGYBLOCK *sbPtr)
+{
+	ALIEN_STATUS_BLOCK *alienStatusPointer;
+
+	LOCALASSERT(sbPtr);	
+	alienStatusPointer = (ALIEN_STATUS_BLOCK *)(sbPtr->SBdataptr);    
+	LOCALASSERT(alienStatusPointer);
+
+	// No Mercy in Multiplayer!
+	if (AvP.Network != I_No_Network) return(0);
+
+	if (alienStatusPointer->Target==NULL ||
+		alienStatusPointer->Target!= Player->ObStrategyBlock) {
+		return(0);
+	}
+	if (alienStatusPointer->Target->I_SBtype==I_BehaviourMarinePlayer) {
+		PLAYER_STATUS *playerStatusPtr= (PLAYER_STATUS *) (Player->ObStrategyBlock->SBdataptr);
+		int valid=0, a;
+	    GLOBALASSERT(playerStatusPtr);
+	
+		if (AvP.PlayerType!=I_Marine) {
+			return(0);
+		}
+		/* Pulse Rifle check */
+		a = SlotForThisWeapon(WEAPON_PULSERIFLE);
+		if (playerStatusPtr->WeaponSlot[a].Possessed) {
+			if ((!playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining) &&
+				(playerStatusPtr->WeaponSlot[a].PrimaryRoundsRemaining < 20)) {
+				valid++;	// No mags and under 20 ammo with PR...Mercy!
+			}
+			if (!playerStatusPtr->WeaponSlot[a].SecondaryRoundsRemaining) {
+				valid++;	// No pulse grenades... Mercy!
+			}
+		} else {
+			valid++;
+		}
+		/* Pistol check */
+		a = SlotForThisWeapon(WEAPON_MARINE_PISTOL);
+		if (playerStatusPtr->WeaponSlot[a].Possessed) {
+			if ((!playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining) &&
+				(playerStatusPtr->WeaponSlot[a].PrimaryRoundsRemaining < 6)) {
+				valid++;	// No mags and under 50% of pistol ammo... Mercy!
+			}
+		} else {
+			valid++;
+		}
+		/* Drill check */
+		a = SlotForThisWeapon(WEAPON_MINIGUN);
+		if (playerStatusPtr->WeaponSlot[a].Possessed) {
+			if ((!playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining) &&
+				(playerStatusPtr->WeaponSlot[a].PrimaryRoundsRemaining < 30)) {
+				valid++;	// No mags and under 30 ammo with drill... Mercy!
+			}
+		} else {
+			valid++;
+		}
+		/* Shotgun check */
+		a = SlotForThisWeapon(WEAPON_GRENADELAUNCHER);
+		if (playerStatusPtr->WeaponSlot[a].Possessed) {
+			if ((!playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining) &&
+				(playerStatusPtr->WeaponSlot[a].PrimaryRoundsRemaining < 4)) {
+				valid++;	// No mags and under 50% ammo with shotgun... Mercy!
+			}
+		} else {
+			valid++;
+		}
+		/* Flamethrower check */
+		a = SlotForThisWeapon(WEAPON_FLAMETHROWER);
+		if (playerStatusPtr->WeaponSlot[a].Possessed) {
+			if ((!playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining) &&
+				(playerStatusPtr->WeaponSlot[a].PrimaryRoundsRemaining < 30)) {
+				valid++;	// No mags and under 30 ammo with flamer... Mercy!
+			}
+		} else {
+			valid++;
+		}
+		/* Smartgun check */
+		a = SlotForThisWeapon(WEAPON_SMARTGUN);
+		if (playerStatusPtr->WeaponSlot[a].Possessed) {
+			if ((!playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining) &&
+				(playerStatusPtr->WeaponSlot[a].PrimaryRoundsRemaining < 30)) {
+				valid++;	// No mags and under 30 ammo with smartgun... Mercy!
+			}
+		} else {
+			valid++;
+		}
+		/* Plasma Gun check */
+		a = SlotForThisWeapon(WEAPON_FRISBEE_LAUNCHER);
+		if (playerStatusPtr->WeaponSlot[a].Possessed) {
+			if ((!playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining) &&
+				(!playerStatusPtr->WeaponSlot[a].PrimaryRoundsRemaining)) {
+				valid++;	// No mags and no ammo with plasma... Mercy!
+			}
+		} else {
+			valid++;
+		}
+		/* EMW Rifle check */
+		a = SlotForThisWeapon(WEAPON_SADAR);
+		if (playerStatusPtr->WeaponSlot[a].Possessed) {
+			if ((!playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining) &&
+				(!playerStatusPtr->WeaponSlot[a].PrimaryRoundsRemaining)) {
+				valid++;	// No mags and no ammo with Scope Rifle... Mercy!
+			}
+		} else {
+			valid++;
+		}
+		/* Portable Medikit? */
+		if (playerStatusPtr->Medikit) {
+			return(0);	// Player can heal... so engage!
+		}
+		/* Health check */
+		{
+			NPC_DATA *NpcData;
+			int Health;
+
+			switch (AvP.Difficulty) {
+				case I_Easy:
+					NpcData=GetThisNpcData(I_PC_Marine_Easy);
+					break;
+				default:
+				case I_Medium:
+					NpcData=GetThisNpcData(I_PC_Marine_Medium);
+					break;
+				case I_Hard:
+					NpcData=GetThisNpcData(I_PC_Marine_Hard);
+					break;
+				case I_Impossible:
+					NpcData=GetThisNpcData(I_PC_Marine_Impossible);
+					break;
+			}
+			LOCALASSERT(NpcData);
+			
+			Health=(playerStatusPtr->Health*100)/NpcData->StartingStats.Health;
+			Health=(Health+65536)>>16;
+
+			if (Health < 50) {
+				valid++;	// 50% health remaining... Mercy!
+			}
+		}
+		/* All checks turn out true */
+		if (valid==10) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+int TargetIsFiringPistolAtPraetorian(STRATEGYBLOCK *sbPtr)
+{
+	ALIEN_STATUS_BLOCK *alienStatusPointer;
+
+	LOCALASSERT(sbPtr);	
+	alienStatusPointer = (ALIEN_STATUS_BLOCK *)(sbPtr->SBdataptr);    
+	LOCALASSERT(alienStatusPointer);
+
+	if (alienStatusPointer->Target==NULL) {
+		return(0);
+	}
+	/* This only applies to Praetorians */
+	if (alienStatusPointer->Type!=AT_Praetorian) {
+		return(0);
+	}
+
+	/* First, let's see what the target is. */
+	if (alienStatusPointer->Target->I_SBtype==I_BehaviourMarinePlayer) {
+		/* Is the player firing a flamethrower? */
+		PLAYER_WEAPON_DATA *weaponPtr;
+		PLAYER_STATUS *playerStatusPtr= (PLAYER_STATUS *) (Player->ObStrategyBlock->SBdataptr);
+	    GLOBALASSERT(playerStatusPtr);
+	
+		if (AvP.PlayerType!=I_Marine) {
+			return(0);
+		}
+	    weaponPtr = &(playerStatusPtr->WeaponSlot[playerStatusPtr->SelectedWeaponSlot]);
+	
+		if (weaponPtr->WeaponIDNumber != WEAPON_MARINE_PISTOL) {
+			return(0);
+		}
+		if ((weaponPtr->CurrentState != WEAPONSTATE_FIRING_PRIMARY) &&
+			(weaponPtr->CurrentState != WEAPONSTATE_FIRING_SECONDARY)) {
+			return(0);
+		}
+	} else if (alienStatusPointer->Target->I_SBtype==I_BehaviourMarine) {
+		MARINE_STATUS_BLOCK *marineStatusPointer;    
+
+		LOCALASSERT(sbPtr);
+		marineStatusPointer = (MARINE_STATUS_BLOCK *)(alienStatusPointer->Target->SBdataptr);
+		LOCALASSERT(marineStatusPointer);	          		
+		
+		if ((marineStatusPointer->My_Weapon->id!=MNPCW_PistolMarine)
+			&&(marineStatusPointer->My_Weapon->id!=MNPCW_MPistol)
+			&&(marineStatusPointer->My_Weapon->id!=MNPCW_Android_Pistol_Special)) {
+			return(0);
+		}
+		if (marineStatusPointer->behaviourState!=MBS_Firing) {
+			return(0);
+		}
+	} else {
+		/* Gotta insert a case for netghosts. */
+		return(0);
+	}
+
+	/* Next, let's see if the alien and the target are both in the other's front arc. */
+	
+	{
+
+		VECTORCH sourcepos,targetpos,offset;
+		MATRIXCH WtoL;
+		
+		WtoL=sbPtr->DynPtr->OrientMat;
+		GetTargetingPointOfObject_Far(sbPtr,&sourcepos);
+		GetTargetingPointOfObject_Far(alienStatusPointer->Target,&targetpos);
+ 	
+		offset.vx=sourcepos.vx-targetpos.vx;
+		offset.vy=sourcepos.vy-targetpos.vy;
+		offset.vz=sourcepos.vz-targetpos.vz;
+	
+		TransposeMatrixCH(&WtoL);
+		RotateVector(&offset,&WtoL);
+
+		if ( (offset.vz <0) 
+			&& (offset.vz <  offset.vx) 
+			&& (offset.vz < -offset.vx) 
+			&& (offset.vz <  offset.vy) 
+			&& (offset.vz < -offset.vy) ) {
+	
+			/* 90 horizontal, 90 vertical... continue. */
+		} else {
+			return(0);
+		}
+		
+		/* Now test it for the other way round. */
+
+		WtoL=alienStatusPointer->Target->DynPtr->OrientMat;
+		GetTargetingPointOfObject_Far(alienStatusPointer->Target,&sourcepos);
+		GetTargetingPointOfObject_Far(sbPtr,&targetpos);
+ 	
+		offset.vx=sourcepos.vx-targetpos.vx;
+		offset.vy=sourcepos.vy-targetpos.vy;
+		offset.vz=sourcepos.vz-targetpos.vz;
+	
+		TransposeMatrixCH(&WtoL);
+		RotateVector(&offset,&WtoL);
+
+		if ( (offset.vz <0) 
+			&& (offset.vz <  offset.vx) 
+			&& (offset.vz < -offset.vx) 
+			&& (offset.vz <  offset.vy) 
+			&& (offset.vz < -offset.vy) ) {
+	
+			/* 90 horizontal, 90 vertical... continue. */
+		} else {
+			return(0);
+		}
+
+	}
+	
+	/* If here, then it must be true! */
+	return(1);
+}
+
 int TargetIsFiringFlamethrowerAtAlien(STRATEGYBLOCK *sbPtr)
 {
 	ALIEN_STATUS_BLOCK *alienStatusPointer;
@@ -2986,7 +3309,7 @@ static int StartAlienTaunt(STRATEGYBLOCK *sbPtr) {
 			alienStatusPointer->BehaviourState = ABS_Taunting;
 			alienStatusPointer->NearStateTimer=0;
 	
-			if ((FastRandom()&127)<10) {
+			if ((FastRandom()&127)<50) {
 				DoAlienAITauntHiss(sbPtr);
 			}
 			return(1);
@@ -3041,7 +3364,7 @@ static int StartAlienTaunt(STRATEGYBLOCK *sbPtr) {
 	alienStatusPointer->BehaviourState = ABS_Taunting;
 	alienStatusPointer->NearStateTimer=0;
 	
-	if ((FastRandom()&127)<10) {
+	if ((FastRandom()&127)<50) {
 		DoAlienAITauntHiss(sbPtr);
 	}
 	

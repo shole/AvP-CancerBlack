@@ -49,6 +49,7 @@
 #if SupportWindows95
 #include "pldghost.h"
 #include "pldnet.h"
+#include "bh_corpse.h"
 #endif
 
 /*KJL****************************************************************************************
@@ -65,6 +66,7 @@ extern VECTORCH GunMuzzleDirectionInVS;
 extern VECTORCH GunMuzzleDirectionInWS;
 extern int NormalFrameTime;
 extern int Weapon_ThisBurst;
+extern int NPCPredatorIsCloaked(STRATEGYBLOCK *sbPtr);
 
 /* stuff to do with where a gun is pointing */
 extern int GunMuzzleSightX, GunMuzzleSightY;
@@ -207,10 +209,10 @@ void CalculatePlayersTarget(TEMPLATE_WEAPON_DATA *twPtr, PLAYER_WEAPON_DATA *wea
 		PlayersTarget.Position.vz = Global_VDB_Ptr->VDB_World.vz + (Global_VDB_Ptr->VDB_Mat.mat33<<7);
 		PlayersTarget.HModelSection = NULL;
 	}
-	if (ShowDebuggingText.Target)
+	/*if (ShowDebuggingText.Target)
 	{
 		PrintDebuggingText("Target Position: %d %d %d\n",PlayersTarget.Position.vx,PlayersTarget.Position.vy,PlayersTarget.Position.vz);
-	}
+	}*/
 
 	if (PlayersTarget.HModelSection) {
 		GLOBALASSERT(PlayersTarget.DispPtr->HModelControlBlock==PlayersTarget.HModelSection->my_controller);
@@ -218,14 +220,21 @@ void CalculatePlayersTarget(TEMPLATE_WEAPON_DATA *twPtr, PLAYER_WEAPON_DATA *wea
   	
 	if(AvP.Network!=I_No_Network) 
 	{
-		AddNetMsg_PredatorLaserSights(&PlayersTarget.Position,&LOS_ObjectNormal,PlayersTarget.DispPtr);
+		if ((AvP.PlayerType == I_Predator) &&
+			((weaponPtr->WeaponIDNumber == WEAPON_PRED_SHOULDERCANNON)))
+		{
+			if (SmartTarget_Object)
+				AddNetMsg_PredatorLaserSights(&PlayersTarget.Position,&LOS_ObjectNormal,PlayersTarget.DispPtr);
+			else
+				AddNetMsg_PredatorLaserSights(&PlayersTarget.Position,&LOS_ObjectNormal,NULL);
+		}
 	}
 
 	
 	/* find position/orientation of predator's targeting sights */
-	if ( (AvP.PlayerType == I_Predator)
-	   &&((weaponPtr->WeaponIDNumber == WEAPON_PRED_RIFLE)
-	    ||(weaponPtr->WeaponIDNumber == WEAPON_PRED_SHOULDERCANNON)) )
+	if ((AvP.PlayerType == I_Predator) &&
+		((weaponPtr->WeaponIDNumber == WEAPON_PRED_SHOULDERCANNON)) &&
+		(SmartTarget_Object))
 	{
 		int i=2;
 
@@ -645,9 +654,7 @@ DISPLAYBLOCK *SmartTarget_GetNewTarget(void) {
 			}		
 		}
 	}
-
 	return(target);
-
 }
 
 void SmartTarget_GetCofM(DISPLAYBLOCK *target,VECTORCH *viewSpaceOutput) {
@@ -795,8 +802,7 @@ int SmartTarget_TargetFilter(STRATEGYBLOCK *candidate)
 	
 	/* KJL 11:56:33 14/10/98 - the Predator's Shoulder cannon can only track objects when used in the correct
 	vision mode, e.g. you can only target marines when in infrared mode */
-	if ((weaponPtr->WeaponIDNumber == WEAPON_PRED_SHOULDERCANNON)
-		||(weaponPtr->WeaponIDNumber == WEAPON_PRED_DISC))
+	if (weaponPtr->WeaponIDNumber == WEAPON_PRED_SHOULDERCANNON)
 	{
 		switch (CurrentVisionMode)
 		{
@@ -804,11 +810,21 @@ int SmartTarget_TargetFilter(STRATEGYBLOCK *candidate)
 			{
 				if (candidate->I_SBtype==I_BehaviourAlien && !NPC_IsDead(candidate))
 				{
-					return 1;
+					if (candidate->DynPtr->LinVelocity.vx ||
+						candidate->DynPtr->LinVelocity.vy ||
+						candidate->DynPtr->LinVelocity.vz)
+					{
+						return 1;
+					}
 				}
-				if (candidate->I_SBtype==I_BehaviourXenoborg && !NPC_IsDead(candidate))
+				if (candidate->I_SBtype==I_BehaviourPredator && !NPC_IsDead(candidate))
 				{
-					return 1;
+					if (candidate->DynPtr->LinVelocity.vx ||
+						candidate->DynPtr->LinVelocity.vy ||
+						candidate->DynPtr->LinVelocity.vz)
+					{
+						return 1;
+					}
 				}
 				if (candidate->I_SBtype==I_BehaviourMarine && !NPC_IsDead(candidate))
 				{
@@ -817,18 +833,24 @@ int SmartTarget_TargetFilter(STRATEGYBLOCK *candidate)
 					marineStatusPointer = (MARINE_STATUS_BLOCK *)(candidate->SBdataptr);
 					LOCALASSERT(marineStatusPointer);	
 					
-					if (marineStatusPointer->My_Weapon->Android) {
-						return(1);
-					} else {
-						return(0);
+					if (candidate->DynPtr->LinVelocity.vx ||
+						candidate->DynPtr->LinVelocity.vy ||
+						candidate->DynPtr->LinVelocity.vz)
+					{
+						return 1;
 					}
 				}
 				if (candidate->I_SBtype==I_BehaviourNetGhost)
 				{
+					DYNAMICSBLOCK *objectDynPtr = candidate->DynPtr;
 			   		NETGHOSTDATABLOCK *ghostDataPtr = (NETGHOSTDATABLOCK *)candidate->SBdataptr;
 
-					if (ghostDataPtr->type==I_BehaviourAlienPlayer || ghostDataPtr->type==I_BehaviourAlien)
+					if ((objectDynPtr->Position.vx == objectDynPtr->PrevPosition.vx)
+					&&(objectDynPtr->Position.vy == objectDynPtr->PrevPosition.vy)
+					&&(objectDynPtr->Position.vz == objectDynPtr->PrevPosition.vz))
 					{
+						return 0;
+					} else {
 						return 1;
 					}
 				}
@@ -867,11 +889,16 @@ int SmartTarget_TargetFilter(STRATEGYBLOCK *candidate)
 				{
 					return 1;
 				}
+				if (candidate->I_SBtype==I_BehaviourAlien && !NPC_IsDead(candidate))
+				{
+					return 1;
+				}
 				if (candidate->I_SBtype==I_BehaviourNetGhost)
 				{
 			   		NETGHOSTDATABLOCK *ghostDataPtr = (NETGHOSTDATABLOCK *)candidate->SBdataptr;
 
-					if (ghostDataPtr->type==I_BehaviourPredatorPlayer || ghostDataPtr->type==I_BehaviourPredator)
+					if (ghostDataPtr->type==I_BehaviourPredatorPlayer || ghostDataPtr->type==I_BehaviourPredator ||
+						ghostDataPtr->type==I_BehaviourAlienPlayer || ghostDataPtr->type==I_BehaviourAlien)
 					{
 						/* Check for game type? */
 						switch (netGameData.gameType) {
@@ -879,16 +906,16 @@ int SmartTarget_TargetFilter(STRATEGYBLOCK *candidate)
 								return(1);
 								break;
 							case NGT_CoopDeathmatch:
-								return(0);
+								return(1);
 								break;
 							case NGT_LastManStanding:
-								return(0);
+								return(1);
 								break;
 							case NGT_PredatorTag:
 								return(1);
 								break;
 							case NGT_Coop:
-								return(0);
+								return(1);
 								break;
 							default:
 								return(1);
@@ -904,46 +931,62 @@ int SmartTarget_TargetFilter(STRATEGYBLOCK *candidate)
 		}
 		return 0;
 	} else if (weaponPtr->WeaponIDNumber == WEAPON_SMARTGUN) {
-		/* Don't target marines if Friendly Fire is disabled. */
-		if (netGameData.disableFriendlyFire && (netGameData.gameType==NGT_CoopDeathmatch || netGameData.gameType==NGT_Coop)) {
-	   		NETGHOSTDATABLOCK *ghostDataPtr = (NETGHOSTDATABLOCK *)candidate->SBdataptr;
-			if (ghostDataPtr->type==I_BehaviourMarinePlayer || ghostDataPtr->type==I_BehaviourMarine) {
+		/* No targeting on Cassus' surface */
+		{
+			PLAYER_STATUS *playerStatusPtr = (PLAYER_STATUS *) (Player->ObStrategyBlock->SBdataptr);
+			GLOBALASSERT(playerStatusPtr);
+
+			if (playerStatusPtr->OnSurface) {
+				return(0);
+			}
+		}
+		/* Smartgun cannot lock on to cloaked Predators */
+		/* It cannot lock on them at all... -- ELDRITCH */
+		if (candidate->I_SBtype==I_BehaviourPredator && !NPC_IsDead(candidate))
+		{
+			if (NPCPredatorIsCloaked(candidate)) {
+				return(0);
+			} else {
 				return(0);
 			}
 		}
 	}
-
 	switch (candidate->I_SBtype) {
 		case I_BehaviourPredator:
-			/* Valid. */
-			if (NPC_IsDead(candidate)) {
-				return(0);
-			} else {
-				#if 0
-				if (NPCPredatorIsCloaked(candidate)) {
-					return(0);
-				} else {
-					return(1);
-				}
-				#else
-				return(1);
-				#endif
-			}
-			break;
 		case I_BehaviourAlien:
 		case I_BehaviourQueenAlien:
 		case I_BehaviourFaceHugger:
 		case I_BehaviourXenoborg:
-		case I_BehaviourMarine:
-		case I_BehaviourSeal:
 		case I_BehaviourPredatorAlien:
 			/* Valid. */
 			if (NPC_IsDead(candidate)) {
 				return(0);
 			} else {
+				return(0);
+			}
+			break;
+		case I_BehaviourMarine:
+		case I_BehaviourSeal:
+			/* Valid. */
+			if (NPC_IsDead(candidate)) {
+				return(1);
+			} else {
 				return(1);
 			}
 			break;
+		case I_BehaviourNetCorpse:
+		{
+			NETCORPSEDATABLOCK *corpseDataPtr;
+			corpseDataPtr = (NETCORPSEDATABLOCK *)candidate->SBdataptr;
+			LOCALASSERT(corpseDataPtr);
+
+			if (corpseDataPtr->Type == I_BehaviourMarine)
+				return(0);
+			else
+				return(0);
+
+			break;
+		}
 	#if SupportWindows95
 		case I_BehaviourNetGhost:
 			{
@@ -951,27 +994,20 @@ int SmartTarget_TargetFilter(STRATEGYBLOCK *candidate)
 				dataptr=candidate->SBdataptr;
 				switch (dataptr->type) {
 					case I_BehaviourPredatorPlayer:
-						#if 0
-						if (dataptr->CloakingEffectiveness) {
-							return(0);
-						} else {
-							return(1);
-						}
-						#else
-						return(1);
-						#endif
-						break;
-					case I_BehaviourMarinePlayer:
 					case I_BehaviourAlienPlayer:
-					case I_BehaviourRocket:
-					case I_BehaviourFrisbee:
 					case I_BehaviourGrenade:
-					case I_BehaviourFlareGrenade:
 					case I_BehaviourFragmentationGrenade:
 					case I_BehaviourClusterGrenade:
 					case I_BehaviourNPCPredatorDisc:
 					case I_BehaviourPredatorDisc_SeekTrack:
 					case I_BehaviourAlien:
+						return(0);
+						break;
+					case I_BehaviourMarinePlayer:
+					case I_BehaviourRocket:
+					case I_BehaviourThrownSpear:
+					case I_BehaviourFrisbee:
+					case I_BehaviourFlareGrenade:
 						return(1);
 						break;
 					case I_BehaviourProximityGrenade:
@@ -984,7 +1020,7 @@ int SmartTarget_TargetFilter(STRATEGYBLOCK *candidate)
 								&&(dynPtr->Position.vy==dynPtr->PrevPosition.vy)
 								&&(dynPtr->Position.vz==dynPtr->PrevPosition.vz) )) {
 						
-								return(1);
+								return(0);
 							
 							} else {
 								return(0);

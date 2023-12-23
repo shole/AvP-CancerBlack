@@ -182,3 +182,80 @@ LOADED_SOUND const * GetSound (char const * fname)
 	return(ls);
 	
 }
+
+/* AMP's radio messages */
+LOADED_SOUND const *GetAMPSound(int soundNum, const char *fname)
+{
+	if (!SoundSwitchedOn)
+		return (0);
+
+	char * wavname = strrchr (fname, '\\');
+	
+	if (wavname)
+	{
+		wavname ++;
+	}
+	else
+	{
+		wavname = (char *)fname;
+	}
+	
+	// check if wavname already loaded
+	
+	for (LIF<LOADED_SOUND *> lsi(&loaded_sounds); !lsi.done(); lsi.next())
+	{
+		if (!_stricmp (lsi()->wavname, wavname))
+		{
+			lsi()->num_attached ++;
+			return(lsi());
+		}
+	}
+	LOADED_SOUND * ls = 0;
+
+	int perm_snum = find_permanent_game_sound (wavname);
+	
+	if (perm_snum != -1)
+	{
+		ls = (LOADED_SOUND *) AllocateMem(sizeof (LOADED_SOUND));
+		
+		ls->sound_num = perm_snum;
+		ls->wavname = (char *) AllocateMem(sizeof (char) * (strlen (wavname)+1));
+		strcpy (ls->wavname, wavname);
+		ls->num_attached = 1;
+		ls->permanent = 1;
+		loaded_sounds.add_entry (ls);
+		return (ls);
+	}
+	
+	// not loaded, so try and load it
+	
+	/* Do not check for empty slots since that is already done...
+	int soundNum = find_empty_game_sound();
+	if (soundNum == -1)
+	{
+		GLOBALASSERT(0=="Run out of sound slots");
+		return(0);
+	}
+	*/
+	
+	int ok = AMPLoadSounds(soundNum, (char *)fname);
+
+	if (ok)
+	{
+		GameSounds[soundNum].loaded = 1;
+		GameSounds[soundNum].activeInstances = 0;;	 
+		GameSounds[soundNum].volume = VOLUME_DEFAULT;		
+		GameSounds[soundNum].pitch = 0;
+		InitialiseBaseFrequency((SOUNDINDEX)soundNum);
+
+		ls = (LOADED_SOUND *) AllocateMem(sizeof (LOADED_SOUND));
+		
+		ls->sound_num = soundNum;
+		ls->wavname = (char *)AllocateMem(sizeof (char) * (strlen (wavname)+1));
+		strcpy (ls->wavname, wavname);
+		ls->num_attached = 1;
+		ls->permanent = 0;
+		loaded_sounds.add_entry (ls);
+	}
+	return(ls);	
+}

@@ -28,13 +28,46 @@
 #include "paintball.h"
 #include "avp_menus.h"
 
+#include "pldnet.h"
+
 extern int InGameMenusAreRunning(void);
 extern void AvP_TriggerInGameMenus(void);
 extern void Recall_Disc(void);
+extern void Reload_Weapon(void);
 extern void ShowMultiplayerScores(void);
+extern void ThrowAFlare();
+extern void StartPlayerTaunt();
+extern void MessageHistory_DisplayPrevious();
+extern void BringDownConsoleWithSayTypedIn();
+extern void BringDownConsoleWithSaySpeciesTypedIn();
+extern void MaintainZoomingLevel();
+extern void ToggleShoulderLamp();
+extern void FireAPCGun();
+extern void OverLoadDrill(PLAYER_WEAPON_DATA *weaponPtr);
+extern void UseMedikit();
+extern void DeploySentry();
+extern void ChangeClass();
+extern void ChangeSpecies();
+extern void Grab();
+extern void Ram();
+extern void ToggleRadioMenu();
 
+extern void PaintBallMode_Rotate();
+extern void PaintBallMode_ChangeSubclass(int delta);
+extern void PaintBallMode_Randomise();
+extern void PaintBallMode_RemoveDecal();
 
 extern int NormalFrameTime;
+extern int CurrentSpeed;
+extern int GrabAttackInProgress;
+extern int DisplayRadioMenu;
+extern int DisplayClasses;
+int Run;
+extern int Underwater;
+extern int ZeroG;
+extern int OnLadder;
+extern int HackPool;
+extern int WeldPool;
 
 FIXED_INPUT_CONFIGURATION FixedInputConfig =
 {
@@ -59,558 +92,125 @@ PLAYER_INPUT_CONFIGURATION PredatorInputSecondaryConfig;
 PLAYER_INPUT_CONFIGURATION AlienInputPrimaryConfig;
 PLAYER_INPUT_CONFIGURATION AlienInputSecondaryConfig;
 
-
-#if 1 // English
 PLAYER_INPUT_CONFIGURATION DefaultMarineInputPrimaryConfig =
 {
-	KEY_UP,				// Forward;
-	KEY_DOWN,			// Backward;
-	KEY_NUMPAD4, 		// Left;
-	KEY_NUMPAD6, 		// Right;
+	KEY_W,				// Forward;
+	KEY_S,			    // Backward;
+	KEY_VOID, 			// Left;
+	KEY_VOID,	 		// Right;
 
-	KEY_RIGHTALT,		// Strafe;
-	KEY_LEFT,	 		// StrafeLeft;
-	KEY_RIGHT,	 		// StrafeRight;
+	KEY_VOID,			// Strafe;
+	KEY_A,		 		// StrafeLeft;
+	KEY_D,		 		// StrafeRight;
 
-	KEY_Q, 				// LookUp;
-	KEY_Z, 				// LookDown;
-	KEY_A,				// CentreView;
+	KEY_VOID,			// LookUp;
+	KEY_VOID, 			// LookDown;
+	KEY_VOID,			// CentreView;
 
-	KEY_LEFTSHIFT,		// Walk;
-	KEY_RIGHTCTRL, 		// Crouch;
-	KEY_RIGHTSHIFT,		// Jump;
+	KEY_LEFTCTRL,		// Walk;
+	KEY_LEFTSHIFT, 		// Crouch;
+	KEY_SPACE,			// Jump;
 
-	KEY_SPACE,			// Operate;
+	KEY_E,				// Operate;
 
 	KEY_LMOUSE, 		// FirePrimaryWeapon;
 	KEY_RMOUSE, 		// FireSecondaryWeapon;
 
-	KEY_RBRACKET,  		// NextWeapon;
-	KEY_LBRACKET,  		// PreviousWeapon;
+	KEY_MOUSEWHEELUP,  	// NextWeapon;
+	KEY_MOUSEWHEELDOWN, // PreviousWeapon;
 	KEY_BACKSPACE,		// FlashbackWeapon;
 
-	KEY_SLASH,	  		// ImageIntensifier;
-	KEY_FSTOP,    		// ThrowFlare;
-	KEY_APOSTROPHE,	  	// Jetpack;
-	KEY_SEMICOLON,		// Taunt
+	KEY_T,		  		// ImageIntensifier;
+	KEY_F,		  		// ThrowFlare;
+	KEY_C,			  	// Jetpack;
+	KEY_R,				// Taunt
 	KEY_F1,
 	KEY_F11,
 	KEY_F12,
 	KEY_TAB,
+	KEY_G,				// Throw Grenade
+	KEY_M,				// Use Medikit
+	KEY_Y,				// Deploy Sentry Gun
+	KEY_F9,				// Change Species
+	KEY_F10,			// Change Class
 };
 PLAYER_INPUT_CONFIGURATION DefaultPredatorInputPrimaryConfig =
 {
-	KEY_UP,				// Forward;
-	KEY_DOWN,			// Backward;
-	KEY_NUMPAD4, 		// Left;
-	KEY_NUMPAD6, 		// Right;
+	KEY_W,				// Forward;
+	KEY_S,				// Backward;
+	KEY_VOID, 			// Left;
+	KEY_VOID, 			// Right;
 
-	KEY_RIGHTALT,		// Strafe;
-	KEY_LEFT,	 		// StrafeLeft;
-	KEY_RIGHT,	 		// StrafeRight;
+	KEY_VOID,			// Strafe;
+	KEY_A,	 			// StrafeLeft;
+	KEY_D,	 			// StrafeRight;
 
-	KEY_Q, 				// LookUp;
-	KEY_Z, 				// LookDown;
-	KEY_A,				// CentreView;
+	KEY_VOID, 			// LookUp;
+	KEY_VOID, 			// LookDown;
+	KEY_VOID,			// CentreView;
 
-	KEY_LEFTSHIFT,		// Walk;
-	KEY_RIGHTCTRL, 		// Crouch;
-	KEY_RIGHTSHIFT,		// Jump;
+	KEY_LEFTCTRL,		// Walk;
+	KEY_LEFTSHIFT, 		// Crouch;
+	KEY_SPACE,			// Jump;
 
-	KEY_SPACE,			// Operate;
+	KEY_E,				// Operate;
 
 	KEY_LMOUSE, 		// FirePrimaryWeapon;
 	KEY_RMOUSE, 		// FireSecondaryWeapon;
 	
-	KEY_RBRACKET,		// NextWeapon;
-	KEY_LBRACKET, 			// PreviousWeapon;
+	KEY_VOID,			// NextWeapon;
+	KEY_VOID, 			// PreviousWeapon;
 	KEY_BACKSPACE,		// FlashbackWeapon;
 	
-	KEY_FSTOP,	 		// Cloak;
-	KEY_SLASH,	 		// CycleVisionMode;
-	KEY_PAGEUP,			// ZoomIn;
-	KEY_PAGEDOWN,		// ZoomOut;
-	KEY_APOSTROPHE,	  	// GrapplingHook
+	KEY_C,	 			// Cloak;
+	KEY_Q,	 			// CycleVisionMode;
+	KEY_MOUSEWHEELUP,	// ZoomIn;
+	KEY_MOUSEWHEELDOWN,	// ZoomOut;
+	KEY_END,	  		// GrapplingHook
 	KEY_COMMA,			// RecallDisk
-	KEY_SEMICOLON,		// Taunt
+	KEY_R,				// Taunt
 	KEY_F1,
 	KEY_F11,
 	KEY_F12,
 	KEY_TAB,
+	KEY_F9,				// Change Species
+	KEY_F10,			// Change Class
 };
 
 PLAYER_INPUT_CONFIGURATION DefaultAlienInputPrimaryConfig =
 {
-	KEY_UP,				// Forward;
-	KEY_DOWN,			// Backward;
-	KEY_NUMPAD4, 		// Left;
-	KEY_NUMPAD6, 		// Right;
+	KEY_W,				// Forward;
+	KEY_S,				// Backward;
+	KEY_VOID,			// Left;
+	KEY_VOID,	 		// Right;
 
-	KEY_RIGHTALT,		// Strafe;
-	KEY_LEFT,	 		// StrafeLeft;
-	KEY_RIGHT,	 		// StrafeRight;
+	KEY_VOID,			// Strafe;
+	KEY_A,				// StrafeLeft;
+	KEY_D,		 		// StrafeRight;
 
-	KEY_Q, 				// LookUp;
-	KEY_Z, 				// LookDown;
-	KEY_A,				// CentreView;
+	KEY_VOID, 			// LookUp;
+	KEY_VOID, 			// LookDown;
+	KEY_VOID,			// CentreView;
 
-	KEY_LEFTSHIFT,		// Walk;
-	KEY_RIGHTCTRL, 		// Crouch;
-	KEY_RIGHTSHIFT,		// Jump;
+	KEY_LEFTCTRL,		// Walk;
+	KEY_LEFTSHIFT, 		// Crouch;
+	KEY_SPACE,			// Jump;
 
-	KEY_SPACE,			// Operate;
-
-	KEY_LMOUSE, 		// FirePrimaryWeapon;
-	KEY_RMOUSE, 		// FireSecondaryWeapon;
-
-	KEY_SLASH,			// AlternateVision;
-	KEY_FSTOP,				// Taunt;
-	KEY_F1,
-	KEY_F11,
-	KEY_F12,
-	KEY_TAB,
-};
-#elif 0	// Dutch
-PLAYER_INPUT_CONFIGURATION DefaultMarineInputPrimaryConfig =
-{
-	KEY_UP,				// Forward;
-	KEY_DOWN,			// Backward;
-	KEY_NUMPAD4, 		// Left;
-	KEY_NUMPAD6, 		// Right;
-
-	KEY_RIGHTALT,		// Strafe;
-	KEY_LEFT,	 		// StrafeLeft;
-	KEY_RIGHT,	 		// StrafeRight;
-
-	KEY_Q, 				// LookUp;
-	KEY_Z, 				// LookDown;
-	KEY_A,				// CentreView;
-
-	KEY_LEFTSHIFT,		// Walk;
-	KEY_RIGHTCTRL, 		// Crouch;
-	KEY_RIGHTSHIFT,		// Jump;
-
-	KEY_SPACE,			// Operate;
+	KEY_E,				// Operate;
 
 	KEY_LMOUSE, 		// FirePrimaryWeapon;
 	KEY_RMOUSE, 		// FireSecondaryWeapon;
 
-	KEY_ASTERISK,		// NextWeapon;
-	KEY_DIACRITIC_UMLAUT,// PreviousWeapon;
-	KEY_BACKSPACE,		// FlashbackWeapon;
-
-	KEY_MINUS,	  		// ImageIntensifier;
-	KEY_FSTOP,    		// ThrowFlare;
-	KEY_DIACRITIC_ACUTE,	  	// Jetpack;
-	KEY_PLUS,		// Taunt
+	KEY_Q,				// AlternateVision;
+	KEY_R,				// Taunt;
 	KEY_F1,
 	KEY_F11,
 	KEY_F12,
 	KEY_TAB,
-};
-PLAYER_INPUT_CONFIGURATION DefaultPredatorInputPrimaryConfig =
-{
-	KEY_UP,				// Forward;
-	KEY_DOWN,			// Backward;
-	KEY_NUMPAD4, 		// Left;
-	KEY_NUMPAD6, 		// Right;
-
-	KEY_RIGHTALT,		// Strafe;
-	KEY_LEFT,	 		// StrafeLeft;
-	KEY_RIGHT,	 		// StrafeRight;
-
-	KEY_Q, 				// LookUp;
-	KEY_Z, 				// LookDown;
-	KEY_A,				// CentreView;
-
-	KEY_LEFTSHIFT,		// Walk;
-	KEY_RIGHTCTRL, 		// Crouch;
-	KEY_RIGHTSHIFT,		// Jump;
-
-	KEY_SPACE,			// Operate;
-
-	KEY_LMOUSE, 		// FirePrimaryWeapon;
-	KEY_RMOUSE, 		// FireSecondaryWeapon;
-	
-	KEY_ASTERISK,		// NextWeapon;
-	KEY_DIACRITIC_UMLAUT,// PreviousWeapon;
-	KEY_BACKSPACE,		// FlashbackWeapon;
-	
-	KEY_FSTOP,	 		// Cloak;
-	KEY_MINUS,	 		// CycleVisionMode;
-	KEY_PAGEUP,			// ZoomIn;
-	KEY_PAGEDOWN,		// ZoomOut;
-	KEY_DIACRITIC_ACUTE,	  	// GrapplingHook
-	KEY_COMMA,			// RecallDisk
-	KEY_PLUS,		// Taunt
-	KEY_F1,
-	KEY_F11,
-	KEY_F12,
-	KEY_TAB,
+	KEY_F9,				// Change Species
+	KEY_F10,			// Change Class
 };
 
-PLAYER_INPUT_CONFIGURATION DefaultAlienInputPrimaryConfig =
-{
-	KEY_UP,				// Forward;
-	KEY_DOWN,			// Backward;
-	KEY_NUMPAD4, 		// Left;
-	KEY_NUMPAD6, 		// Right;
-
-	KEY_RIGHTALT,		// Strafe;
-	KEY_LEFT,	 		// StrafeLeft;
-	KEY_RIGHT,	 		// StrafeRight;
-
-	KEY_Q, 				// LookUp;
-	KEY_Z, 				// LookDown;
-	KEY_A,				// CentreView;
-
-	KEY_LEFTSHIFT,		// Walk;
-	KEY_RIGHTCTRL, 		// Crouch;
-	KEY_RIGHTSHIFT,		// Jump;
-
-	KEY_SPACE,			// Operate;
-
-	KEY_LMOUSE, 		// FirePrimaryWeapon;
-	KEY_RMOUSE, 		// FireSecondaryWeapon;
-
-	KEY_MINUS,			// AlternateVision;
-	KEY_FSTOP,				// Taunt;
-	KEY_F1,
-	KEY_F11,
-	KEY_F12,
-	KEY_TAB,
-};
-#elif 0	// French
-PLAYER_INPUT_CONFIGURATION DefaultMarineInputPrimaryConfig =
-{
-	KEY_UP,				// Forward;
-	KEY_DOWN,			// Backward;
-	KEY_NUMPAD4, 		// Left;
-	KEY_NUMPAD6, 		// Right;
-
-	KEY_RIGHTALT,		// Strafe;
-	KEY_LEFT,	 		// StrafeLeft;
-	KEY_RIGHT,	 		// StrafeRight;
-
-	KEY_A, 				// LookUp;
-	KEY_W, 				// LookDown;
-	KEY_Q,				// CentreView;
-
-	KEY_LEFTSHIFT,		// Walk;
-	KEY_RIGHTCTRL, 		// Crouch;
-	KEY_RIGHTSHIFT,		// Jump;
-
-	KEY_SPACE,			// Operate;
-
-	KEY_LMOUSE, 		// FirePrimaryWeapon;
-	KEY_RMOUSE, 		// FireSecondaryWeapon;
-
-	KEY_DOLLAR,  		// NextWeapon;
-	KEY_DIACRITIC_CARET,  		// PreviousWeapon;
-	KEY_BACKSPACE,		// FlashbackWeapon;
-
-	KEY_EXCLAMATION,	  		// ImageIntensifier;
-	KEY_COLON,    		// ThrowFlare;
-	KEY_U_GRAVE,	  	// Jetpack;
-	KEY_M,		// Taunt
-	KEY_F1,
-	KEY_F11,
-	KEY_F12,
-	KEY_TAB,
-};
-PLAYER_INPUT_CONFIGURATION DefaultPredatorInputPrimaryConfig =
-{
-	KEY_UP,				// Forward;
-	KEY_DOWN,			// Backward;
-	KEY_NUMPAD4, 		// Left;
-	KEY_NUMPAD6, 		// Right;
-
-	KEY_RIGHTALT,		// Strafe;
-	KEY_LEFT,	 		// StrafeLeft;
-	KEY_RIGHT,	 		// StrafeRight;
-
-	KEY_A, 				// LookUp;
-	KEY_W, 				// LookDown;
-	KEY_Q,				// CentreView;
-
-	KEY_LEFTSHIFT,		// Walk;
-	KEY_RIGHTCTRL, 		// Crouch;
-	KEY_RIGHTSHIFT,		// Jump;
-
-	KEY_SPACE,			// Operate;
-
-	KEY_LMOUSE, 		// FirePrimaryWeapon;
-	KEY_RMOUSE, 		// FireSecondaryWeapon;
-	
-	KEY_DOLLAR,		// NextWeapon;
-	KEY_DIACRITIC_CARET, 			// PreviousWeapon;
-	KEY_BACKSPACE,		// FlashbackWeapon;
-	
-	KEY_COLON,	 		// Cloak;
-	KEY_EXCLAMATION,	 		// CycleVisionMode;
-	KEY_PAGEUP,			// ZoomIn;
-	KEY_PAGEDOWN,		// ZoomOut;
-	KEY_U_GRAVE,	  	// GrapplingHook
-	KEY_SEMICOLON,			// RecallDisk
-	KEY_M,		// Taunt
-	KEY_F1,
-	KEY_F11,
-	KEY_F12,
-	KEY_TAB,
-};
-
-PLAYER_INPUT_CONFIGURATION DefaultAlienInputPrimaryConfig =
-{
-	KEY_UP,				// Forward;
-	KEY_DOWN,			// Backward;
-	KEY_NUMPAD4, 		// Left;
-	KEY_NUMPAD6, 		// Right;
-
-	KEY_RIGHTALT,		// Strafe;
-	KEY_LEFT,	 		// StrafeLeft;
-	KEY_RIGHT,	 		// StrafeRight;
-
-	KEY_A, 				// LookUp;
-	KEY_W, 				// LookDown;
-	KEY_Q,				// CentreView;
-
-	KEY_LEFTSHIFT,		// Walk;
-	KEY_RIGHTCTRL, 		// Crouch;
-	KEY_RIGHTSHIFT,		// Jump;
-
-	KEY_SPACE,			// Operate;
-
-	KEY_LMOUSE, 		// FirePrimaryWeapon;
-	KEY_RMOUSE, 		// FireSecondaryWeapon;
-
-	KEY_EXCLAMATION,			// AlternateVision;
-	KEY_SEMICOLON,				// Taunt;
-	KEY_F1,
-	KEY_F11,
-	KEY_F12,
-	KEY_TAB,
-};
-#elif 0	 // German
-PLAYER_INPUT_CONFIGURATION DefaultMarineInputPrimaryConfig =
-{
-	KEY_UP,				// Forward;
-	KEY_DOWN,			// Backward;
-	KEY_NUMPAD4, 		// Left;
-	KEY_NUMPAD6, 		// Right;
-
-	KEY_RIGHTALT,		// Strafe;
-	KEY_LEFT,	 		// StrafeLeft;
-	KEY_RIGHT,	 		// StrafeRight;
-
-	KEY_Q, 				// LookUp;
-	KEY_Y, 				// LookDown;
-	KEY_A,				// CentreView;
-
-	KEY_LEFTSHIFT,		// Walk;
-	KEY_RIGHTCTRL, 		// Crouch;
-	KEY_RIGHTSHIFT,		// Jump;
-
-	KEY_SPACE,			// Operate;
-
-	KEY_LMOUSE, 		// FirePrimaryWeapon;
-	KEY_RMOUSE, 		// FireSecondaryWeapon;
-
-	KEY_PLUS,  		// NextWeapon;
-	KEY_U_UMLAUT,  		// PreviousWeapon;
-	KEY_BACKSPACE,		// FlashbackWeapon;
-
-	KEY_MINUS,	  		// ImageIntensifier;
-	KEY_FSTOP,    		// ThrowFlare;
-	KEY_A_UMLAUT,	  	// Jetpack;
-	KEY_O_UMLAUT,		// Taunt
-	KEY_F1,
-	KEY_F11,
-	KEY_F12,
-	KEY_TAB,
-};
-PLAYER_INPUT_CONFIGURATION DefaultPredatorInputPrimaryConfig =
-{
-	KEY_UP,				// Forward;
-	KEY_DOWN,			// Backward;
-	KEY_NUMPAD4, 		// Left;
-	KEY_NUMPAD6, 		// Right;
-
-	KEY_RIGHTALT,		// Strafe;
-	KEY_LEFT,	 		// StrafeLeft;
-	KEY_RIGHT,	 		// StrafeRight;
-
-	KEY_Q, 				// LookUp;
-	KEY_Y, 				// LookDown;
-	KEY_A,				// CentreView;
-
-	KEY_LEFTSHIFT,		// Walk;
-	KEY_RIGHTCTRL, 		// Crouch;
-	KEY_RIGHTSHIFT,		// Jump;
-
-	KEY_SPACE,			// Operate;
-
-	KEY_LMOUSE, 		// FirePrimaryWeapon;
-	KEY_RMOUSE, 		// FireSecondaryWeapon;
-	
-	KEY_PLUS,		// NextWeapon;
-	KEY_U_UMLAUT, 			// PreviousWeapon;
-	KEY_BACKSPACE,		// FlashbackWeapon;
-	
-	KEY_FSTOP,	 		// Cloak;
-	KEY_MINUS,	 		// CycleVisionMode;
-	KEY_PAGEUP,			// ZoomIn;
-	KEY_PAGEDOWN,		// ZoomOut;
-	KEY_A_UMLAUT,	  	// GrapplingHook
-	KEY_COMMA,			// RecallDisk
-	KEY_O_UMLAUT,		// Taunt
-	KEY_F1,
-	KEY_F11,
-	KEY_F12,
-	KEY_TAB,
-};
-
-PLAYER_INPUT_CONFIGURATION DefaultAlienInputPrimaryConfig =
-{
-	KEY_UP,				// Forward;
-	KEY_DOWN,			// Backward;
-	KEY_NUMPAD4, 		// Left;
-	KEY_NUMPAD6, 		// Right;
-
-	KEY_RIGHTALT,		// Strafe;
-	KEY_LEFT,	 		// StrafeLeft;
-	KEY_RIGHT,	 		// StrafeRight;
-
-	KEY_Q, 				// LookUp;
-	KEY_Y, 				// LookDown;
-	KEY_A,				// CentreView;
-
-	KEY_LEFTSHIFT,		// Walk;
-	KEY_RIGHTCTRL, 		// Crouch;
-	KEY_RIGHTSHIFT,		// Jump;
-
-	KEY_SPACE,			// Operate;
-
-	KEY_LMOUSE, 		// FirePrimaryWeapon;
-	KEY_RMOUSE, 		// FireSecondaryWeapon;
-
-	KEY_MINUS,			// AlternateVision;
-	KEY_FSTOP,				// Taunt;
-	KEY_F1,
-	KEY_F11,
-	KEY_F12,
-	KEY_TAB,
-};
-#elif 0	// Spanish
-PLAYER_INPUT_CONFIGURATION DefaultMarineInputPrimaryConfig =
-{
-	KEY_UP,				// Forward;
-	KEY_DOWN,			// Backward;
-	KEY_NUMPAD4, 		// Left;
-	KEY_NUMPAD6, 		// Right;
-
-	KEY_RIGHTALT,		// Strafe;
-	KEY_LEFT,	 		// StrafeLeft;
-	KEY_RIGHT,	 		// StrafeRight;
-
-	KEY_Q, 				// LookUp;
-	KEY_Z, 				// LookDown;
-	KEY_A,				// CentreView;
-
-	KEY_LEFTSHIFT,		// Walk;
-	KEY_RIGHTCTRL, 		// Crouch;
-	KEY_RIGHTSHIFT,		// Jump;
-
-	KEY_SPACE,			// Operate;
-
-	KEY_LMOUSE, 		// FirePrimaryWeapon;
-	KEY_RMOUSE, 		// FireSecondaryWeapon;
-
-	KEY_PLUS,  		// NextWeapon;
-	KEY_DIACRITIC_GRAVE,  		// PreviousWeapon;
-	KEY_BACKSPACE,		// FlashbackWeapon;
-
-	KEY_MINUS,	  		// ImageIntensifier;
-	KEY_FSTOP,    		// ThrowFlare;
-	KEY_DIACRITIC_ACUTE,	  	// Jetpack;
-	KEY_N_TILDE,		// Taunt
-	KEY_F1,
-	KEY_F11,
-	KEY_F12,
-	KEY_TAB,
-};
-PLAYER_INPUT_CONFIGURATION DefaultPredatorInputPrimaryConfig =
-{
-	KEY_UP,				// Forward;
-	KEY_DOWN,			// Backward;
-	KEY_NUMPAD4, 		// Left;
-	KEY_NUMPAD6, 		// Right;
-
-	KEY_RIGHTALT,		// Strafe;
-	KEY_LEFT,	 		// StrafeLeft;
-	KEY_RIGHT,	 		// StrafeRight;
-
-	KEY_Q, 				// LookUp;
-	KEY_Z, 				// LookDown;
-	KEY_A,				// CentreView;
-
-	KEY_LEFTSHIFT,		// Walk;
-	KEY_RIGHTCTRL, 		// Crouch;
-	KEY_RIGHTSHIFT,		// Jump;
-
-	KEY_SPACE,			// Operate;
-
-	KEY_LMOUSE, 		// FirePrimaryWeapon;
-	KEY_RMOUSE, 		// FireSecondaryWeapon;
-	
-	KEY_PLUS,		// NextWeapon;
-	KEY_DIACRITIC_GRAVE, 			// PreviousWeapon;
-	KEY_BACKSPACE,		// FlashbackWeapon;
-	
-	KEY_FSTOP,	 		// Cloak;
-	KEY_MINUS,	 		// CycleVisionMode;
-	KEY_PAGEUP,			// ZoomIn;
-	KEY_PAGEDOWN,		// ZoomOut;
-	KEY_DIACRITIC_ACUTE,	  	// GrapplingHook
-	KEY_COMMA,			// RecallDisk
-	KEY_N_TILDE,		// Taunt
-	KEY_F1,
-	KEY_F11,
-	KEY_F12,
-	KEY_TAB,
-};
-
-PLAYER_INPUT_CONFIGURATION DefaultAlienInputPrimaryConfig =
-{
-	KEY_UP,				// Forward;
-	KEY_DOWN,			// Backward;
-	KEY_NUMPAD4, 		// Left;
-	KEY_NUMPAD6, 		// Right;
-
-	KEY_RIGHTALT,		// Strafe;
-	KEY_LEFT,	 		// StrafeLeft;
-	KEY_RIGHT,	 		// StrafeRight;
-
-	KEY_Q, 				// LookUp;
-	KEY_Z, 				// LookDown;
-	KEY_A,				// CentreView;
-
-	KEY_LEFTSHIFT,		// Walk;
-	KEY_RIGHTCTRL, 		// Crouch;
-	KEY_RIGHTSHIFT,		// Jump;
-
-	KEY_SPACE,			// Operate;
-
-	KEY_LMOUSE, 		// FirePrimaryWeapon;
-	KEY_RMOUSE, 		// FireSecondaryWeapon;
-
-	KEY_MINUS,			// AlternateVision;
-	KEY_FSTOP,				// Taunt;
-	KEY_F1,
-	KEY_F11,
-	KEY_F12,
-	KEY_TAB,
-};
-#endif
 PLAYER_INPUT_CONFIGURATION DefaultMarineInputSecondaryConfig =
 {
 	KEY_VOID,			// Forward;
@@ -622,21 +222,21 @@ PLAYER_INPUT_CONFIGURATION DefaultMarineInputSecondaryConfig =
 	KEY_VOID,	 		// StrafeLeft;
 	KEY_VOID,	 		// StrafeRight;
 
-	KEY_NUMPAD8,		// LookUp;
-	KEY_NUMPAD2,		// LookDown;
-	KEY_NUMPAD5,		// CentreView;
+	KEY_VOID,			// LookUp;
+	KEY_VOID,			// LookDown;
+	KEY_VOID,			// CentreView;
 
-	KEY_VOID,		// Walk;
-	KEY_VOID, 		// Crouch;
-	KEY_MMOUSE,			// Jump;
+	KEY_VOID,			// Walk;
+	KEY_VOID,			// Crouch;
+	KEY_VOID,			// Jump;
 
-	KEY_CR,				// Operate;
+	KEY_VOID,			// Operate;
 
-	KEY_NUMPAD0, 		// FirePrimaryWeapon;
-	KEY_NUMPADDEL, 		// FireSecondaryWeapon;
+	KEY_VOID,			// FirePrimaryWeapon;
+	KEY_VOID,			// FireSecondaryWeapon;
 
-	KEY_MOUSEWHEELUP,  		// NextWeapon;
-	KEY_MOUSEWHEELDOWN,		// PreviousWeapon;
+	KEY_VOID,	 		// NextWeapon;
+	KEY_VOID,			// PreviousWeapon;
 	KEY_VOID,			// FlashbackWeapon;
 
 	KEY_VOID,			// ImageIntensifier;
@@ -648,10 +248,12 @@ PLAYER_INPUT_CONFIGURATION DefaultMarineInputSecondaryConfig =
 	KEY_VOID,
 	KEY_VOID,
 	KEY_VOID,
+	KEY_VOID,			// Throw Grenade
+	KEY_VOID,			// Use Medikit
+	KEY_VOID,			// Deploy Sentry Gun
+	KEY_VOID,			// Change Species
+	KEY_VOID,			// Change Class
 };
-
-
-
 
 PLAYER_INPUT_CONFIGURATION DefaultPredatorInputSecondaryConfig =
 {
@@ -664,18 +266,18 @@ PLAYER_INPUT_CONFIGURATION DefaultPredatorInputSecondaryConfig =
 	KEY_VOID,	 		// StrafeLeft;
 	KEY_VOID,	 		// StrafeRight;
 
-	KEY_NUMPAD8,		// LookUp;
-	KEY_NUMPAD2,		// LookDown;
-	KEY_NUMPAD5,		// CentreView;
+	KEY_VOID,			// LookUp;
+	KEY_VOID,			// LookDown;
+	KEY_VOID,			// CentreView;
 
-	KEY_VOID,		// Walk;
-	KEY_VOID, 		// Crouch;
-	KEY_MMOUSE,			// Jump;
+	KEY_VOID,			// Walk;
+	KEY_VOID,			// Crouch;
+	KEY_VOID,			// Jump;
 
-	KEY_CR,				// Operate;
+	KEY_VOID,			// Operate;
 
-	KEY_NUMPAD0, 		// FirePrimaryWeapon;
-	KEY_NUMPADDEL, 		// FireSecondaryWeapon;
+	KEY_VOID,	 		// FirePrimaryWeapon;
+	KEY_VOID,	 		// FireSecondaryWeapon;
 
 	KEY_VOID,			// NextWeapon;
 	KEY_VOID, 			// PreviousWeapon;
@@ -683,8 +285,8 @@ PLAYER_INPUT_CONFIGURATION DefaultPredatorInputSecondaryConfig =
 	
 	KEY_VOID,	 		// Cloak;
 	KEY_VOID,	 		// CycleVisionMode;
-	KEY_MOUSEWHEELUP,		// ZoomIn;
-	KEY_MOUSEWHEELDOWN,		// ZoomOut;
+	KEY_VOID,			// ZoomIn;
+	KEY_VOID,			// ZoomOut;
 	KEY_VOID,	 		// GrapplingHook;
 	KEY_VOID,			// RecallDisk
 	KEY_VOID,			// Taunt
@@ -693,32 +295,34 @@ PLAYER_INPUT_CONFIGURATION DefaultPredatorInputSecondaryConfig =
 	KEY_VOID,
 	KEY_VOID,
 	KEY_VOID,
+	KEY_VOID,			// Change Species
+	KEY_VOID,			// Change Class
 
 };
 
 PLAYER_INPUT_CONFIGURATION DefaultAlienInputSecondaryConfig =
 {
-	KEY_VOID,				// Forward;
+	KEY_VOID,			// Forward;
 	KEY_VOID,			// Backward;
-	KEY_VOID, 		// Left;
-	KEY_VOID, 		// Right;
+	KEY_VOID,			// Left;
+	KEY_VOID,			// Right;
 
-	KEY_VOID,		// Strafe;
+	KEY_VOID,			// Strafe;
 	KEY_VOID,	 		// StrafeLeft;
 	KEY_VOID,	 		// StrafeRight;
 
-	KEY_NUMPAD8,		// LookUp;
-	KEY_NUMPAD2,		// LookDown;
-	KEY_NUMPAD5,		// CentreView;
+	KEY_VOID,			// LookUp;
+	KEY_VOID,			// LookDown;
+	KEY_VOID,			// CentreView;
 
 	KEY_VOID,			// Walk;
 	KEY_VOID, 			// Crouch;
-	KEY_MMOUSE,			// Jump;
+	KEY_VOID,			// Jump;
 
-	KEY_CR,				// Operate;
+	KEY_VOID,			// Operate;
 
-	KEY_NUMPAD0, 		// FirePrimaryWeapon;
-	KEY_NUMPADDEL, 		// FireSecondaryWeapon;
+	KEY_VOID,			// FirePrimaryWeapon;
+	KEY_VOID,			// FireSecondaryWeapon;
 	
 	KEY_VOID, 			// AlternateVision;
 	KEY_VOID,	 		// Taunt;
@@ -726,6 +330,8 @@ PLAYER_INPUT_CONFIGURATION DefaultAlienInputSecondaryConfig =
 	KEY_VOID,
 	KEY_VOID,
 	KEY_VOID,
+	KEY_VOID,			// Change Species
+	KEY_VOID,			// Change Class
 };
 
 
@@ -829,8 +435,8 @@ void InitPlayerGameInput(STRATEGYBLOCK* sbPtr)
 	playerStatusPtr->Mvt_InputRequests.Mask = 0;
 	playerStatusPtr->Mvt_InputRequests.Mask2 = 0;
 
-	/* KJL 14:23:54 8/7/97 - default to run */
-	playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Faster = 1;
+	/* KJL 14:23:54 8/7/97 - default to walk */
+	playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Faster = Run;
 
 }
 
@@ -876,66 +482,615 @@ void ReadPlayerGameInput(STRATEGYBLOCK* sbPtr)
 
 	if ( IOFOCUS_AcceptControls() && !InGameMenusAreRunning())
 	{
+		// Multiplayer class menus
+
+		if (DisplayRadioMenu)
+		{
+			int rand = FastRandom()%2;
+
+			if (DebouncedKeyboardInput[KEY_F1]) {
+				if (rand) {
+					AddNetMsg_ChatBroadcast("I need help!",TRUE);
+					Sound_Play(SID_HELP_HELP,"hv",127);
+					playerStatusPtr->AirStatus = SID_HELP_HELP;
+				} else {
+					AddNetMsg_ChatBroadcast("Requesting assistance!",TRUE);
+					Sound_Play(SID_HELP_ASSISTANCE,"hv",127);
+					playerStatusPtr->AirStatus = SID_HELP_ASSISTANCE;
+				}
+				DisplayRadioMenu = 0;
+			}
+			if (DebouncedKeyboardInput[KEY_F2]) {
+				if (rand) {
+					AddNetMsg_ChatBroadcast("Cover me!",TRUE);
+					Sound_Play(SID_ENGAGE_COVER,"hv",127);
+					playerStatusPtr->AirStatus = SID_ENGAGE_COVER;
+				} else {
+					AddNetMsg_ChatBroadcast("Enemy spotted!",TRUE);
+					Sound_Play(SID_ENGAGE_SPOTTED,"hv",127);
+					playerStatusPtr->AirStatus = SID_ENGAGE_SPOTTED;
+				}
+				DisplayRadioMenu = 0;
+			}
+			if (DebouncedKeyboardInput[KEY_F3]) {
+				if (rand) {
+					AddNetMsg_ChatBroadcast("Enemy down!",TRUE);
+					Sound_Play(SID_KILL_DOWN,"hv",127);
+					playerStatusPtr->AirStatus = SID_KILL_DOWN;
+				} else {
+					AddNetMsg_ChatBroadcast("Area secured!",TRUE);
+					Sound_Play(SID_KILL_SECURED,"hv",127);
+					playerStatusPtr->AirStatus = SID_KILL_SECURED;
+				}
+				DisplayRadioMenu = 0;
+			}
+			if (DebouncedKeyboardInput[KEY_F4]) {
+				if (playerStatusPtr->Class != CLASS_AA_SPEC) {
+					if (rand) {
+						AddNetMsg_ChatBroadcast("Affirmative!",TRUE);
+						Sound_Play(SID_YES_AFFIRMATIVE,"hv",127);
+						playerStatusPtr->AirStatus = SID_YES_AFFIRMATIVE;
+					} else {
+						AddNetMsg_ChatBroadcast("Roger!",TRUE);
+						Sound_Play(SID_YES_ROGER,"hv",127);
+						playerStatusPtr->AirStatus = SID_YES_ROGER;
+					}
+				} else {
+					if (rand) {
+						AddNetMsg_ChatBroadcast("I'm the ultimate badass!",FALSE);
+						Sound_Play(SID_TAUNT_BADASS,"hv",127);
+						playerStatusPtr->AirStatus = SID_TAUNT_BADASS;
+					} else {
+						AddNetMsg_ChatBroadcast("Let's rock and roll!",FALSE);
+						Sound_Play(SID_TAUNT_ROCK,"hv",127);
+						playerStatusPtr->AirStatus = SID_TAUNT_ROCK;
+					}
+				}
+				DisplayRadioMenu = 0;
+			}
+			if (DebouncedKeyboardInput[KEY_F5]) {
+				if (playerStatusPtr->Class != CLASS_AA_SPEC) {
+					if (rand) {
+						AddNetMsg_ChatBroadcast("No way sir!",TRUE);
+						Sound_Play(SID_NO_NOWAY,"hv",127);
+						playerStatusPtr->AirStatus = SID_NO_NOWAY;
+					} else {
+						AddNetMsg_ChatBroadcast("Negative!",TRUE);
+						Sound_Play(SID_NO_NEGATIVE,"hv",127);
+						playerStatusPtr->AirStatus = SID_NO_NEGATIVE;
+					}
+				} else {
+					if (rand) {
+						AddNetMsg_ChatBroadcast("Engage!",TRUE);
+						Sound_Play(SID_ATTACK_ENGAGE,"hv",127);
+						playerStatusPtr->AirStatus = SID_ATTACK_ENGAGE;
+					} else {
+						AddNetMsg_ChatBroadcast("Prepare for assault!",TRUE);
+						Sound_Play(SID_ATTACK_ASSAULT,"hv",127);
+						playerStatusPtr->AirStatus = SID_ATTACK_ASSAULT;
+					}
+				}
+				DisplayRadioMenu = 0;
+			}
+			if (DebouncedKeyboardInput[KEY_F6]) {
+				if (playerStatusPtr->Class != CLASS_AA_SPEC) {
+					if (rand) {
+						AddNetMsg_ChatBroadcast("I'm the ultimate badass!",FALSE);
+						Sound_Play(SID_TAUNT_BADASS,"hv",127);
+						playerStatusPtr->AirStatus = SID_TAUNT_BADASS;
+					} else {
+						AddNetMsg_ChatBroadcast("Let's rock and roll!",FALSE);
+						Sound_Play(SID_TAUNT_ROCK,"hv",127);
+						playerStatusPtr->AirStatus = SID_TAUNT_ROCK;
+					}
+				} else {
+					if (rand) {
+						AddNetMsg_ChatBroadcast("Defensive formation!",TRUE);
+						Sound_Play(SID_DEFEND_FORMATION,"hv",127);
+						playerStatusPtr->AirStatus = SID_DEFEND_FORMATION;
+					} else {
+						AddNetMsg_ChatBroadcast("Hold your positions!",TRUE);
+						Sound_Play(SID_DEFEND_POSITIONS,"hv",127);
+						playerStatusPtr->AirStatus = SID_DEFEND_POSITIONS;
+					}
+				}
+				DisplayRadioMenu = 0;
+			}
+			if (DebouncedKeyboardInput[KEY_F7]) {
+				if (playerStatusPtr->Class != CLASS_AA_SPEC) {
+					AddNetMsg_ChatBroadcast("I need medical attention!",TRUE);
+					Sound_Play(SID_SPEC_MEDIC,"hv",127);
+					playerStatusPtr->AirStatus = SID_SPEC_MEDIC;
+				} else {
+					if (rand) {
+						AddNetMsg_ChatBroadcast("Stick together!",TRUE);
+						Sound_Play(SID_CONVERGE_STICK,"hv",127);
+						playerStatusPtr->AirStatus = SID_CONVERGE_STICK;
+					} else {
+						AddNetMsg_ChatBroadcast("Keep it tight people!",TRUE);
+						Sound_Play(SID_CONVERGE_TIGHT,"hv",127);
+						playerStatusPtr->AirStatus = SID_CONVERGE_TIGHT;
+					}
+				}
+				DisplayRadioMenu = 0;
+			}
+			if (DebouncedKeyboardInput[KEY_F8]) {
+				if (playerStatusPtr->Class != CLASS_AA_SPEC) {
+					AddNetMsg_ChatBroadcast("Fire in the hole!",TRUE);
+					Sound_Play(SID_SPEC_FIREHOLE,"hv",127);
+					playerStatusPtr->AirStatus = SID_SPEC_FIREHOLE;
+				} else {
+					if (rand) {
+						AddNetMsg_ChatBroadcast("Disperse!",TRUE);
+						Sound_Play(SID_DISPERSE_DISPERSE,"hv",127);
+						playerStatusPtr->AirStatus = SID_DISPERSE_DISPERSE;
+					} else {
+						AddNetMsg_ChatBroadcast("Spread out!",TRUE);
+						Sound_Play(SID_DISPERSE_SPREAD,"hv",127);
+						playerStatusPtr->AirStatus = SID_DISPERSE_SPREAD;
+					}
+				}
+				DisplayRadioMenu = 0;
+			}
+			if (DebouncedKeyboardInput[KEY_F9]) {
+				if (playerStatusPtr->Class == CLASS_RIFLEMAN ||
+					playerStatusPtr->Class == CLASS_COM_TECH) {
+					if (rand) {
+						AddNetMsg_ChatBroadcast("There's something moving in here!",TRUE);
+						Sound_Play(SID_TRACKER_MOVING,"hv",127);
+						playerStatusPtr->AirStatus = SID_TRACKER_MOVING;
+					} else {
+						AddNetMsg_ChatBroadcast("I've got movement!",TRUE);
+						Sound_Play(SID_TRACKER_MOVEMENT,"hv",127);
+						playerStatusPtr->AirStatus = SID_TRACKER_MOVEMENT;
+					}
+				} else if (playerStatusPtr->Class == CLASS_AA_SPEC) {
+					if (rand) {
+						AddNetMsg_ChatBroadcast("Stay frosty!",TRUE);
+						Sound_Play(SID_ATTENTION_FROSTY,"hv",127);
+						playerStatusPtr->AirStatus = SID_ATTENTION_FROSTY;
+					} else {
+						AddNetMsg_ChatBroadcast("Stay sharp!",TRUE);
+						Sound_Play(SID_ATTENTION_SHARP,"hv",127);
+						playerStatusPtr->AirStatus = SID_ATTENTION_SHARP;
+					}
+				}
+				DisplayRadioMenu = 0;
+			}
+			if (DebouncedKeyboardInput[KEY_F10]) {
+				if (playerStatusPtr->Class == CLASS_AA_SPEC) {
+					AddNetMsg_ChatBroadcast("Use grenades.",TRUE);
+					Sound_Play(SID_REQUEST_GRENADES,"hv",127);
+					playerStatusPtr->AirStatus = SID_REQUEST_GRENADES;
+				}
+				DisplayRadioMenu = 0;
+			}
+			if (DebouncedKeyboardInput[KEY_F11]) {
+				if (playerStatusPtr->Class == CLASS_AA_SPEC) {
+					AddNetMsg_ChatBroadcast("Run a bypass.",TRUE);
+					Sound_Play(SID_REQUEST_BYPASS,"hv",127);
+					playerStatusPtr->AirStatus = SID_REQUEST_BYPASS;
+				}
+				DisplayRadioMenu = 0;
+			}
+			if (DebouncedKeyboardInput[KEY_F12]) {
+				if (playerStatusPtr->Class == CLASS_AA_SPEC) {
+					AddNetMsg_ChatBroadcast("Use trackers.",TRUE);
+					Sound_Play(SID_REQUEST_TRACKERS,"hv",127);
+					playerStatusPtr->AirStatus = SID_REQUEST_TRACKERS;
+				}
+				DisplayRadioMenu = 0;
+			}
+			if(DebouncedKeyboardInput[KEY_ESCAPE])
+				 ToggleRadioMenu();
+
+			return;
+		}
+		if ((AvP.Network != I_No_Network) && (playerStatusPtr->Class == 20))
+		{
+			extern void ChangeToMarine();
+			extern void ChangeToAlien();
+			extern void ChangeToPredator();
+
+			if (DebouncedKeyboardInput[KEY_F1])
+			{
+				netGameData.myCharacterSubType=NGSCT_General;
+				ChangeToAlien();
+				playerStatusPtr->Class = CLASS_NONE;
+				playerStatusPtr->Cocoons = CLASS_NONE;
+				AddNetMsg_ChatBroadcast("(AUTO) Joined the Alien team.", FALSE);
+
+				if (netGameData.LifeCycle)
+					playerStatusPtr->Class = CLASS_EXF_W_SPEC;
+			}
+			if (DebouncedKeyboardInput[KEY_F2])
+			{
+				netGameData.myCharacterSubType=NGSCT_General;
+				ChangeToMarine();
+				playerStatusPtr->Class = CLASS_NONE;
+				playerStatusPtr->Cocoons = CLASS_NONE;
+				AddNetMsg_ChatBroadcast("(AUTO) Joined the Marine team.", FALSE);
+			}
+			if (DebouncedKeyboardInput[KEY_F3])
+			{
+				netGameData.myCharacterSubType=NGSCT_General;
+				ChangeToPredator();
+				playerStatusPtr->Class = CLASS_NONE;
+				playerStatusPtr->Cocoons = CLASS_NONE;
+				AddNetMsg_ChatBroadcast("(AUTO) Joined the Predator team.", FALSE);
+			}
+			return;
+		}
+		if ((AvP.Network != I_No_Network) && ((playerStatusPtr->Class == CLASS_NONE) ||
+			(DisplayClasses)))
+		{
+			extern void ChangeToMarine();
+			extern void ChangeToAlien();
+			extern void ChangeToPredator();
+			extern void NewOnScreenMessage(unsigned char *messagePtr);
+
+			if (DebouncedKeyboardInput[KEY_F1]) 
+			{
+				if (AvP.PlayerType == I_Marine)
+				{
+					if (playerStatusPtr->Class == CLASS_NONE)
+					{
+						playerStatusPtr->Class = CLASS_RIFLEMAN;
+						ChangeToMarine();
+					}
+					playerStatusPtr->Cocoons = CLASS_RIFLEMAN;
+					netGameData.myCharacterSubType=NGSCT_General;
+					NewOnScreenMessage("You will respawn as a Rifleman.");
+				}
+				if (AvP.PlayerType == I_Predator)
+				{
+					if (playerStatusPtr->Class == CLASS_NONE)
+					{
+						playerStatusPtr->Class = CLASS_PRED_WARRIOR;
+						ChangeToPredator();
+					}
+					netGameData.myCharacterSubType=NGSCT_General;
+					playerStatusPtr->Cocoons = CLASS_PRED_WARRIOR;
+					NewOnScreenMessage("You will respawn as a Predator Warrior.");				
+				}
+				if (AvP.PlayerType == I_Alien)
+				{
+					if (playerStatusPtr->Class == CLASS_NONE)
+					{
+						playerStatusPtr->Class = CLASS_ALIEN_DRONE;
+						ChangeToAlien();
+					}
+					netGameData.myCharacterSubType=NGSCT_General;
+					playerStatusPtr->Cocoons = CLASS_ALIEN_DRONE;
+					NewOnScreenMessage("You will respawn as an Alien Drone.");
+				}
+				DisplayClasses = 0;
+			}
+			if (DebouncedKeyboardInput[KEY_F2]) 
+			{
+				if (AvP.PlayerType == I_Marine)
+				{
+					if (playerStatusPtr->Class == CLASS_NONE)
+					{
+						playerStatusPtr->Class = CLASS_SMARTGUNNER;
+						ChangeToMarine();
+					}
+					playerStatusPtr->Cocoons = CLASS_SMARTGUNNER;
+					netGameData.myCharacterSubType=NGSCT_General;
+					NewOnScreenMessage("You will respawn as a Smartgunner.");
+				}
+				if (AvP.PlayerType == I_Predator)
+				{
+					if (playerStatusPtr->Class == CLASS_NONE)
+					{
+						playerStatusPtr->Class = CLASS_PRED_HUNTER;
+						ChangeToPredator();
+					}
+					netGameData.myCharacterSubType=NGSCT_General;
+					playerStatusPtr->Cocoons = CLASS_PRED_HUNTER;
+					NewOnScreenMessage("You will respawn as a Predator Hunter.");
+				}
+				if (AvP.PlayerType == I_Alien)
+				{
+					if (playerStatusPtr->Class == CLASS_NONE)
+					{
+						playerStatusPtr->Class = CLASS_ALIEN_WARRIOR;
+						ChangeToAlien();
+					}
+					netGameData.myCharacterSubType=NGSCT_General;
+					playerStatusPtr->Cocoons = CLASS_ALIEN_WARRIOR;
+					NewOnScreenMessage("You will respawn as an Alien Warrior.");
+				}
+				DisplayClasses = 0;
+			}
+			if (DebouncedKeyboardInput[KEY_F3]) 
+			{
+				if (AvP.PlayerType == I_Marine)
+				{
+					if (playerStatusPtr->Class == CLASS_NONE)
+					{
+						playerStatusPtr->Class = CLASS_INC_SPEC;
+						ChangeToMarine();
+					}
+					playerStatusPtr->Cocoons = CLASS_INC_SPEC;
+					netGameData.myCharacterSubType=NGSCT_General;
+					NewOnScreenMessage("You will respawn as an Incinerator Specialist.");
+				}
+				if (AvP.PlayerType == I_Predator)
+				{
+					if (playerStatusPtr->Class == CLASS_NONE)
+					{
+						playerStatusPtr->Class = CLASS_RENEGADE;
+						ChangeToPredator();
+					}
+					netGameData.myCharacterSubType=NGSCT_General;
+					playerStatusPtr->Cocoons = CLASS_RENEGADE;
+					NewOnScreenMessage("You will respawn as a Predator Bad Blood.");
+				}
+				if (AvP.PlayerType == I_Alien)
+				{
+					if (playerStatusPtr->Class == CLASS_NONE)
+					{
+						playerStatusPtr->Class = CLASS_EXF_SNIPER;
+						ChangeToAlien();
+					}
+					netGameData.myCharacterSubType=NGSCT_Frisbee;
+					playerStatusPtr->Cocoons = CLASS_EXF_SNIPER;
+					NewOnScreenMessage("You will respawn as a Predalien.");
+				}
+				DisplayClasses = 0;
+			}
+			if (DebouncedKeyboardInput[KEY_F4]) 
+			{
+				if (AvP.PlayerType == I_Marine)
+				{
+					if (playerStatusPtr->Class == CLASS_NONE)
+					{
+						playerStatusPtr->Class = CLASS_ENGINEER;
+						ChangeToMarine();
+					}
+					playerStatusPtr->Cocoons = CLASS_ENGINEER;
+					netGameData.myCharacterSubType=NGSCT_General;
+					NewOnScreenMessage("You will respawn as an Engineer.");
+				}
+				if (AvP.PlayerType == I_Predator)
+				{
+					if (playerStatusPtr->Class == CLASS_NONE)
+					{
+						playerStatusPtr->Class = CLASS_ELDER;
+						ChangeToPredator();
+					}
+					netGameData.myCharacterSubType=NGSCT_General;
+					playerStatusPtr->Cocoons = CLASS_ELDER;
+					NewOnScreenMessage("You will respawn as a Predator Elder.");
+				}
+				/*if (AvP.PlayerType == I_Alien)
+				{
+					netGameData.myCharacterSubType=NGSCT_Minigun;
+					playerStatusPtr->Class = CLASS_EXF_W_SPEC;
+					ChangeToAlien();
+					AddNetMsg_ChatBroadcast("(AUTO) Changed class to Facehugger.", TRUE);
+				}*/
+				DisplayClasses = 0;
+			}
+			if (DebouncedKeyboardInput[KEY_F5]) 
+			{
+				if (AvP.PlayerType == I_Marine)
+				{
+					if (playerStatusPtr->Class == CLASS_NONE)
+					{
+						playerStatusPtr->Class = CLASS_COM_TECH;
+						ChangeToMarine();
+					}
+					playerStatusPtr->Cocoons = CLASS_COM_TECH;
+					netGameData.myCharacterSubType=NGSCT_General;
+					NewOnScreenMessage("You will respawn as a Com-Tech.");
+				}
+				if (AvP.PlayerType == I_Predator)
+				{
+					if (playerStatusPtr->Class == CLASS_NONE)
+					{
+						playerStatusPtr->Class = CLASS_TANK_ALIEN;
+						ChangeToPredator();
+					}
+					playerStatusPtr->Cocoons = CLASS_TANK_ALIEN;
+					NewOnScreenMessage("You will respawn as a Female Hunter.");
+				}
+				DisplayClasses = 0;
+			}
+			if (DebouncedKeyboardInput[KEY_F6]) 
+			{
+				if (AvP.PlayerType == I_Marine)
+				{
+					if (playerStatusPtr->Class == CLASS_NONE)
+					{
+						playerStatusPtr->Class = CLASS_MEDIC_FT;
+						ChangeToMarine();
+					}
+					playerStatusPtr->Cocoons = CLASS_MEDIC_FT;
+					netGameData.myCharacterSubType=NGSCT_General;
+					NewOnScreenMessage("You will respawn as a Medic.");
+				}
+				DisplayClasses = 0;
+			}
+			if (DebouncedKeyboardInput[KEY_F7]) 
+			{
+				if (AvP.PlayerType == I_Marine)
+				{
+					if (playerStatusPtr->Class == CLASS_NONE)
+					{
+						playerStatusPtr->Class = CLASS_AA_SPEC;
+						ChangeToMarine();
+					}
+					playerStatusPtr->Cocoons = CLASS_AA_SPEC;
+					netGameData.myCharacterSubType=NGSCT_General;
+					NewOnScreenMessage("You will respawn as an Officer.");
+				}
+				DisplayClasses = 0;
+			}
+		}
 		/* now do forward,backward,left,right,up and down 
 		   IMPORTANT:  The request flag and the movement 
 		   increment must BOTH be set!
 		*/
+		if ((AvP.Network==I_No_Network) || ((AvP.Network != I_No_Network) &&
+			(playerStatusPtr->Class != CLASS_NONE) && (playerStatusPtr->Class != 20)))
+		{
 		if(KeyboardInput[primaryInput->Forward]
 		 ||KeyboardInput[secondaryInput->Forward])
-		{
+		if (!playerStatusPtr->Immobilized) {
 			playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Forward = 1;
 			playerStatusPtr->Mvt_MotionIncrement = ONE_FIXED;
+			HackPool = 0;
+			WeldPool = 0;
 		}	
 		if(KeyboardInput[primaryInput->Backward]
 		 ||KeyboardInput[secondaryInput->Backward])
-		{
+		if (!playerStatusPtr->Immobilized) {
 			playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Backward = 1;
 			playerStatusPtr->Mvt_MotionIncrement = -ONE_FIXED;
+			HackPool = 0;
+			WeldPool = 0;
 		}
+
+		if (!playerStatusPtr->Honor)
+		{
+
 		if(KeyboardInput[primaryInput->Left]
 		 ||KeyboardInput[secondaryInput->Left])
-		{
+		if (!playerStatusPtr->Immobilized) {
 			playerStatusPtr->Mvt_InputRequests.Flags.Rqst_TurnLeft = 1;
 			playerStatusPtr->Mvt_TurnIncrement = -ONE_FIXED;
+			HackPool = 0;
+			WeldPool = 0;
 		}
 		if(KeyboardInput[primaryInput->Right]
 		 ||KeyboardInput[secondaryInput->Right])
-		{
+		if (!playerStatusPtr->Immobilized) {
 			playerStatusPtr->Mvt_InputRequests.Flags.Rqst_TurnRight = 1;
 			playerStatusPtr->Mvt_TurnIncrement = ONE_FIXED;
+			HackPool = 0;
+			WeldPool = 0;
 		}
+
+		}//APC
 
 		if(KeyboardInput[primaryInput->StrafeLeft]
 		 ||KeyboardInput[secondaryInput->StrafeLeft])
 		{
-			playerStatusPtr->Mvt_InputRequests.Flags.Rqst_SideStepLeft = 1;
-			playerStatusPtr->Mvt_SideStepIncrement = -ONE_FIXED;
+			if (playerStatusPtr->Honor) {
+				if (CurrentSpeed) {
+					playerStatusPtr->Mvt_InputRequests.Flags.Rqst_TurnLeft = 1;
+					playerStatusPtr->Mvt_TurnIncrement = -ONE_FIXED;
+				}
+			} else {
+				if (!playerStatusPtr->Immobilized) {
+					playerStatusPtr->Mvt_InputRequests.Flags.Rqst_SideStepLeft = 1;
+					playerStatusPtr->Mvt_SideStepIncrement = -ONE_FIXED;
+					HackPool = 0;
+					WeldPool = 0;
+				}
+			}
 		}
 		if(KeyboardInput[primaryInput->StrafeRight]
 		 ||KeyboardInput[secondaryInput->StrafeRight])
-		{	
-			playerStatusPtr->Mvt_InputRequests.Flags.Rqst_SideStepRight = 1;
-			playerStatusPtr->Mvt_SideStepIncrement = ONE_FIXED;
+		{
+			if (playerStatusPtr->Honor) {
+				if (CurrentSpeed) {
+					playerStatusPtr->Mvt_InputRequests.Flags.Rqst_TurnRight = 1;
+					playerStatusPtr->Mvt_TurnIncrement = ONE_FIXED;
+				}
+			} else {
+				if (!playerStatusPtr->Immobilized) {
+					playerStatusPtr->Mvt_InputRequests.Flags.Rqst_SideStepRight = 1;
+					playerStatusPtr->Mvt_SideStepIncrement = ONE_FIXED;
+					HackPool = 0;
+					WeldPool = 0;
+				}
+			}
 		}
-		if(KeyboardInput[primaryInput->Walk]
-		 ||KeyboardInput[secondaryInput->Walk])
-			playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Faster = 0;
-		
+		if (!playerStatusPtr->Honor)
+		{
+			extern int RunMode;
+			if (!RunMode) {
+				if(DebouncedKeyboardInput[primaryInput->Walk]
+				||DebouncedKeyboardInput[secondaryInput->Walk])
+				{
+					if (!RunMode) // Toggle
+					{
+						if (Run) {
+							Run = 0;
+						} else {
+							Run = 1;
+						}
+					} else {	// P&H
+						playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Faster=1;
+					}
+				}
+			} else {
+				if (KeyboardInput[primaryInput->Walk]
+				||KeyboardInput[secondaryInput->Walk])
+				{
+					if (!RunMode) // Toggle
+					{
+						if (Run) {
+							Run = 0;
+						} else {
+							Run = 1;
+						}
+					} else {	// P&H
+						playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Faster=1;
+					}
+				}
+			}
+
 		if(KeyboardInput[primaryInput->Strafe]
 		 ||KeyboardInput[secondaryInput->Strafe])
 			playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Strafe = 1;
 
 		if(KeyboardInput[primaryInput->Crouch]
 		 ||KeyboardInput[secondaryInput->Crouch])
+		 if (!playerStatusPtr->Destr && !playerStatusPtr->Immobilized)
 			playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Crouch = 1;
-		
-		if(KeyboardInput[primaryInput->Jump]
-		 ||KeyboardInput[secondaryInput->Jump])
-			playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Jump = 1;
 
-		if(KeyboardInput[primaryInput->Operate]
-		 ||KeyboardInput[secondaryInput->Operate])
-			playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Operate = 1;
+		}//APC
+
+		if (OnLadder || Underwater || ZeroG)
+		{
+			if(KeyboardInput[primaryInput->Jump]
+			 ||KeyboardInput[secondaryInput->Jump])
+				if (!playerStatusPtr->Immobilized) {
+					playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Jump = 1;
+				}
+		} else {
+			if (DebouncedKeyboardInput[primaryInput->Jump]
+				||DebouncedKeyboardInput[secondaryInput->Jump])
+				if (!playerStatusPtr->Immobilized) {
+					playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Jump = 1;
+				}
+		}
+
+		 if (AvP.PlayerType != I_Alien)
+		 {
+			if(DebouncedKeyboardInput[primaryInput->Operate]
+			 ||DebouncedKeyboardInput[secondaryInput->Operate])
+			{
+				if (!playerStatusPtr->Honor)
+					playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Operate = 1;
+			} 
+		 } else {
+			if(KeyboardInput[primaryInput->Operate]
+			||KeyboardInput[secondaryInput->Operate])
+			{
+				if (playerStatusPtr->Class != CLASS_EXF_W_SPEC)
+				{
+					Grab();
+				}
+			} else {
+				GrabAttackInProgress=0;
+			}
+		 }
+		} // Multiplayer class check
 
 		/* check for character specific abilities */
 		if (playerStatusPtr->IsAlive)
@@ -943,28 +1098,57 @@ void ReadPlayerGameInput(STRATEGYBLOCK* sbPtr)
 		{
 			case I_Marine:
 			{
-				if(KeyboardInput[primaryInput->ImageIntensifier]
-				 ||KeyboardInput[secondaryInput->ImageIntensifier])
-					playerStatusPtr->Mvt_InputRequests.Flags.Rqst_ChangeVision = 1;
+				if ((AvP.Network==I_No_Network) || ((AvP.Network != I_No_Network) &&
+					(playerStatusPtr->Class != CLASS_NONE) && (playerStatusPtr->Class != 20)))
+				{
+					if (!playerStatusPtr->Honor)
+					{
+
+				if(DebouncedKeyboardInput[primaryInput->ImageIntensifier]
+					||DebouncedKeyboardInput[secondaryInput->ImageIntensifier])
+				{
+					extern void UseMotionTracker(void);
+					//playerStatusPtr->Mvt_InputRequests.Flags.Rqst_ChangeVision = 1;
+					UseMotionTracker();
+				}
 
 				if(DebouncedKeyboardInput[primaryInput->ThrowFlare]
 				 ||DebouncedKeyboardInput[secondaryInput->ThrowFlare])
 					ThrowAFlare();
 
-				#if !(MARINE_DEMO||DEATHMATCH_DEMO)
-				if(KeyboardInput[primaryInput->Jetpack]
-				 ||KeyboardInput[secondaryInput->Jetpack])
-					playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Jetpack = 1;
-				#endif
-				
+				if (DebouncedKeyboardInput[primaryInput->Marine_Grenade]
+				||DebouncedKeyboardInput[secondaryInput->Marine_Grenade])
+					OverLoadDrill(0);
+
+				if (DebouncedKeyboardInput[primaryInput->Marine_Medikit]
+				||DebouncedKeyboardInput[secondaryInput->Marine_Medikit])
+					UseMedikit();
+
+				if (DebouncedKeyboardInput[primaryInput->Marine_SentryGun]
+				||DebouncedKeyboardInput[secondaryInput->Marine_SentryGun])
+					DeploySentry();
+
+					}
+
+				if(DebouncedKeyboardInput[primaryInput->Jetpack]
+				 ||DebouncedKeyboardInput[secondaryInput->Jetpack])
+				{
+					if (!playerStatusPtr->Honor)
+						ToggleShoulderLamp();
+				}
 				if(KeyboardInput[primaryInput->MarineTaunt]
 				 ||KeyboardInput[secondaryInput->MarineTaunt])
+				 if (AvP.Network == I_No_Network)
 					StartPlayerTaunt();
+				 else
+					 ToggleRadioMenu();
 				
 				if(DebouncedKeyboardInput[primaryInput->Marine_MessageHistory]
 				 ||DebouncedKeyboardInput[secondaryInput->Marine_MessageHistory])
 					MessageHistory_DisplayPrevious();
-					
+
+				} // Multiplayer class check
+
 				if(DebouncedKeyboardInput[primaryInput->Marine_Say]
 				 ||DebouncedKeyboardInput[secondaryInput->Marine_Say])
 					BringDownConsoleWithSayTypedIn();
@@ -976,6 +1160,14 @@ void ReadPlayerGameInput(STRATEGYBLOCK* sbPtr)
 				if(KeyboardInput[primaryInput->Marine_ShowScores]
 				 ||KeyboardInput[secondaryInput->Marine_ShowScores])
 					ShowMultiplayerScores();
+
+				if(DebouncedKeyboardInput[primaryInput->Marine_ChangeSpecies]
+				 ||DebouncedKeyboardInput[secondaryInput->Marine_ChangeSpecies])
+					ChangeSpecies();
+
+				if(DebouncedKeyboardInput[primaryInput->Marine_ChangeClass]
+				 ||DebouncedKeyboardInput[secondaryInput->Marine_ChangeClass])
+					ChangeClass();
 					
 
 				break;
@@ -984,6 +1176,9 @@ void ReadPlayerGameInput(STRATEGYBLOCK* sbPtr)
 			{
 				extern int CameraZoomLevel;
 				
+				if ((AvP.Network==I_No_Network) || ((AvP.Network != I_No_Network) &&
+					(playerStatusPtr->Class != CLASS_NONE) && (playerStatusPtr->Class != 20)))
+				{
 				if(KeyboardInput[primaryInput->Cloak]
 				 ||KeyboardInput[secondaryInput->Cloak])
 					playerStatusPtr->Mvt_InputRequests.Flags.Rqst_ChangeVision = 1;
@@ -995,7 +1190,11 @@ void ReadPlayerGameInput(STRATEGYBLOCK* sbPtr)
 				#if !(PREDATOR_DEMO||DEATHMATCH_DEMO)
 				if(DebouncedKeyboardInput[primaryInput->GrapplingHook]
 				 ||DebouncedKeyboardInput[secondaryInput->GrapplingHook])
-					playerStatusPtr->Mvt_InputRequests.Flags.Rqst_GrapplingHook = 1;
+				{
+					extern void PCSelfDestruct(PLAYER_WEAPON_DATA *weaponPtr);
+					//playerStatusPtr->Mvt_InputRequests.Flags.Rqst_GrapplingHook = 0;
+					PCSelfDestruct(0);
+				}
 				#endif
 
 				if(DebouncedKeyboardInput[primaryInput->ZoomIn]
@@ -1023,6 +1222,8 @@ void ReadPlayerGameInput(STRATEGYBLOCK* sbPtr)
 				 ||DebouncedKeyboardInput[secondaryInput->Predator_MessageHistory])
 					MessageHistory_DisplayPrevious();
 					
+				} // Multiplayer class check
+
 				if(DebouncedKeyboardInput[primaryInput->Predator_Say]
 				 ||DebouncedKeyboardInput[secondaryInput->Predator_Say])
 					BringDownConsoleWithSayTypedIn();
@@ -1035,23 +1236,39 @@ void ReadPlayerGameInput(STRATEGYBLOCK* sbPtr)
 				 ||KeyboardInput[secondaryInput->Predator_ShowScores])
 					ShowMultiplayerScores();
 
+				if(DebouncedKeyboardInput[primaryInput->Predator_ChangeSpecies]
+				 ||DebouncedKeyboardInput[secondaryInput->Predator_ChangeSpecies])
+					ChangeSpecies();
+
+				if(DebouncedKeyboardInput[primaryInput->Predator_ChangeClass]
+				 ||DebouncedKeyboardInput[secondaryInput->Predator_ChangeClass])
+					ChangeClass();
+
 				break;
 			}
 
 			case I_Alien:
 			{
+				if ((AvP.Network==I_No_Network) || ((AvP.Network != I_No_Network) &&
+					(playerStatusPtr->Class != CLASS_NONE) && (playerStatusPtr->Class != 20)))
+				{
 				if(KeyboardInput[primaryInput->AlternateVision]
 				 ||KeyboardInput[secondaryInput->AlternateVision])
-					playerStatusPtr->Mvt_InputRequests.Flags.Rqst_ChangeVision = 1;
+					//playerStatusPtr->Mvt_InputRequests.Flags.Rqst_ChangeVision = 1;
+					Ram();
 
 				if(KeyboardInput[primaryInput->Taunt]
-				 ||KeyboardInput[secondaryInput->Taunt])
-					StartPlayerTaunt();
+				||KeyboardInput[secondaryInput->Taunt]) {
+				    if (playerStatusPtr->Class != CLASS_EXF_W_SPEC)
+						StartPlayerTaunt();
+				}
 	
 				if(DebouncedKeyboardInput[primaryInput->Alien_MessageHistory]
 				 ||DebouncedKeyboardInput[secondaryInput->Alien_MessageHistory])
 					MessageHistory_DisplayPrevious();
 					
+				} // Multiplayer class check
+
 				if(DebouncedKeyboardInput[primaryInput->Alien_Say]
 				 ||DebouncedKeyboardInput[secondaryInput->Alien_Say])
 					BringDownConsoleWithSayTypedIn();
@@ -1064,6 +1281,14 @@ void ReadPlayerGameInput(STRATEGYBLOCK* sbPtr)
 				 ||KeyboardInput[secondaryInput->Alien_ShowScores])
 					ShowMultiplayerScores();
 
+				if(DebouncedKeyboardInput[primaryInput->Alien_ChangeSpecies]
+				 ||DebouncedKeyboardInput[secondaryInput->Alien_ChangeSpecies])
+					ChangeSpecies();
+
+				if(DebouncedKeyboardInput[primaryInput->Alien_ChangeClass]
+				 ||DebouncedKeyboardInput[secondaryInput->Alien_ChangeClass])
+					ChangeClass();
+
 				break;
 			}
 		}
@@ -1075,10 +1300,28 @@ void ReadPlayerGameInput(STRATEGYBLOCK* sbPtr)
 
 		if(!PaintBallMode.IsOn)
 		{
-			if(KeyboardInput[primaryInput->FirePrimaryWeapon]
-			 ||KeyboardInput[secondaryInput->FirePrimaryWeapon])
-				playerStatusPtr->Mvt_InputRequests.Flags.Rqst_FirePrimaryWeapon = 1;
-			
+			if ((AvP.Network==I_No_Network) || ((AvP.Network != I_No_Network) &&
+				(playerStatusPtr->Class != CLASS_NONE) && (playerStatusPtr->Class != 20)))
+			{
+				if (playerStatusPtr->Honor) {
+					if(DebouncedKeyboardInput[primaryInput->FirePrimaryWeapon]
+					||DebouncedKeyboardInput[secondaryInput->FirePrimaryWeapon])
+					FireAPCGun();
+				} else {
+					if(KeyboardInput[primaryInput->FirePrimaryWeapon]
+					||KeyboardInput[secondaryInput->FirePrimaryWeapon])
+					if (!GrabAttackInProgress) {
+						if (playerStatusPtr->Class == CLASS_EXF_W_SPEC) {
+							Ram();
+						} else {
+							playerStatusPtr->Mvt_InputRequests.Flags.Rqst_FirePrimaryWeapon = 1;	
+						}
+					}
+				}
+
+			if (!playerStatusPtr->Honor)
+			{
+
 			if(KeyboardInput[primaryInput->LookUp]
 			 ||KeyboardInput[secondaryInput->LookUp])
 			{
@@ -1098,76 +1341,97 @@ void ReadPlayerGameInput(STRATEGYBLOCK* sbPtr)
 
 			if(KeyboardInput[primaryInput->NextWeapon]
 			 ||KeyboardInput[secondaryInput->NextWeapon])
+			{
+				HackPool = 0;
+				WeldPool = 0;
 				playerStatusPtr->Mvt_InputRequests.Flags.Rqst_NextWeapon = 1;
-			
+			}
 			if(KeyboardInput[primaryInput->PreviousWeapon]
 			 ||KeyboardInput[secondaryInput->PreviousWeapon])
+			{
+				HackPool = 0;
+				WeldPool = 0;
 				playerStatusPtr->Mvt_InputRequests.Flags.Rqst_PreviousWeapon = 1;
-
+			}
 			if(DebouncedKeyboardInput[primaryInput->FlashbackWeapon]
 			 ||DebouncedKeyboardInput[secondaryInput->FlashbackWeapon])
-			{
-				if (playerStatusPtr->PreviouslySelectedWeaponSlot!=playerStatusPtr->SelectedWeaponSlot)
-				{
-					playerStatusPtr->Mvt_InputRequests.Flags.Rqst_WeaponNo = playerStatusPtr->PreviouslySelectedWeaponSlot+1;
-				}
-			}
+				Reload_Weapon();
 			
 			if(KeyboardInput[primaryInput->FireSecondaryWeapon]
 			 ||KeyboardInput[secondaryInput->FireSecondaryWeapon])
-				playerStatusPtr->Mvt_InputRequests.Flags.Rqst_FireSecondaryWeapon = 1;
+			 if (!GrabAttackInProgress) {
+				if (playerStatusPtr->Class == CLASS_EXF_W_SPEC) {
+					Ram();
+				} else {
+					playerStatusPtr->Mvt_InputRequests.Flags.Rqst_FireSecondaryWeapon = 1;
+				}
+			 }
 			
 			/* fixed controls */
 			if(KeyboardInput[FixedInputConfig.Weapon1])
+			{
+				HackPool = 0;
+				WeldPool = 0;
 				playerStatusPtr->Mvt_InputRequests.Flags.Rqst_WeaponNo = 1;
-			
-			#if !PREDATOR_DEMO
+			}
 		  	if(KeyboardInput[FixedInputConfig.Weapon2])
+			{
+				HackPool = 0;
+				WeldPool = 0;
 				playerStatusPtr->Mvt_InputRequests.Flags.Rqst_WeaponNo = 2;
-			#else
-		  	if(DebouncedKeyboardInput[FixedInputConfig.Weapon2])
-				playerStatusPtr->Mvt_InputRequests.Flags.Rqst_WeaponNo = 2;
-			#endif
+			}
 			if(KeyboardInput[FixedInputConfig.Weapon3])
+			{
+				HackPool = 0;
+				WeldPool = 0;
 				playerStatusPtr->Mvt_InputRequests.Flags.Rqst_WeaponNo = 3;
-			
-			#if !(MARINE_DEMO)
+			}
 			if(KeyboardInput[FixedInputConfig.Weapon4])
+			{
+				HackPool = 0;
+				WeldPool = 0;
 				playerStatusPtr->Mvt_InputRequests.Flags.Rqst_WeaponNo = 4;
-			#else
-			if(DebouncedKeyboardInput[FixedInputConfig.Weapon4])
-				playerStatusPtr->Mvt_InputRequests.Flags.Rqst_WeaponNo = 4;
-			#endif
-			
-			#if !(PREDATOR_DEMO||MARINE_DEMO)
+			}
 			if(KeyboardInput[FixedInputConfig.Weapon5])
+			{
+				HackPool = 0;
+				WeldPool = 0;
 				playerStatusPtr->Mvt_InputRequests.Flags.Rqst_WeaponNo = 5;
-			#else
-		  	if(DebouncedKeyboardInput[FixedInputConfig.Weapon5])
-				playerStatusPtr->Mvt_InputRequests.Flags.Rqst_WeaponNo = 5;
-			#endif
-
-			#if !(MARINE_DEMO)
+			}
 			if(KeyboardInput[FixedInputConfig.Weapon6])
+			{
+				HackPool = 0;
+				WeldPool = 0;
 				playerStatusPtr->Mvt_InputRequests.Flags.Rqst_WeaponNo = 6;
-			#else
-			if(DebouncedKeyboardInput[FixedInputConfig.Weapon6])
-				playerStatusPtr->Mvt_InputRequests.Flags.Rqst_WeaponNo = 6;
-			#endif
-			
+			}
 			if(KeyboardInput[FixedInputConfig.Weapon7])
+			{
+				HackPool = 0;
+				WeldPool = 0;
 				playerStatusPtr->Mvt_InputRequests.Flags.Rqst_WeaponNo = 7;
-			
+			}
 			if(KeyboardInput[FixedInputConfig.Weapon8])
+			{
+				HackPool = 0;
+				WeldPool = 0;
 				playerStatusPtr->Mvt_InputRequests.Flags.Rqst_WeaponNo = 8;
-			
+			}
 			if(KeyboardInput[FixedInputConfig.Weapon9])
+			{
+				HackPool = 0;
+				WeldPool = 0;
 				playerStatusPtr->Mvt_InputRequests.Flags.Rqst_WeaponNo = 9;
-			
+			}
 			if(KeyboardInput[FixedInputConfig.Weapon10])
+			{
+				HackPool = 0;
+				WeldPool = 0;
 				playerStatusPtr->Mvt_InputRequests.Flags.Rqst_WeaponNo = 10;
-			
-		 
+			}
+
+			}// APC check
+
+			}// Multiplayer class check
 		}
 		#if !(PREDATOR_DEMO||MARINE_DEMO||ALIEN_DEMO||DEATHMATCH_DEMO)
 		else // Cool - paintball mode				`
@@ -1250,8 +1514,10 @@ void ReadPlayerGameInput(STRATEGYBLOCK* sbPtr)
 
 
 
-
-	if (GotMouse)
+	if ((AvP.Network==I_No_Network) || ((AvP.Network != I_No_Network) &&
+		(playerStatusPtr->Class != CLASS_NONE) && (playerStatusPtr->Class != 20)))
+	{
+	if (GotMouse && !playerStatusPtr->Honor)
 	{
 		extern int MouseVelX;
 		extern int MouseVelY;
@@ -1576,7 +1842,7 @@ void ReadPlayerGameInput(STRATEGYBLOCK* sbPtr)
 
 		}
 					   
-		#if 1
+		#if 0
 		textprint("%d\n%d\n%d\n%d\n%d\n%d\n%d\n%d\n",
 			JoystickData.dwXpos,
 			JoystickData.dwYpos,
@@ -1588,6 +1854,7 @@ void ReadPlayerGameInput(STRATEGYBLOCK* sbPtr)
 			JoystickData.dwPOV);
 		#endif
 	}
+	} // Multiplayer class check
 
 	/* KJL 16:03:06 05/11/97 - Handle map options */
 	#if 0
@@ -1715,7 +1982,7 @@ void SaveAKeyConfiguration(char* Filename)
 
 void SaveDefaultPrimaryConfigs(void)
 {
-	FILE* file=fopen("default.cfg","wb");
+	FILE* file=fopen("cb_default.cfg","wb");
 	if(!file) return;
 
 	fwrite(&DefaultMarineInputPrimaryConfig,sizeof(PLAYER_INPUT_CONFIGURATION),1,file);
@@ -1726,7 +1993,7 @@ void SaveDefaultPrimaryConfigs(void)
 }
 void LoadDefaultPrimaryConfigs(void)
 {
-	FILE* file=fopen("default.cfg","rb");
+	FILE* file=fopen("cb_default.cfg","rb");
 	if(!file) return;
 
 	fread(&DefaultMarineInputPrimaryConfig,sizeof(PLAYER_INPUT_CONFIGURATION),1,file);

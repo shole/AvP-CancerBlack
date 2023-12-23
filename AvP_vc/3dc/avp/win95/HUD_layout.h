@@ -11,6 +11,7 @@
 
 #define	HUDLayout_Health_TopY			10
 #define	HUDLayout_Armour_TopY			60
+#define HUDLayout_Flares_TopY			110
 
 /* KJL 15:28:12 09/06/98 - the following are pixels from the bottom of the screen */
 #define HUDLayout_Rounds_TopY			40

@@ -112,7 +112,7 @@ void DoStartMissionSequence (PLAYERMISSION mission)
 	jtextprint ("%s", buffer);
 	FlipBuffers();
 #elif debug
-	textprint ("%s", buffer);
+	//textprint ("%s", buffer);
 	FlushTextprintBuffer();
 	FlipBuffers();
 #endif
@@ -147,7 +147,7 @@ void ShowMissionMessage ()
 #if PreBeta
 	jtextprint ("%s", buffer);
 #elif debug
-	textprint ("%s", buffer);
+	//textprint ("%s", buffer);
 #endif	
 }
 

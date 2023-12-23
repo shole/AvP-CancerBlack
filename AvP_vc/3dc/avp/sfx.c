@@ -17,6 +17,10 @@
 #define UseLocalAssert Yes
 #include "ourasert.h"
 
+extern void DrawFrisbeePlasmaBolt(VECTORCH *positionPtr, VECTORCH *directionPtr);
+extern void DrawPredatorPlasmaBolt(VECTORCH *positionPtr, VECTORCH *directionPtr);
+extern void DrawSmallPredatorPlasmaBolt(VECTORCH *positionPtr, VECTORCH *directionPtr);
+
 static SFXBLOCK SfxBlockStorage[MAX_NO_OF_SFX_BLOCKS];
 static int NumFreeSfxBlocks;
 static SFXBLOCK *FreeSfxBlockList[MAX_NO_OF_SFX_BLOCKS];
@@ -252,11 +256,11 @@ void HandleObjectOnFire(DISPLAYBLOCK *dispPtr)
 		LOCALASSERT(sbPtr);
 
 		
-		velocity.vx = DIV_FIXED((dynPtr->Position.vx-dynPtr->PrevPosition.vx)*3,NormalFrameTime*4);
-		velocity.vy = DIV_FIXED((dynPtr->Position.vy-dynPtr->PrevPosition.vy)*3,NormalFrameTime*4);
-		velocity.vz = DIV_FIXED((dynPtr->Position.vz-dynPtr->PrevPosition.vz)*3,NormalFrameTime*4);
+		velocity.vx = 0;//DIV_FIXED((dynPtr->Position.vx-dynPtr->PrevPosition.vx),NormalFrameTime>>2);
+		velocity.vy = 0;//DIV_FIXED((dynPtr->Position.vy-dynPtr->PrevPosition.vy),NormalFrameTime>>2);
+		velocity.vz = 0;//DIV_FIXED((dynPtr->Position.vz-dynPtr->PrevPosition.vz),NormalFrameTime>>2);
 
-		if (dispPtr==sbPtr->SBdptr)	noRequired = 5;
+		if (dispPtr==sbPtr->SBdptr)	noRequired = 1;
 
 	}
 	#else
@@ -279,11 +283,11 @@ void HandleObjectOnFire(DISPLAYBLOCK *dispPtr)
 		if (objectIsDisappearing)
 		{
 			if ((FastRandom()&65535) < dispPtr->ObFlags2)
-				MakeParticle(&(position), &velocity, PARTICLE_FIRE);
+				MakeParticle(&(position), &velocity, PARTICLE_IMPACTSMOKE);
 		}
 		else
 		{
-			MakeParticle(&(position), &velocity, PARTICLE_FIRE);
+			MakeParticle(&(position), &velocity, PARTICLE_NONCOLLIDINGFLAME);//PARTICLE_FIRE);
 		}
 
 		if (FastRandom()&65535 > 32768)

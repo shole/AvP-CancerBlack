@@ -514,6 +514,9 @@ typedef struct polyheader {
 	int PolyColour;
 	int Poly1stPt;
 
+	// Cancer Black: Materials
+	int Material;
+
 } POLYHEADER;
 
 #if InterfaceEngine

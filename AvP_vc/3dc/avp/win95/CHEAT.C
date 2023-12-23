@@ -114,24 +114,38 @@ void GiveAllWeaponsCheat(void)
 			if (slot<=WEAPON_SLOT_10)	{
 				if (wdPtr->WeaponIDNumber==WEAPON_CUDGEL) {
 					wdPtr->PrimaryMagazinesRemaining=0;
+				} else if (wdPtr->WeaponIDNumber==WEAPON_MINIGUN ||
+						   wdPtr->WeaponIDNumber==WEAPON_FRISBEE_LAUNCHER ||
+						   wdPtr->WeaponIDNumber==WEAPON_SMARTGUN ||
+						   wdPtr->WeaponIDNumber==WEAPON_FLAMETHROWER) {
+					wdPtr->PrimaryMagazinesRemaining=1;
+					wdPtr->PrimaryRoundsRemaining=0;
 				} else {
-					wdPtr->PrimaryMagazinesRemaining=50;
+					wdPtr->PrimaryMagazinesRemaining=10;
 				}
 			} else wdPtr->PrimaryMagazinesRemaining=0;
 
 			if (wdPtr->WeaponIDNumber==WEAPON_PULSERIFLE) {
-				wdPtr->SecondaryRoundsRemaining=(ONE_FIXED*99);
+				wdPtr->SecondaryRoundsRemaining=(ONE_FIXED*12);
 			}
 			if (wdPtr->WeaponIDNumber==WEAPON_TWO_PISTOLS) {
-				wdPtr->SecondaryMagazinesRemaining=50;
+				wdPtr->SecondaryMagazinesRemaining=10;
 			}
-
-
         }
-		GrenadeLauncherData.StandardMagazinesRemaining=50;
-		GrenadeLauncherData.FlareMagazinesRemaining=50;
-		GrenadeLauncherData.ProximityMagazinesRemaining=50;
-		GrenadeLauncherData.FragmentationMagazinesRemaining=50;
+		GrenadeLauncherData.StandardMagazinesRemaining=10;
+		//GrenadeLauncherData.FlareMagazinesRemaining=10;
+		//GrenadeLauncherData.ProximityMagazinesRemaining=10;
+		//GrenadeLauncherData.FragmentationMagazinesRemaining=10;
+
+		playerStatusPtr->FlaresLeft = 20;
+		playerStatusPtr->IRGoggles = 1;
+		playerStatusPtr->ArmorType = 0;
+		playerStatusPtr->IHaveAPlacedAutogun = 1;
+		playerStatusPtr->Medikit = 1;
+		playerStatusPtr->MTrackerType = 1;
+		playerStatusPtr->Grenades = 10;
+		playerStatusPtr->PGC = ONE_FIXED*245;
+		playerStatusPtr->TrackerTimer = ONE_FIXED*600;
 
 	} else if (AvP.PlayerType==I_Predator) {
     	
@@ -139,27 +153,20 @@ void GiveAllWeaponsCheat(void)
         while(slot--)
         {
     		PLAYER_WEAPON_DATA *wdPtr = &playerStatusPtr->WeaponSlot[slot];
-   	
-   	 	 	//if (slot == WEAPON_PLASMAGUN || slot == WEAPON_SONICCANNON) continue;
 			  
 			if (wdPtr->WeaponIDNumber==NULL_WEAPON) continue;
 		
 			if (wdPtr->Possessed==-1) continue; /* This weapon not allowed! */
 
-			if (wdPtr->WeaponIDNumber==WEAPON_PRED_RIFLE) {
-				wdPtr->PrimaryRoundsRemaining+=(ONE_FIXED*SPEARS_PER_PICKUP);
-				if (wdPtr->PrimaryRoundsRemaining>(ONE_FIXED*MAX_SPEARS)) {
-					wdPtr->PrimaryRoundsRemaining=(ONE_FIXED*MAX_SPEARS);
-				}
+			if (wdPtr->WeaponIDNumber==WEAPON_PRED_PISTOL) {
+				wdPtr->PrimaryRoundsRemaining=(ONE_FIXED*27);
+				wdPtr->SecondaryRoundsRemaining=(ONE_FIXED*9);
 		 		wdPtr->Possessed=1;
 				continue;
 			}
 
 			if (wdPtr->WeaponIDNumber==WEAPON_PRED_DISC) {
-				wdPtr->PrimaryRoundsRemaining+=(ONE_FIXED);
-				if (wdPtr->PrimaryRoundsRemaining>(ONE_FIXED*99)) {
-					wdPtr->PrimaryRoundsRemaining=(ONE_FIXED*99);
-				}
+				wdPtr->PrimaryRoundsRemaining=1;
 		 		wdPtr->Possessed=1;
 				continue;
 			}

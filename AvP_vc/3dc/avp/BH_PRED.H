@@ -104,6 +104,7 @@ typedef enum predator_npc_weapons {
 	PNPCW_Medicomp,
 	PNPCW_Speargun,
 	PNPCW_SeriousPlasmaCaster,
+	PNPCW_Disc,
 	PNPCW_End,
 
 } PREDATOR_NPC_WEAPONS;

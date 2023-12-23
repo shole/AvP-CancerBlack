@@ -36,10 +36,12 @@ extern void MinimalNetCollectMessages(void);
 extern void InitAVPNetGameForHost(int species, int gamestyle, int level);
 extern void InitAVPNetGameForJoin(void);
 extern int DetermineAvailableCharacterTypes(BOOL ConsiderUsedCharacters);
+extern BOOL DirectPlay_CreatePlayer(char *FormalName, char *FriendlyName);
 										 
 extern BOOL GetGDISurface();
 extern BOOL LeaveGDISurface();
 void FindAvPSessions(void);
+BOOL InitialiseConnection();
 
 LPDIRECTPLAYLOBBY3 lpDPlayLobby;
 
@@ -575,7 +577,7 @@ BOOL FAR PASCAL EnumSPCallback(
 	{
 		if (IsEqualGUID(lpguidSP, &DPSPGUID_TCPIP))
 		{
-			netGameData.tcpip_available=1;	
+			netGameData.tcpip_available=1;
 		}
 		else if(IsEqualGUID(lpguidSP, &DPSPGUID_IPX))
 		{
@@ -585,7 +587,6 @@ BOOL FAR PASCAL EnumSPCallback(
 		{
 			netGameData.serial_available=1;
 		}
-	
 		else if(IsEqualGUID(lpguidSP, &DPSPGUID_MODEM))
 		{
 			netGameData.modem_available=1;
@@ -625,7 +626,7 @@ BOOL FAR PASCAL EnumSPAndConnectCallback(
 
 void DirectPlay_EnumConnections()
 {
-	netGameData.tcpip_available=0;
+	netGameData.tcpip_available=0; 
 	netGameData.ipx_available=0;
 	netGameData.modem_available=0;
 	netGameData.serial_available=0;
@@ -890,4 +891,9 @@ BOOL DirectPlay_UpdateSessionList(int * SelectedItem)
 	}
 
 	return changed;
+}
+
+HRESULT DpKickPlayer(LPDIRECTPLAY4 lpDP2A, DPID DP_PlayerId)
+{
+	return(IDirectPlayX_DestroyPlayer(lpDP2A, DP_PlayerId));
 }

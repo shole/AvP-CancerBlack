@@ -18,6 +18,7 @@
 #include "equipmnt.h"
 
 extern int NormalFrameTime;
+extern void MakeSprayOfSparks(MATRIXCH *orientationPtr, VECTORCH *positionPtr);
 void UpdatePlacedLightState(PLACED_LIGHT_BEHAV_BLOCK* pl_bhv,STRATEGYBLOCK* sbPtr);
 void UpdatePlacedLightColour(PLACED_LIGHT_BEHAV_BLOCK* pl_bhv);
 

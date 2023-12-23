@@ -16,6 +16,9 @@
 
 #define MAX_SIZE_OF_USERS_NAME 15
 
+extern char LevelName[];
+extern int Nausea;
+
 enum AVP_DIFFICULTY_LEVEL_ID
 {
 	AVP_DIFFICULTY_LEVEL_NONE,
@@ -79,7 +82,9 @@ typedef struct
 	unsigned char CheatMode[32];
 	unsigned char GammaSetting;
 	unsigned char AutoWeaponChangeDisabled : 1;
-	unsigned char SpareBits : 7; //not used
+	unsigned char RunMode : 1;
+	unsigned char CrouchMode : 1;
+	unsigned char SpareBits : 5; //not used
 	char Padding[74];
 
 	int CDPlayerVolume;
@@ -128,8 +133,8 @@ typedef struct
 #define IMPOSSIBLEMISSION_CHEATMODE	(CheatMode_Active == CHEATMODE_IMPOSSIBLEMISSION)	
 #define RAINBOWBLOOD_CHEATMODE		(CheatMode_Active == CHEATMODE_RAINBOWBLOOD)
 #define TICKERTAPE_CHEATMODE		(CheatMode_Active == CHEATMODE_TICKERTAPE)
-#define NAUSEA_CHEATMODE			(CheatMode_Active == CHEATMODE_NAUSEA)
-#define FREEFALL_CHEATMODE			(CheatMode_Active == CHEATMODE_FREEFALL)
+#define NAUSEA_CHEATMODE			((CheatMode_Active == CHEATMODE_NAUSEA) || (Nausea))
+#define FREEFALL_CHEATMODE			((CheatMode_Active == CHEATMODE_FREEFALL) || (!stricmp(LevelName,"dome")))
 #define BALLSOFFIRE_CHEATMODE		(CheatMode_Active == CHEATMODE_BALLSOFFIRE)
 
 

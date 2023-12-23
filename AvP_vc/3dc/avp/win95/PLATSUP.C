@@ -398,7 +398,7 @@ char *LoadTextFile(char *filename)
 error:
 	{
 		/* error whilst trying to load file */
-		textprint("Error! Can not load file %s.\n",filename);
+		//textprint("Error! Can not load file %s.\n",filename);
 		LOCALASSERT(0);
 		return 0;
 	}

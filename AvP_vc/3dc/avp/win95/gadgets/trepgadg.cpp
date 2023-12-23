@@ -204,12 +204,12 @@ void TextReportGadget :: Render
 
 		// Alpha mounting poly:
 		{
-			R2Rect_ClipForText . AlphaFill
+			R2Rect_ClipForText . AlphaFill_New
 			(
-				0,
-				64,
-				0,
-				(FixP_Alpha * 2 / (256 * 3)) 
+				32,
+				32,
+				32,
+				128//(FixP_Alpha * 2 / (256 * 3)) 
 					// unsigned char translucency
 			);
 		}

@@ -118,11 +118,23 @@ extern void Frisbee_Firing(void *playerStatus, PLAYER_WEAPON_DATA *weaponPtr);
 
 extern void GrenadeLauncherInit(PLAYER_WEAPON_DATA *weaponPtr);
 extern int GrenadeLauncherFire(PLAYER_WEAPON_DATA *weaponPtr);
-
+extern int Wetshot(PLAYER_WEAPON_DATA *weaponPtr);
+extern int TimeSurveyCharge(PLAYER_WEAPON_DATA *weaponPtr);
+extern int EMWZoom(PLAYER_WEAPON_DATA *weaponPtr);
+extern int PIGZoom(PLAYER_WEAPON_DATA *weaponPtr);
 extern void WeaponSetStartFrame(void *playerStatus, PLAYER_WEAPON_DATA *weaponPtr);
+extern int PlasmacasterLockOn(PLAYER_WEAPON_DATA *weaponPtr);
+extern int RunABypass(PLAYER_WEAPON_DATA *weaponPtr);
+extern int Weld(PLAYER_WEAPON_DATA *weaponPtr);
+extern int SetWelderMode(PLAYER_WEAPON_DATA *weaponPtr);
+extern int ThrowSpear(PLAYER_WEAPON_DATA *weaponPtr);
+extern int FireWristLauncher(PLAYER_WEAPON_DATA *weaponPtr);
+extern int FireDartLauncher(PLAYER_WEAPON_DATA *weaponPtr);
 
 extern int FireBurstWeapon(PLAYER_WEAPON_DATA *weaponPtr);
 extern int FireMinigun(PLAYER_WEAPON_DATA *weaponPtr);
+extern int FireShotgun(PLAYER_WEAPON_DATA *weaponPtr);
+extern int ThrustWithSpear(PLAYER_WEAPON_DATA *weaponPtr);
 extern int FireAutomaticWeapon(PLAYER_WEAPON_DATA *weaponPtr);
 extern int FireNonAutomaticWeapon(PLAYER_WEAPON_DATA *weaponPtr);
 extern int FireNonAutomaticSecondaryAmmo(PLAYER_WEAPON_DATA *weaponPtr);
@@ -145,22 +157,23 @@ extern int PredPistolSecondaryFire(PLAYER_WEAPON_DATA *weaponPtr);
 extern int FireMarineTwoPistolsPrimary(PLAYER_WEAPON_DATA *weaponPtr);
 extern int FireMarineTwoPistolsSecondary(PLAYER_WEAPON_DATA *weaponPtr);
 
+BYTE GetWeaponIconFromAmmoId(enum WEAPON_ID AmmoId);
+
 /*KJL****************************************************************************************
 *  										G L O B A L S 	            					    *
 ****************************************************************************************KJL*/
 /* CDF 2/10/97 Key for weapons vs. slots... */
 enum WEAPON_ID MarineWeaponKey[MAX_NO_OF_WEAPON_SLOTS] = {
 	WEAPON_PULSERIFLE,
-	/* AUTOSHOTGUN removed, 4/3/98, CDF, By order of Al */
-	WEAPON_SMARTGUN,
-    WEAPON_FLAMETHROWER,
-    WEAPON_SADAR,
-    WEAPON_GRENADELAUNCHER,
-    WEAPON_MINIGUN,	 
-	WEAPON_FRISBEE_LAUNCHER,
 	WEAPON_MARINE_PISTOL,
-	WEAPON_TWO_PISTOLS,
-	NULL_WEAPON,
+	WEAPON_MINIGUN,
+	WEAPON_GRENADELAUNCHER,
+	WEAPON_FLAMETHROWER,
+	WEAPON_SMARTGUN,
+    WEAPON_FRISBEE_LAUNCHER,
+	WEAPON_SADAR,
+	WEAPON_AUTOSHOTGUN,
+	WEAPON_PLASMAGUN,
 	#if 1
 	WEAPON_CUDGEL
 	#else
@@ -172,12 +185,12 @@ enum WEAPON_ID PredatorWeaponKey[MAX_NO_OF_WEAPON_SLOTS] = {
     WEAPON_PRED_WRISTBLADE,
 	WEAPON_PRED_RIFLE,
 	WEAPON_PRED_SHOULDERCANNON,
+	WEAPON_BEAMCANNON,
 	WEAPON_PRED_MEDICOMP,
 	WEAPON_PRED_PISTOL,
+	WEAPON_SONICCANNON,
+	WEAPON_MYSTERYGUN,
 	WEAPON_PRED_DISC,
-	NULL_WEAPON,
-	NULL_WEAPON,
-	NULL_WEAPON,
 	NULL_WEAPON,
 	NULL_WEAPON
 };
@@ -195,6 +208,77 @@ enum WEAPON_ID AlienWeaponKey[MAX_NO_OF_WEAPON_SLOTS] = {
 	NULL_WEAPON,
 	NULL_WEAPON
 };
+
+BYTE GetWeaponIconFromAmmoId(enum WEAPON_ID AmmoId)
+{
+	switch(AmmoId)
+	{
+		case TEXTSTRING_INGAME_PULSERIFLE:
+			return ICON_WB_PULSERIFLE;
+			break;
+		case TEXTSTRING_INGAME_SMARTGUN:
+			return ICON_WB_SMARTGUN;
+			break;
+		case TEXTSTRING_INGAME_FLAMETHROWER:
+			return ICON_WB_FLAMER;
+			break;
+		case TEXTSTRING_INGAME_SADAR:
+			return ICON_WB_LP40;
+			break;
+		case TEXTSTRING_INGAME_GRENADELAUNCHER:
+			return ICON_WB_SHOTGUN;
+			break;
+		case TEXTSTRING_INGAME_MINIGUN:
+			return ICON_WB_HVG;
+			break;
+		case TEXTSTRING_INGAME_MARINE_PISTOL:
+			return ICON_WB_PISTOL;
+			break;
+		case TEXTSTRING_INGAME_SKEETER:
+			return ICON_WB_PLASMA;
+			break;
+		case TEXTSTRING_AMMO_SHORTNAME_FRAGMENTATION_GRENADE:
+			return ICON_WB_WELDER;
+			break;
+		case TEXTSTRING_AMMO_SHORTNAME_PROXIMITY_GRENADE:
+			return ICON_WB_BYPASSKIT;
+			break;
+		case TEXTSTRING_INGAME_WRISTBLADE:
+			return ICON_WB_WRISTBLADE;
+			break;
+		case TEXTSTRING_INGAME_PISTOL:
+			return ICON_WB_COMBISTICK;
+			break;
+		case TEXTSTRING_INGAME_RIFLE:
+			return ICON_WB_PLASMA_PISTOL;
+			break;
+		case TEXTSTRING_INGAME_SHOULDERCANNON:
+			return ICON_WB_SHOULDERCANNON;
+			break;
+		case TEXTSTRING_INGAME_DISC:
+			return ICON_WB_DISC;
+			break;
+		case TEXTSTRING_INGAME_MEDICOMP:
+			return ICON_WB_MEDICOMP;
+			break;
+		case TEXTSTRING_SELECTEDGRENADE_STANDARD:
+			return ICON_WB_SPEARGUN;
+			break;
+		case TEXTSTRING_SELECTEDGRENADE_FLARE:
+			return ICON_WB_WRISTLAUNCHER;
+			break;
+		case TEXTSTRING_SELECTEDGRENADE_PROXIMITY:
+			return ICON_WB_MEDICOMP+1;
+			break;
+		case TEXTSTRING_INGAME_CLAW:
+			return ICON_WB_CLAW;
+			break;
+		case TEXTSTRING_INGAME_TAIL:
+			return ICON_WB_TAIL;
+			break;
+	}
+	return ICON_WB_MEDICOMP;
+}
 
 /* KJL 10:45:56 09/20/96 - contains all the generic weapon info */
 TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
@@ -313,23 +397,23 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 		},
 		#else
 		{ /* Encum_Idle */
-			7*ONE_FIXED/8, /* MovementMultiple	*/
-			7*ONE_FIXED/8, /* TurningMultiple */
-			7*ONE_FIXED/8, /* JumpingMultiple */
+			ONE_FIXED*1, /* MovementMultiple	*/
+			ONE_FIXED*1, /* TurningMultiple */
+			ONE_FIXED*1, /* JumpingMultiple */
 			1, /* CanCrouch */
 			1, /* CanRun */
 		},
 		{ /* Encum_FirePrime */
-			2*ONE_FIXED/3, /* MovementMultiple	*/
-			7*ONE_FIXED/8, /* TurningMultiple */
-			2*ONE_FIXED/3, /* JumpingMultiple */
+			ONE_FIXED*1, /* MovementMultiple	*/
+			ONE_FIXED*1, /* TurningMultiple */
+			ONE_FIXED*1, /* JumpingMultiple */
 			1, /* CanCrouch */
 			1, /* CanRun */
 		},
 		{ /* Encum_FireSec */
-			ONE_FIXED/2, /* MovementMultiple	*/
-			7*ONE_FIXED/8, /* TurningMultiple */
-			2*ONE_FIXED/3, /* JumpingMultiple */
+			ONE_FIXED*1, /* MovementMultiple	*/
+			ONE_FIXED*1, /* TurningMultiple */
+			ONE_FIXED*1, /* JumpingMultiple */
 			1, /* CanCrouch */
 			1, /* CanRun */
 		},
@@ -373,15 +457,15 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 	},
 	
 	/*KJL*********************
-	* 	WEAPON_AUTOSHOTGUN   *
+	* 	WEAPON_AUTOSHOTGUN   *		Electronic Bypass Kit
 	*********************KJL*/
 	{
 		/* PrimaryAmmoID; */
-		AMMO_SHOTGUN,
+		AMMO_NONE,
 		/* SecondaryAmmoID; */
 		AMMO_NONE,
 		   
-		FireNonAutomaticWeapon, /* FirePrimaryFunction */
+		RunABypass, /* FirePrimaryFunction */
 		NULL, /* FireSecondaryFunction */
 		NULL,	/* WeaponInitFunction */
 
@@ -389,40 +473,40 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 		{
 			0,/* WEAPONSTATE_IDLE	*/
 			
-			WEAPONSTATE_INSTANTTIMEOUT, /* WEAPONSTATE_FIRING_PRIMARY */
-		   	65536*8,					/* WEAPONSTATE_RECOIL_PRIMARY */
-			65536*4,					/* WEAPONSTATE_RELOAD_PRIMARY */
+			65536,						/* WEAPONSTATE_FIRING_PRIMARY */
+		   	65536,						/* WEAPONSTATE_RECOIL_PRIMARY */
+			WEAPONSTATE_INSTANTTIMEOUT,	/* WEAPONSTATE_RELOAD_PRIMARY */
 
 			WEAPONSTATE_INSTANTTIMEOUT, /* WEAPONSTATE_FIRING_SECONDARY	*/
 			WEAPONSTATE_INSTANTTIMEOUT,	/* WEAPONSTATE_RECOIL_SECONDARY	*/
 			WEAPONSTATE_INSTANTTIMEOUT,	/* WEAPONSTATE_RELOAD_SECONDARY	*/
 										
-			65536*8,					/* WEAPONSTATE_SWAPPING_IN	*/
-			65536*8,					/* WEAPONSTATE_SWAPPING_OUT	*/
+			65536*3,					/* WEAPONSTATE_SWAPPING_IN	*/
+			65536*3,					/* WEAPONSTATE_SWAPPING_OUT	*/
 			65536,						/* WEAPONSTATE_JAMMED */
 			WEAPONSTATE_INSTANTTIMEOUT, /* WEAPONSTATE_WAITING */
 
-			WEAPONSTATE_INSTANTTIMEOUT, /* WEAPONSTATE_READYING */
-			WEAPONSTATE_INSTANTTIMEOUT, /* WEAPONSTATE_UNREADYING */
+			65536*2,					/* WEAPONSTATE_READYING */
+			65536*2,					/* WEAPONSTATE_UNREADYING */
 
 		},
 		{
-			NULL,  /* WEAPONSTATE_IDLE	*/
-			NULL,  /* WEAPONSTATE_FIRING_PRIMARY */
-			NULL,  /* WEAPONSTATE_RECOIL_PRIMARY */
-			NULL,  /* WEAPONSTATE_RELOAD_PRIMARY */
+			GenericMarineWeapon_Idle,	/* WEAPONSTATE_IDLE	*/
+			Cudgel_Strike,				/* WEAPONSTATE_FIRING_PRIMARY */
+			GenericMarineWeapon_Idle,	/* WEAPONSTATE_RECOIL_PRIMARY */
+			GenericMarineWeapon_Idle,	/* WEAPONSTATE_RELOAD_PRIMARY */
 			NULL,  /* WEAPONSTATE_FIRING_SECONDARY	*/
 			NULL,  /* WEAPONSTATE_RECOIL_SECONDARY	*/
 			NULL,  /* WEAPONSTATE_RELOAD_SECONDARY	*/
-			NULL,  /* WEAPONSTATE_SWAPPING_IN	*/
-			NULL,  /* WEAPONSTATE_SWAPPING_OUT	*/
-			NULL,  /* WEAPONSTATE_JAMMED */
-			NULL,  /* WEAPONSTATE_WAITING */
-			NULL,  /* WEAPONSTATE_READYING */
-			NULL,  /* WEAPONSTATE_UNREADYING */
+			GenericMarineWeapon_SwapIn,	/* WEAPONSTATE_SWAPPING_IN	*/
+			GenericMarineWeapon_SwapOut,/* WEAPONSTATE_SWAPPING_OUT	*/
+			GenericMarineWeapon_Idle,	/* WEAPONSTATE_JAMMED */
+			GenericMarineWeapon_Idle,	/* WEAPONSTATE_WAITING */
+			GenericMarineWeapon_Idle,	/* WEAPONSTATE_READYING */
+			GenericMarineWeapon_Idle,	/* WEAPONSTATE_UNREADYING */
 		},
 		/* ProbabilityOfJamming; */
-	    32,
+	    0,
 	    /* FiringRate;	*/
 	    1*65536,
 	    
@@ -431,38 +515,38 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 	    /* GunCrosshairSpeed;  integer, how fast the gun moves. */
 	    160,
 	    /* SmartTargetRadius in pixels */
-	    5500,
+	    0,
 		/* RestPosition; */
 		{0,0,0},
 		
 		/* RecoilMaxZ; */
-		80,
+		0,
 		/* RecoilMaxRandomZ; */
-		31,
+		0,
 		/* RecoilMaxXTilt; */
-		-31,
+		0,
 		/* RecoilMaxYTilt; */
-		15,
+		0,
 
 		/* StrikePosition */
 		{0,0,0},
 
 		/* Name; */
-		TEXTSTRING_BLANK,
+		TEXTSTRING_AMMO_SHORTNAME_PROXIMITY_GRENADE,
 
 		/* WeaponShapeName; */
 		/* dummy shape*/
 		"Shell",
 		/* MuzzleFlashShapeName; */
-	    "Sntrymuz",
+	    0,
 		/* RiffName */
-		NULL,
+		"MarineWeapons",
 		/* HierarchyName */
-		NULL,
+		"Cudgel",
 		/* InitialSequenceType */
-		-1,
+		(int)HMSQT_MarineHUD,
 		/* InitialSubSequence */
-		-1,
+		(int)MHSS_Stationary,
 
 		#if USE_ENCUMBERANCE
 		{ /* Encum_Idle */
@@ -488,38 +572,38 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 		},
 		#else
 		{ /* Encum_Idle */
-			7*ONE_FIXED/8, /* MovementMultiple	*/
-			7*ONE_FIXED/8, /* TurningMultiple */
-			7*ONE_FIXED/8, /* JumpingMultiple */
+			ONE_FIXED, /* MovementMultiple	*/
+			ONE_FIXED, /* TurningMultiple */
+			ONE_FIXED, /* JumpingMultiple */
 			1, /* CanCrouch */
 			1, /* CanRun */
 		},
 		{ /* Encum_FirePrime */
-			2*ONE_FIXED/3, /* MovementMultiple	*/
-			7*ONE_FIXED/8, /* TurningMultiple */
-			2*ONE_FIXED/3, /* JumpingMultiple */
+			ONE_FIXED, /* MovementMultiple	*/
+			ONE_FIXED, /* TurningMultiple */
+			ONE_FIXED, /* JumpingMultiple */
 			1, /* CanCrouch */
 			1, /* CanRun */
 		},
 		{ /* Encum_FireSec */
-			ONE_FIXED/2, /* MovementMultiple	*/
-			7*ONE_FIXED/8, /* TurningMultiple */
-			2*ONE_FIXED/3, /* JumpingMultiple */
+			ONE_FIXED, /* MovementMultiple	*/
+			ONE_FIXED, /* TurningMultiple */
+			ONE_FIXED, /* JumpingMultiple */
 			1, /* CanCrouch */
 			1, /* CanRun */
 		},
 		#endif
 
 		/* UseStateMovement :1; */
-		1,
+		0,
 		/* IsSmartTarget :1; */
 		0,
 		/* PrimaryIsRapidFire   :1; */   
 		0,
 		/* PrimaryIsAutomatic	:1; */
-		0,
+		1,
 		/* PrimaryIsMeleeWeapon :1; */
-		0,  
+		1,
 		/* SecondaryIsRapidFire   :1; */   
 		0,  
 		/* SecondaryIsAutomatic	:1; */
@@ -539,9 +623,9 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 		/* FireSecondaryLate */
 		0,
 		/* PrimaryMuzzleFlash */
-		1,
+		0,
 		/* SecondaryMuzzleFlash */
-		1,
+		0,
 		/* LogAccuracy */
 		0,
 		/* LogShots */
@@ -663,23 +747,23 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 		},
 		#else
 		{ /* Encum_Idle */
-			7*ONE_FIXED/8, /* MovementMultiple	*/
-			7*ONE_FIXED/8, /* TurningMultiple */
-			7*ONE_FIXED/8, /* JumpingMultiple */
+			ONE_FIXED*0.7, /* MovementMultiple	*/
+			ONE_FIXED*1, /* TurningMultiple */
+			ONE_FIXED*0.3, /* JumpingMultiple */
 			1, /* CanCrouch */
 			1, /* CanRun */
 		},
 		{ /* Encum_FirePrime */
-			2*ONE_FIXED/3, /* MovementMultiple	*/
-			7*ONE_FIXED/8, /* TurningMultiple */
-			2*ONE_FIXED/3, /* JumpingMultiple */
+			ONE_FIXED/3, /* MovementMultiple	*/
+			ONE_FIXED*1, /* TurningMultiple */
+			ONE_FIXED*0.3, /* JumpingMultiple */
 			1, /* CanCrouch */
 			1, /* CanRun */
 		},
 		{ /* Encum_FireSec */
-			ONE_FIXED/2, /* MovementMultiple	*/
-			7*ONE_FIXED/8, /* TurningMultiple */
-			2*ONE_FIXED/3, /* JumpingMultiple */
+			ONE_FIXED*1, /* MovementMultiple	*/
+			ONE_FIXED*1, /* TurningMultiple */
+			ONE_FIXED*1, /* JumpingMultiple */
 			1, /* CanCrouch */
 			1, /* CanRun */
 		},
@@ -772,7 +856,7 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 			GenericMarineWeapon_Idle,  /* WEAPONSTATE_UNREADYING */
 		},
 		/* ProbabilityOfJamming; */
-	    32,
+	    0,
 	    /* FiringRate;	*/
 	    15*65536,
 	    
@@ -838,23 +922,23 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 		},
 		#else
 		{ /* Encum_Idle */
-			7*ONE_FIXED/8, /* MovementMultiple	*/
-			7*ONE_FIXED/8, /* TurningMultiple */
-			7*ONE_FIXED/8, /* JumpingMultiple */
+			ONE_FIXED*1, /* MovementMultiple	*/
+			ONE_FIXED*1, /* TurningMultiple */
+			ONE_FIXED*1, /* JumpingMultiple */
 			1, /* CanCrouch */
 			1, /* CanRun */
 		},
 		{ /* Encum_FirePrime */
-			2*ONE_FIXED/3, /* MovementMultiple	*/
-			7*ONE_FIXED/8, /* TurningMultiple */
-			2*ONE_FIXED/3, /* JumpingMultiple */
+			ONE_FIXED*1, /* MovementMultiple	*/
+			ONE_FIXED*1, /* TurningMultiple */
+			ONE_FIXED*1, /* JumpingMultiple */
 			1, /* CanCrouch */
 			1, /* CanRun */
 		},
 		{ /* Encum_FireSec */
-			ONE_FIXED/2, /* MovementMultiple	*/
-			7*ONE_FIXED/8, /* TurningMultiple */
-			2*ONE_FIXED/3, /* JumpingMultiple */
+			ONE_FIXED*1, /* MovementMultiple	*/
+			ONE_FIXED*1, /* TurningMultiple */
+			ONE_FIXED*1, /* JumpingMultiple */
 			1, /* CanCrouch */
 			1, /* CanRun */
 		},
@@ -897,57 +981,57 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 		/* LogShots */
 		0,
 	},
-	/*KJL*******************
-	*   WEAPON_PLASMAGUN   *
-	*******************KJL*/
+	/*KJL***********************
+	*   WEAPON_PLASMAGUN	   *	Welder
+	************************KJL*/
 	{
 		/* PrimaryAmmoID; */
 		AMMO_PLASMA,
 		/* SecondaryAmmoID; */
 		AMMO_NONE,
 		   
-		NULL, /* FirePrimaryFunction */
-		NULL, /* FireSecondaryFunction */
-		NULL,	/* WeaponInitFunction */
+		Weld,			/* FirePrimaryFunction */
+		SetWelderMode,	/* FireSecondaryFunction */
+		NULL,			/* WeaponInitFunction */
 
 	    /* TimeOutRateForState[MAX_NO_OF_WEAPON_STATES]; in 16.16 */
 		{
 			0,/* WEAPONSTATE_IDLE	*/
 			
-			WEAPONSTATE_INSTANTTIMEOUT, /* WEAPONSTATE_FIRING_PRIMARY */
-		   	WEAPONSTATE_INSTANTTIMEOUT,	/* WEAPONSTATE_RECOIL_PRIMARY */
-			65536,						/* WEAPONSTATE_RELOAD_PRIMARY */
+			65536,						/* WEAPONSTATE_FIRING_PRIMARY */
+		   	65536*2,					/* WEAPONSTATE_RECOIL_PRIMARY */
+			WEAPONSTATE_INSTANTTIMEOUT,	/* WEAPONSTATE_RELOAD_PRIMARY */
 
 			WEAPONSTATE_INSTANTTIMEOUT, /* WEAPONSTATE_FIRING_SECONDARY	*/
 			WEAPONSTATE_INSTANTTIMEOUT,	/* WEAPONSTATE_RECOIL_SECONDARY	*/
 			WEAPONSTATE_INSTANTTIMEOUT,	/* WEAPONSTATE_RELOAD_SECONDARY	*/
 										
-			65536,						/* WEAPONSTATE_SWAPPING_IN	*/
-			65536,						/* WEAPONSTATE_SWAPPING_OUT	*/
+			65536*3,					/* WEAPONSTATE_SWAPPING_IN	*/
+			65536*3,					/* WEAPONSTATE_SWAPPING_OUT	*/
 			65536,						/* WEAPONSTATE_JAMMED */
 			WEAPONSTATE_INSTANTTIMEOUT, /* WEAPONSTATE_WAITING */
 
-			WEAPONSTATE_INSTANTTIMEOUT, /* WEAPONSTATE_READYING */
-			WEAPONSTATE_INSTANTTIMEOUT, /* WEAPONSTATE_UNREADYING */
+			65536*2,					/* WEAPONSTATE_READYING */
+			65536*2,					/* WEAPONSTATE_UNREADYING */
 
 		},
 		{
-			NULL,  /* WEAPONSTATE_IDLE	*/
-			NULL,  /* WEAPONSTATE_FIRING_PRIMARY */
-			NULL,  /* WEAPONSTATE_RECOIL_PRIMARY */
-			NULL,  /* WEAPONSTATE_RELOAD_PRIMARY */
+			GenericMarineWeapon_Idle,	/* WEAPONSTATE_IDLE	*/
+			Cudgel_Strike,				/* WEAPONSTATE_FIRING_PRIMARY */
+			GenericMarineWeapon_Idle,	/* WEAPONSTATE_RECOIL_PRIMARY */
+			GenericMarineWeapon_Idle,	/* WEAPONSTATE_RELOAD_PRIMARY */
 			NULL,  /* WEAPONSTATE_FIRING_SECONDARY	*/
 			NULL,  /* WEAPONSTATE_RECOIL_SECONDARY	*/
 			NULL,  /* WEAPONSTATE_RELOAD_SECONDARY	*/
-			NULL,  /* WEAPONSTATE_SWAPPING_IN	*/
-			NULL,  /* WEAPONSTATE_SWAPPING_OUT	*/
-			NULL,  /* WEAPONSTATE_JAMMED */
-			NULL,  /* WEAPONSTATE_WAITING */
-			NULL,  /* WEAPONSTATE_READYING */
-			NULL,  /* WEAPONSTATE_UNREADYING */
+			GenericMarineWeapon_SwapIn,	/* WEAPONSTATE_SWAPPING_IN	*/
+			GenericMarineWeapon_SwapOut,/* WEAPONSTATE_SWAPPING_OUT	*/
+			GenericMarineWeapon_Idle,	/* WEAPONSTATE_JAMMED */
+			GenericMarineWeapon_Idle,	/* WEAPONSTATE_WAITING */
+			GenericMarineWeapon_Idle,	/* WEAPONSTATE_READYING */
+			GenericMarineWeapon_Idle,	/* WEAPONSTATE_UNREADYING */
 		},
 		/* ProbabilityOfJamming; */
-	    32,
+	    0,
 	    /* FiringRate;	*/
 	    1*65536,
 	    
@@ -956,7 +1040,7 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 	    /* GunCrosshairSpeed;  integer, how fast the gun moves. */
 	    160,
 	    /* SmartTargetRadius in pixels */
-	    5500,
+	    0,
 		/* RestPosition; */
 		{0,0,0},
 		
@@ -973,21 +1057,21 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 		{0,0,0},
 
 		/* Name; */
-		TEXTSTRING_BLANK,
+		TEXTSTRING_AMMO_SHORTNAME_FRAGMENTATION_GRENADE,
 
 		/* WeaponShapeName; */
 		/* dummy shape*/
 		"Shell",
 		/* MuzzleFlashShapeName; */
-	    "Sntrymuz",
+	    0,
 		/* RiffName */
-		NULL,
+		"MarineWeapons",
 		/* HierarchyName */
-		NULL,
+		"Cudgel",
 		/* InitialSequenceType */
-		-1,
+		(int)HMSQT_MarineHUD,
 		/* InitialSubSequence */
-		-1,
+		(int)MHSS_Stationary,
 
 		#if USE_ENCUMBERANCE
 		{ /* Encum_Idle */
@@ -1013,38 +1097,38 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 		},
 		#else
 		{ /* Encum_Idle */
-			7*ONE_FIXED/8, /* MovementMultiple	*/
-			7*ONE_FIXED/8, /* TurningMultiple */
-			7*ONE_FIXED/8, /* JumpingMultiple */
+			ONE_FIXED, /* MovementMultiple	*/
+			ONE_FIXED, /* TurningMultiple */
+			ONE_FIXED, /* JumpingMultiple */
 			1, /* CanCrouch */
 			1, /* CanRun */
 		},
 		{ /* Encum_FirePrime */
-			2*ONE_FIXED/3, /* MovementMultiple	*/
-			7*ONE_FIXED/8, /* TurningMultiple */
-			2*ONE_FIXED/3, /* JumpingMultiple */
+			ONE_FIXED, /* MovementMultiple	*/
+			ONE_FIXED, /* TurningMultiple */
+			ONE_FIXED, /* JumpingMultiple */
 			1, /* CanCrouch */
 			1, /* CanRun */
 		},
 		{ /* Encum_FireSec */
-			ONE_FIXED/2, /* MovementMultiple	*/
-			7*ONE_FIXED/8, /* TurningMultiple */
-			2*ONE_FIXED/3, /* JumpingMultiple */
+			ONE_FIXED, /* MovementMultiple	*/
+			ONE_FIXED, /* TurningMultiple */
+			ONE_FIXED, /* JumpingMultiple */
 			1, /* CanCrouch */
 			1, /* CanRun */
 		},
 		#endif
 
 		/* UseStateMovement :1; */
-		1,
+		0,
 		/* IsSmartTarget :1; */
 		0,
 		/* PrimaryIsRapidFire   :1; */   
-		0,  
-		/* PrimaryIsAutomatic	:1; */
 		0,
+		/* PrimaryIsAutomatic	:1; */
+		1,
 		/* PrimaryIsMeleeWeapon :1; */
-		0,  
+		1,
 		/* SecondaryIsRapidFire   :1; */   
 		0,  
 		/* SecondaryIsAutomatic	:1; */
@@ -1064,16 +1148,16 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 		/* FireSecondaryLate */
 		0,
 		/* PrimaryMuzzleFlash */
-		1,
+		0,
 		/* SecondaryMuzzleFlash */
-		1,
+		0,
 		/* LogAccuracy */
 		0,
 		/* LogShots */
 		0,
 	},
 	/*KJ****************
-	*   WEAPON_SADAR   *
+	*   WEAPON_SADAR   *	Scope Rifle
 	****************KJL*/
 	{
 		/* PrimaryAmmoID; */
@@ -1082,14 +1166,14 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 		AMMO_NONE,
 		   
 		FireNonAutomaticWeapon, /* FirePrimaryFunction */
-		NULL, /* FireSecondaryFunction */
+		EMWZoom, /* FireSecondaryFunction */
 		NULL,	/* WeaponInitFunction */
 
 	    /* TimeOutRateForState[MAX_NO_OF_WEAPON_STATES]; in 16.16 */
 		{
 			65536,/* WEAPONSTATE_IDLE	*/
 			
-			WEAPONSTATE_INSTANTTIMEOUT, /* WEAPONSTATE_FIRING_PRIMARY */
+			WEAPONSTATE_INSTANTTIMEOUT,	/* WEAPONSTATE_FIRING_PRIMARY */
 		   	65536*6, 					/* WEAPONSTATE_RECOIL_PRIMARY */
 			65536*2/3,					/* WEAPONSTATE_RELOAD_PRIMARY */
 
@@ -1154,7 +1238,7 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 		/* dummy shape*/
 		"Shell",
 		/* MuzzleFlashShapeName; */
-	    "Sntrymuz",
+	    NULL,
 		/* RiffName */
 		"MarineWeapons",
 		/* HierarchyName */
@@ -1180,31 +1264,31 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 			1, /* CanRun */
 		},
 		{ /* Encum_FireSec */
-			7*ONE_FIXED/8, /* MovementMultiple	*/
-			7*ONE_FIXED/8, /* TurningMultiple */
-			7*ONE_FIXED/8, /* JumpingMultiple */
+			7*ONE_FIXED, /* MovementMultiple	*/
+			7*ONE_FIXED, /* TurningMultiple */
+			7*ONE_FIXED, /* JumpingMultiple */
 			1, /* CanCrouch */
 			1, /* CanRun */
 		},
 		#else
 		{ /* Encum_Idle */
-			7*ONE_FIXED/8, /* MovementMultiple	*/
-			7*ONE_FIXED/8, /* TurningMultiple */
-			7*ONE_FIXED/8, /* JumpingMultiple */
+			ONE_FIXED*1, /* MovementMultiple	*/
+			ONE_FIXED*1, /* TurningMultiple */
+			ONE_FIXED*1, /* JumpingMultiple */
 			1, /* CanCrouch */
 			1, /* CanRun */
 		},
 		{ /* Encum_FirePrime */
-			2*ONE_FIXED/3, /* MovementMultiple	*/
-			7*ONE_FIXED/8, /* TurningMultiple */
-			2*ONE_FIXED/3, /* JumpingMultiple */
+			ONE_FIXED*1, /* MovementMultiple	*/
+			ONE_FIXED*1, /* TurningMultiple */
+			ONE_FIXED*1, /* JumpingMultiple */
 			1, /* CanCrouch */
 			1, /* CanRun */
 		},
 		{ /* Encum_FireSec */
-			ONE_FIXED/2, /* MovementMultiple	*/
-			7*ONE_FIXED/8, /* TurningMultiple */
-			2*ONE_FIXED/3, /* JumpingMultiple */
+			ONE_FIXED*1, /* MovementMultiple	*/
+			ONE_FIXED*1, /* TurningMultiple */
+			ONE_FIXED*1, /* JumpingMultiple */
 			1, /* CanCrouch */
 			1, /* CanRun */
 		},
@@ -1217,7 +1301,7 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 		/* PrimaryIsRapidFire   :1; */   
 		0,  
 		/* PrimaryIsAutomatic	:1; */
-		0,
+		1,
 		/* PrimaryIsMeleeWeapon :1; */
 		0,  
 		/* SecondaryIsRapidFire   :1; */   
@@ -1241,14 +1325,14 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 		/* PrimaryMuzzleFlash */
 		1,
 		/* SecondaryMuzzleFlash */
-		1,
+		0,
 		/* LogAccuracy */
 		1,
 		/* LogShots */
 		1,
 	},
 	/*KJL*************************
-	*   WEAPON_GRENADELAUNCHER   *
+	*   WEAPON_GRENADELAUNCHER   *	Shotgun
 	*************************KJL*/
 	{
 		/* PrimaryAmmoID; */
@@ -1256,8 +1340,8 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 		/* SecondaryAmmoID; */
 		AMMO_NONE,
 		   
-		GrenadeLauncherFire, /* FirePrimaryFunction */
-		GrenadeLauncherChangeAmmo, /* FireSecondaryFunction */
+		FireShotgun, /* FirePrimaryFunction */
+		NULL,				 /* FireSecondaryFunction */
 		GrenadeLauncherInit,	/* WeaponInitFunction */
 
 	    /* TimeOutRateForState[MAX_NO_OF_WEAPON_STATES]; in 16.16 */
@@ -1265,7 +1349,7 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 			65536,/* WEAPONSTATE_IDLE	*/
 			
 			WEAPONSTATE_INSTANTTIMEOUT, /* WEAPONSTATE_FIRING_PRIMARY */
-		   	(65536*3)/4, // Was *6...		/* WEAPONSTATE_RECOIL_PRIMARY */
+		   	65536,	// Was *6...		/* WEAPONSTATE_RECOIL_PRIMARY */
 			(65536*3)/4,	/* WEAPONSTATE_RELOAD_PRIMARY */
 
 			WEAPONSTATE_INSTANTTIMEOUT, /* WEAPONSTATE_FIRING_SECONDARY	*/
@@ -1363,23 +1447,23 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 		},
 		#else
 		{ /* Encum_Idle */
-			7*ONE_FIXED/8, /* MovementMultiple	*/
-			7*ONE_FIXED/8, /* TurningMultiple */
-			7*ONE_FIXED/8, /* JumpingMultiple */
+			ONE_FIXED*1, /* MovementMultiple	*/
+			ONE_FIXED*1,     /* TurningMultiple */
+			ONE_FIXED*1, /* JumpingMultiple */
 			1, /* CanCrouch */
 			1, /* CanRun */
 		},
 		{ /* Encum_FirePrime */
-			2*ONE_FIXED/3, /* MovementMultiple	*/
-			7*ONE_FIXED/8, /* TurningMultiple */
-			2*ONE_FIXED/3, /* JumpingMultiple */
+			ONE_FIXED*1, /* MovementMultiple	*/
+			ONE_FIXED*1,     /* TurningMultiple */
+			ONE_FIXED*1, /* JumpingMultiple */
 			1, /* CanCrouch */
 			1, /* CanRun */
 		},
 		{ /* Encum_FireSec */
-			ONE_FIXED/2, /* MovementMultiple	*/
-			7*ONE_FIXED/8, /* TurningMultiple */
-			2*ONE_FIXED/3, /* JumpingMultiple */
+			ONE_FIXED, /* MovementMultiple	*/
+			ONE_FIXED, /* TurningMultiple */
+			ONE_FIXED, /* JumpingMultiple */
 			1, /* CanCrouch */
 			1, /* CanRun */
 		},
@@ -1392,7 +1476,7 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 		/* PrimaryIsRapidFire   :1; */   
 		0,  
 		/* PrimaryIsAutomatic	:1; */
-		0,
+		1,
 		/* PrimaryIsMeleeWeapon :1; */
 		0,  
 		/* SecondaryIsRapidFire   :1; */   
@@ -1420,10 +1504,10 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 		/* LogAccuracy */
 		0,
 		/* LogShots */
-		1,
+		0,
 	},
 	/*KJL*****************
-	*   WEAPON_MINIGUN   *
+	*   WEAPON_MINIGUN   *	Survey Charge
 	*****************KJL*/
 	{
 		/* PrimaryAmmoID; */
@@ -1431,8 +1515,8 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 		/* SecondaryAmmoID; */
 		AMMO_NONE,
 		   
-		FireMinigun, /* FirePrimaryFunction */
-		NULL, /* FireSecondaryFunction */
+		Wetshot, /* FirePrimaryFunction */
+		TimeSurveyCharge, /* FireSecondaryFunction */
 		NULL,	/* WeaponInitFunction */
 
 	    /* TimeOutRateForState[MAX_NO_OF_WEAPON_STATES]; in 16.16 */
@@ -1475,7 +1559,7 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 	    32,
 	    /* FiringRate;	*/
 	    //60*65536,
-	    100*65536,
+	    60*65536,
 	    
 		/* SmartTargetSpeed; signed int, how fast the crosshair moves. */
 		4,
@@ -1539,9 +1623,9 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 		},
 		#else
 		{ /* Encum_Idle */
-			7*ONE_FIXED/8, /* MovementMultiple	*/
-			7*ONE_FIXED/8, /* TurningMultiple */
-			7*ONE_FIXED/8, /* JumpingMultiple */
+			ONE_FIXED*0.9, /* MovementMultiple	*/
+			ONE_FIXED*1, /* TurningMultiple */
+			ONE_FIXED*1, /* JumpingMultiple */
 			1, /* CanCrouch */
 			1, /* CanRun */
 		},
@@ -1549,36 +1633,36 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 			#if FORCE_MINIGUN_STOP
 			0, 			   /* MovementMultiple	*/
 			#else
-			2*ONE_FIXED/3, /* MovementMultiple	*/
+			ONE_FIXED*0.5, /* MovementMultiple	*/
 			#endif
-			7*ONE_FIXED/8, /* TurningMultiple */
+			ONE_FIXED, /* TurningMultiple */
 			#if FORCE_MINIGUN_STOP
 			0, 			   /* JumpingMultiple */
 			#else
-			2*ONE_FIXED/3, /* JumpingMultiple */
+			ONE_FIXED*0.3, /* JumpingMultiple */
 			#endif
 			1, /* CanCrouch */
 			1, /* CanRun */
 		},
 		{ /* Encum_FireSec */
-			ONE_FIXED/2, /* MovementMultiple	*/
-			7*ONE_FIXED/8, /* TurningMultiple */
-			2*ONE_FIXED/3, /* JumpingMultiple */
+			ONE_FIXED*1, /* MovementMultiple	*/
+			ONE_FIXED*1, /* TurningMultiple */
+			ONE_FIXED*1, /* JumpingMultiple */
 			1, /* CanCrouch */
 			1, /* CanRun */
 		},
 		#endif
 
 		/* UseStateMovement :1; */
-		1,
+		0,
 		/* IsSmartTarget :1; */
 		0,
 		/* PrimaryIsRapidFire   :1; */   
-		1,  
-		/* PrimaryIsAutomatic	:1; */
-		1,
-		/* PrimaryIsMeleeWeapon :1; */
 		0,  
+		/* PrimaryIsAutomatic	:1; */
+		0,
+		/* PrimaryIsMeleeWeapon :1; */
+		1,  
 		/* SecondaryIsRapidFire   :1; */   
 		0,  
 		/* SecondaryIsAutomatic	:1; */
@@ -1598,36 +1682,35 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 		/* FireSecondaryLate */
 		0,
 		/* PrimaryMuzzleFlash */
-		1,
+		0,
 		/* SecondaryMuzzleFlash */
-		1,
+		0,
 		/* LogAccuracy */
-		1,
+		0,
 		/* LogShots */
-		1,
+		0,
 	},
 	/*KJL*********************
-	*   WEAPON_SONICCANNON   *
+	*   WEAPON_SONICCANNON   *	Speargun
 	*********************KJL*/
 	{
 		/* PrimaryAmmoID; */
-		AMMO_SONIC_PULSE,
+		AMMO_PRED_RIFLE,
 		/* SecondaryAmmoID; */
 		AMMO_NONE,
 		   
-		NULL, /* FirePrimaryFunction */
+		FireSpeargun, /* FirePrimaryFunction */
 		NULL, /* FireSecondaryFunction */
 		NULL,	/* WeaponInitFunction */
 
 	    /* TimeOutRateForState[MAX_NO_OF_WEAPON_STATES]; in 16.16 */
 		{
-			0,/* WEAPONSTATE_IDLE	*/
-			
-			WEAPONSTATE_INSTANTTIMEOUT, /* WEAPONSTATE_FIRING_PRIMARY */
-		   	65536*8,	/* WEAPONSTATE_RECOIL_PRIMARY */
-			65536*2,	/* WEAPONSTATE_RELOAD_PRIMARY */
+			65536,						/* WEAPONSTATE_IDLE	*/
+		   	WEAPONSTATE_INSTANTTIMEOUT,	/* WEAPONSTATE_FIRING_PRIMARY */
+			65536*2,					/* WEAPONSTATE_RECOIL_PRIMARY */
+			65536*4,					/* WEAPONSTATE_RELOAD_PRIMARY */
 
-			WEAPONSTATE_INSTANTTIMEOUT, /* WEAPONSTATE_FIRING_SECONDARY	*/
+			WEAPONSTATE_INSTANTTIMEOUT,	/* WEAPONSTATE_FIRING_SECONDARY	*/
 			WEAPONSTATE_INSTANTTIMEOUT,	/* WEAPONSTATE_RECOIL_SECONDARY	*/
 			WEAPONSTATE_INSTANTTIMEOUT,	/* WEAPONSTATE_RELOAD_SECONDARY	*/
 										
@@ -1641,63 +1724,62 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 
 		},
 		{
-			NULL,  /* WEAPONSTATE_IDLE	*/
-			NULL,  /* WEAPONSTATE_FIRING_PRIMARY */
-			NULL,  /* WEAPONSTATE_RECOIL_PRIMARY */
-			NULL,  /* WEAPONSTATE_RELOAD_PRIMARY */
-			NULL,  /* WEAPONSTATE_FIRING_SECONDARY	*/
-			NULL,  /* WEAPONSTATE_RECOIL_SECONDARY	*/
-			NULL,  /* WEAPONSTATE_RELOAD_SECONDARY	*/
-			NULL,  /* WEAPONSTATE_SWAPPING_IN	*/
-			NULL,  /* WEAPONSTATE_SWAPPING_OUT	*/
-			NULL,  /* WEAPONSTATE_JAMMED */
-			NULL,  /* WEAPONSTATE_WAITING */
-			NULL,  /* WEAPONSTATE_READYING */
-			NULL,  /* WEAPONSTATE_UNREADYING */
+			GenericPredatorWeapon_Idle,  /* WEAPONSTATE_IDLE	*/
+			GenericPredatorWeapon_Idle,  /* WEAPONSTATE_FIRING_PRIMARY */
+			SpearGun_Recoil,				/* WEAPONSTATE_RECOIL_PRIMARY */
+			GenericPredatorWeapon_Reload,  /* WEAPONSTATE_RELOAD_PRIMARY */
+			GenericPredatorWeapon_Idle,  /* WEAPONSTATE_FIRING_SECONDARY	*/
+			SpearGun_Recoil,			/* WEAPONSTATE_RECOIL_SECONDARY	*/
+			GenericPredatorWeapon_Idle,  /* WEAPONSTATE_RELOAD_SECONDARY	*/
+			GenericPredatorWeapon_SwapIn,  /* WEAPONSTATE_SWAPPING_IN	*/
+			GenericPredatorWeapon_SwapOut,  /* WEAPONSTATE_SWAPPING_OUT	*/
+			GenericPredatorWeapon_Idle,  /* WEAPONSTATE_JAMMED */
+			GenericPredatorWeapon_Idle,  /* WEAPONSTATE_WAITING */
+			GenericPredatorWeapon_Idle,  /* WEAPONSTATE_READYING */
+			GenericPredatorWeapon_Idle,  /* WEAPONSTATE_UNREADYING */
 		},
 		/* ProbabilityOfJamming; */
 	    32,
 	    /* FiringRate;	*/
-	    1*65536,
+	    65536,
 	    
 		/* SmartTargetSpeed; signed int, how fast the crosshair moves. */
 		4,
 	    /* GunCrosshairSpeed;  integer, how fast the gun moves. */
-	    160,
+	    640,
 	    /* SmartTargetRadius in pixels */
-	    5500,
+	    0,
 		/* RestPosition; */
 		{0,0,0},
-
+		
 		/* RecoilMaxZ; */
-		0, //60,
+		0, //80,
 		/* RecoilMaxRandomZ; */
 		0, //31,
 		/* RecoilMaxXTilt; */
-		0, //31,
+		0, //31,	//-31?
 		/* RecoilMaxYTilt; */
 		0, //15,
 
 		/* StrikePosition */
 		{0,0,0},
-
+		
 		/* Name; */
-		TEXTSTRING_BLANK,
+		TEXTSTRING_SELECTEDGRENADE_STANDARD,
 
 		/* WeaponShapeName; */
-	    "Hsonicg",
+		"Shell",
 		/* MuzzleFlashShapeName; */
 	    "Sntrymuz",
 		/* RiffName */
-		NULL,
+		"pred_HUD",
 		/* HierarchyName */
-		NULL,
+		"Speargun",
 		/* InitialSequenceType */
-		-1,
+		(int)HMSQT_PredatorHUD,
 		/* InitialSubSequence */
-		-1,
+		(int)PHSS_Stand,
 		
-		#if USE_ENCUMBERANCE
 		{ /* Encum_Idle */
 			ONE_FIXED, /* MovementMultiple	*/
 			ONE_FIXED, /* TurningMultiple */
@@ -1719,36 +1801,12 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 			1, /* CanCrouch */
 			1, /* CanRun */
 		},
-		#else
-		{ /* Encum_Idle */
-			7*ONE_FIXED/8, /* MovementMultiple	*/
-			7*ONE_FIXED/8, /* TurningMultiple */
-			7*ONE_FIXED/8, /* JumpingMultiple */
-			1, /* CanCrouch */
-			1, /* CanRun */
-		},
-		{ /* Encum_FirePrime */
-			2*ONE_FIXED/3, /* MovementMultiple	*/
-			7*ONE_FIXED/8, /* TurningMultiple */
-			2*ONE_FIXED/3, /* JumpingMultiple */
-			1, /* CanCrouch */
-			1, /* CanRun */
-		},
-		{ /* Encum_FireSec */
-			ONE_FIXED/2, /* MovementMultiple	*/
-			7*ONE_FIXED/8, /* TurningMultiple */
-			2*ONE_FIXED/3, /* JumpingMultiple */
-			1, /* CanCrouch */
-			1, /* CanRun */
-		},
-		#endif
-
 		/* UseStateMovement :1; */
-		1,
+		0,
 		/* IsSmartTarget :1; */
 		0,
 		/* PrimaryIsRapidFire   :1; */   
-		0,  
+		0,
 		/* PrimaryIsAutomatic	:1; */
 		0,
 		/* PrimaryIsMeleeWeapon :1; */
@@ -1764,44 +1822,43 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 		/* HasTextureAnimation */
 		0,
 		/* FireWhenCloaked */
-		1,
+		0,
 		/* FireInChangeVision */
-		1,
+		0,
 		/* FirePrimaryLate */
 		0,
 		/* FireSecondaryLate */
 		0,
 		/* PrimaryMuzzleFlash */
-		1,
+		0,
 		/* SecondaryMuzzleFlash */
-		1,
+		0,
 		/* LogAccuracy */
-		0,
+		1,
 		/* LogShots */
-		0,
+		1,
 	},
 	/*KJL********************
-	*   WEAPON_BEAMCANNON   *
+	*   WEAPON_BEAMCANNON   *	WristLauncher
 	********************KJL*/
 	{
 		/* PrimaryAmmoID; */
-		AMMO_PARTICLE_BEAM,
+		AMMO_PRED_ENERGY_BOLT,
 		/* SecondaryAmmoID; */
 		AMMO_NONE,
 		   
-		FireAutomaticWeapon, /* FirePrimaryFunction */
+		FireWristLauncher, /* FirePrimaryFunction */
 		NULL, /* FireSecondaryFunction */
 		NULL,	/* WeaponInitFunction */
 
 	    /* TimeOutRateForState[MAX_NO_OF_WEAPON_STATES]; in 16.16 */
 		{
-			0,/* WEAPONSTATE_IDLE	*/
-			
-			WEAPONSTATE_INSTANTTIMEOUT, /* WEAPONSTATE_FIRING_PRIMARY */
-		   	WEAPONSTATE_INSTANTTIMEOUT,	/* WEAPONSTATE_RECOIL_PRIMARY */
-			65536*2,	/* WEAPONSTATE_RELOAD_PRIMARY */
+			65536,						/* WEAPONSTATE_IDLE	*/
+		   	WEAPONSTATE_INSTANTTIMEOUT,	/* WEAPONSTATE_FIRING_PRIMARY */
+			65536*2,					/* WEAPONSTATE_RECOIL_PRIMARY */
+			65536*4,					/* WEAPONSTATE_RELOAD_PRIMARY */
 
-			WEAPONSTATE_INSTANTTIMEOUT, /* WEAPONSTATE_FIRING_SECONDARY	*/
+			WEAPONSTATE_INSTANTTIMEOUT,	/* WEAPONSTATE_FIRING_SECONDARY	*/
 			WEAPONSTATE_INSTANTTIMEOUT,	/* WEAPONSTATE_RECOIL_SECONDARY	*/
 			WEAPONSTATE_INSTANTTIMEOUT,	/* WEAPONSTATE_RELOAD_SECONDARY	*/
 										
@@ -1810,123 +1867,96 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 			65536,						/* WEAPONSTATE_JAMMED */
 			WEAPONSTATE_INSTANTTIMEOUT, /* WEAPONSTATE_WAITING */
 
-			65536, /* WEAPONSTATE_READYING */
-			65536, /* WEAPONSTATE_UNREADYING */
+			WEAPONSTATE_INSTANTTIMEOUT, /* WEAPONSTATE_READYING */
+			WEAPONSTATE_INSTANTTIMEOUT, /* WEAPONSTATE_UNREADYING */
 
 		},
 		{
-			NULL,  /* WEAPONSTATE_IDLE	*/
-			NULL,  /* WEAPONSTATE_FIRING_PRIMARY */
-			NULL,  /* WEAPONSTATE_RECOIL_PRIMARY */
-			NULL,  /* WEAPONSTATE_RELOAD_PRIMARY */
-			NULL,  /* WEAPONSTATE_FIRING_SECONDARY	*/
-			NULL,  /* WEAPONSTATE_RECOIL_SECONDARY	*/
-			NULL,  /* WEAPONSTATE_RELOAD_SECONDARY	*/
-			ParticleBeamSwapping,  /* WEAPONSTATE_SWAPPING_IN	*/
-			ParticleBeamSwapping,  /* WEAPONSTATE_SWAPPING_OUT	*/
-			NULL,  /* WEAPONSTATE_JAMMED */
-			NULL,  /* WEAPONSTATE_WAITING */
-			ParticleBeamReadying,  /* WEAPONSTATE_READYING */
-			ParticleBeamUnreadying,  /* WEAPONSTATE_UNREADYING */
+			GenericPredatorWeapon_Idle,  /* WEAPONSTATE_IDLE	*/
+			GenericPredatorWeapon_Idle,  /* WEAPONSTATE_FIRING_PRIMARY */
+			SpearGun_Recoil,				/* WEAPONSTATE_RECOIL_PRIMARY */
+			GenericPredatorWeapon_Reload,  /* WEAPONSTATE_RELOAD_PRIMARY */
+			GenericPredatorWeapon_Idle,  /* WEAPONSTATE_FIRING_SECONDARY	*/
+			SpearGun_Recoil,			/* WEAPONSTATE_RECOIL_SECONDARY	*/
+			GenericPredatorWeapon_Idle,  /* WEAPONSTATE_RELOAD_SECONDARY	*/
+			GenericPredatorWeapon_SwapIn,  /* WEAPONSTATE_SWAPPING_IN	*/
+			GenericPredatorWeapon_SwapOut,  /* WEAPONSTATE_SWAPPING_OUT	*/
+			GenericPredatorWeapon_Idle,  /* WEAPONSTATE_JAMMED */
+			GenericPredatorWeapon_Idle,  /* WEAPONSTATE_WAITING */
+			GenericPredatorWeapon_Idle,  /* WEAPONSTATE_READYING */
+			GenericPredatorWeapon_Idle,  /* WEAPONSTATE_UNREADYING */
 		},
 		/* ProbabilityOfJamming; */
 	    32,
 	    /* FiringRate;	*/
-	    1000*65536/60,
-//	    40*65536,
+	    65536,
 	    
 		/* SmartTargetSpeed; signed int, how fast the crosshair moves. */
 		4,
 	    /* GunCrosshairSpeed;  integer, how fast the gun moves. */
-	    160,
+	    640,
 	    /* SmartTargetRadius in pixels */
-	    5500,
+	    0,
 		/* RestPosition; */
 		{0,0,0},
-
+		
 		/* RecoilMaxZ; */
-		60,
+		0, //80,
 		/* RecoilMaxRandomZ; */
-		31,
+		0, //31,
 		/* RecoilMaxXTilt; */
-		5,
+		0, //31,	//-31?
 		/* RecoilMaxYTilt; */
-		5,
+		0, //15,
 
 		/* StrikePosition */
 		{0,0,0},
-
+		
 		/* Name; */
-		TEXTSTRING_BLANK,
+		TEXTSTRING_SELECTEDGRENADE_FLARE,
 
 		/* WeaponShapeName; */
-	    //"Cpbhud",
-	    "Shell",/*"CPBhudf",*/
+		"Shell",
 		/* MuzzleFlashShapeName; */
 	    "Sntrymuz",
 		/* RiffName */
-		NULL,
+		"pred_HUD",
 		/* HierarchyName */
-		NULL,
+		"Speargun",
 		/* InitialSequenceType */
-		-1,
+		(int)HMSQT_PredatorHUD,
 		/* InitialSubSequence */
-		-1,
+		(int)PHSS_Stand,
 		
-		#if USE_ENCUMBERANCE
 		{ /* Encum_Idle */
-			2*ONE_FIXED/3, /* MovementMultiple	*/
-			2*ONE_FIXED/3, /* TurningMultiple */
-			2*ONE_FIXED/3, /* JumpingMultiple */
+			ONE_FIXED, /* MovementMultiple	*/
+			ONE_FIXED, /* TurningMultiple */
+			ONE_FIXED, /* JumpingMultiple */
 			1, /* CanCrouch */
 			1, /* CanRun */
 		},
 		{ /* Encum_FirePrime */
-			2*ONE_FIXED/3, /* MovementMultiple	*/
-			2*ONE_FIXED/3, /* TurningMultiple */
-			2*ONE_FIXED/3, /* JumpingMultiple */
+			ONE_FIXED, /* MovementMultiple	*/
+			ONE_FIXED, /* TurningMultiple */
+			ONE_FIXED, /* JumpingMultiple */
 			1, /* CanCrouch */
 			1, /* CanRun */
 		},
 		{ /* Encum_FireSec */
-			2*ONE_FIXED/3, /* MovementMultiple	*/
-			2*ONE_FIXED/3, /* TurningMultiple */
-			2*ONE_FIXED/3, /* JumpingMultiple */
+			ONE_FIXED, /* MovementMultiple	*/
+			ONE_FIXED, /* TurningMultiple */
+			ONE_FIXED, /* JumpingMultiple */
 			1, /* CanCrouch */
 			1, /* CanRun */
 		},
-		#else
-		{ /* Encum_Idle */
-			7*ONE_FIXED/8, /* MovementMultiple	*/
-			7*ONE_FIXED/8, /* TurningMultiple */
-			7*ONE_FIXED/8, /* JumpingMultiple */
-			1, /* CanCrouch */
-			1, /* CanRun */
-		},
-		{ /* Encum_FirePrime */
-			2*ONE_FIXED/3, /* MovementMultiple	*/
-			7*ONE_FIXED/8, /* TurningMultiple */
-			2*ONE_FIXED/3, /* JumpingMultiple */
-			1, /* CanCrouch */
-			1, /* CanRun */
-		},
-		{ /* Encum_FireSec */
-			ONE_FIXED/2, /* MovementMultiple	*/
-			7*ONE_FIXED/8, /* TurningMultiple */
-			2*ONE_FIXED/3, /* JumpingMultiple */
-			1, /* CanCrouch */
-			1, /* CanRun */
-		},
-		#endif
-
 		/* UseStateMovement :1; */
-		1,
+		0,
 		/* IsSmartTarget :1; */
 		0,
 		/* PrimaryIsRapidFire   :1; */   
-		1,  
+		0,
 		/* PrimaryIsAutomatic	:1; */
-		1,
+		0,
 		/* PrimaryIsMeleeWeapon :1; */
 		0,  
 		/* SecondaryIsRapidFire   :1; */   
@@ -1936,53 +1966,52 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 		/* SecondaryIsMeleeWeapon :1; */
 		0,  
 		/* HasShapeAnimation */
-		0,/*1,*/
+		0,
 		/* HasTextureAnimation */
-		0,/*1,*/
+		0,
 		/* FireWhenCloaked */
 		1,
 		/* FireInChangeVision */
-		1,
+		0,
 		/* FirePrimaryLate */
 		0,
 		/* FireSecondaryLate */
 		0,
 		/* PrimaryMuzzleFlash */
-		1,
+		0,
 		/* SecondaryMuzzleFlash */
-		1,
+		0,
 		/* LogAccuracy */
-		0,
+		1,
 		/* LogShots */
-		0,
+		1,
 	},
 	/*KJL********************
-	*   WEAPON_MYSTERYGUN   *
+	*   WEAPON_MYSTERYGUN   *	Dart Launcher
 	********************KJL*/
 	{
 		/* PrimaryAmmoID; */
-		AMMO_SMARTGUN,
+		AMMO_PRED_RIFLE,
 		/* SecondaryAmmoID; */
-		AMMO_PULSE_GRENADE,
+		AMMO_NONE,
 		   
-		NULL, /* FirePrimaryFunction */
+		FireDartLauncher, /* FirePrimaryFunction */
 		NULL, /* FireSecondaryFunction */
 		NULL,	/* WeaponInitFunction */
 
 	    /* TimeOutRateForState[MAX_NO_OF_WEAPON_STATES]; in 16.16 */
 		{
-			0,/* WEAPONSTATE_IDLE	*/
-			
-			WEAPONSTATE_INSTANTTIMEOUT, /* WEAPONSTATE_FIRING_PRIMARY */
-		   	WEAPONSTATE_INSTANTTIMEOUT,	/* WEAPONSTATE_RECOIL_PRIMARY */
-			65536,						/* WEAPONSTATE_RELOAD_PRIMARY */
+			65536,						/* WEAPONSTATE_IDLE	*/
+		   	WEAPONSTATE_INSTANTTIMEOUT,	/* WEAPONSTATE_FIRING_PRIMARY */
+			65536*2,					/* WEAPONSTATE_RECOIL_PRIMARY */
+			65536*4,					/* WEAPONSTATE_RELOAD_PRIMARY */
 
 			WEAPONSTATE_INSTANTTIMEOUT,	/* WEAPONSTATE_FIRING_SECONDARY	*/
-			65536*6,					/* WEAPONSTATE_RECOIL_SECONDARY	*/
-			65536,						/* WEAPONSTATE_RELOAD_SECONDARY	*/
+			WEAPONSTATE_INSTANTTIMEOUT,	/* WEAPONSTATE_RECOIL_SECONDARY	*/
+			WEAPONSTATE_INSTANTTIMEOUT,	/* WEAPONSTATE_RELOAD_SECONDARY	*/
 										
-			65536*2,   					/* WEAPONSTATE_SWAPPING_IN	*/
-			65536*2,   					/* WEAPONSTATE_SWAPPING_OUT	*/
+			65536,						/* WEAPONSTATE_SWAPPING_IN	*/
+			65536,						/* WEAPONSTATE_SWAPPING_OUT	*/
 			65536,						/* WEAPONSTATE_JAMMED */
 			WEAPONSTATE_INSTANTTIMEOUT, /* WEAPONSTATE_WAITING */
 
@@ -1991,63 +2020,62 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 
 		},
 		{
-			NULL,  /* WEAPONSTATE_IDLE	*/
-			NULL,  /* WEAPONSTATE_FIRING_PRIMARY */
-			NULL,  /* WEAPONSTATE_RECOIL_PRIMARY */
-			NULL,  /* WEAPONSTATE_RELOAD_PRIMARY */
-			NULL,  /* WEAPONSTATE_FIRING_SECONDARY	*/
-			NULL,  /* WEAPONSTATE_RECOIL_SECONDARY	*/
-			NULL,  /* WEAPONSTATE_RELOAD_SECONDARY	*/
-			NULL,  /* WEAPONSTATE_SWAPPING_IN	*/
-			NULL,  /* WEAPONSTATE_SWAPPING_OUT	*/
-			NULL,  /* WEAPONSTATE_JAMMED */
-			NULL,  /* WEAPONSTATE_WAITING */
-			NULL,  /* WEAPONSTATE_READYING */
-			NULL,  /* WEAPONSTATE_UNREADYING */
+			GenericPredatorWeapon_Idle,  /* WEAPONSTATE_IDLE	*/
+			GenericPredatorWeapon_Idle,  /* WEAPONSTATE_FIRING_PRIMARY */
+			SpearGun_Recoil,				/* WEAPONSTATE_RECOIL_PRIMARY */
+			GenericPredatorWeapon_Reload,  /* WEAPONSTATE_RELOAD_PRIMARY */
+			GenericPredatorWeapon_Idle,  /* WEAPONSTATE_FIRING_SECONDARY	*/
+			SpearGun_Recoil,			/* WEAPONSTATE_RECOIL_SECONDARY	*/
+			GenericPredatorWeapon_Idle,  /* WEAPONSTATE_RELOAD_SECONDARY	*/
+			GenericPredatorWeapon_SwapIn,  /* WEAPONSTATE_SWAPPING_IN	*/
+			GenericPredatorWeapon_SwapOut,  /* WEAPONSTATE_SWAPPING_OUT	*/
+			GenericPredatorWeapon_Idle,  /* WEAPONSTATE_JAMMED */
+			GenericPredatorWeapon_Idle,  /* WEAPONSTATE_WAITING */
+			GenericPredatorWeapon_Idle,  /* WEAPONSTATE_READYING */
+			GenericPredatorWeapon_Idle,  /* WEAPONSTATE_UNREADYING */
 		},
 		/* ProbabilityOfJamming; */
 	    32,
 	    /* FiringRate;	*/
-	   	2000*65536/60,
+	    65536,
 	    
 		/* SmartTargetSpeed; signed int, how fast the crosshair moves. */
 		4,
 	    /* GunCrosshairSpeed;  integer, how fast the gun moves. */
-	    160,
-	    /* SmartTargetRadius */
-	    55000,
+	    640,
+	    /* SmartTargetRadius in pixels */
+	    0,
 		/* RestPosition; */
 		{0,0,0},
 		
 		/* RecoilMaxZ; */
-		60,
+		0, //80,
 		/* RecoilMaxRandomZ; */
-		31,
+		0, //31,
 		/* RecoilMaxXTilt; */
-		31,
+		0, //31,	//-31?
 		/* RecoilMaxYTilt; */
-		15,
+		0, //15,
 
 		/* StrikePosition */
 		{0,0,0},
 		
 		/* Name; */
-		TEXTSTRING_BLANK,
+		TEXTSTRING_SELECTEDGRENADE_PROXIMITY,
 
 		/* WeaponShapeName; */
-	    "Hmystry",
+		"Shell",
 		/* MuzzleFlashShapeName; */
 	    "Sntrymuz",
 		/* RiffName */
-		NULL,
+		"pred_HUD",
 		/* HierarchyName */
-		NULL,
+		"Speargun",
 		/* InitialSequenceType */
-		-1,
+		(int)HMSQT_PredatorHUD,
 		/* InitialSubSequence */
-		-1,
+		(int)PHSS_Stand,
 		
-		#if USE_ENCUMBERANCE
 		{ /* Encum_Idle */
 			ONE_FIXED, /* MovementMultiple	*/
 			ONE_FIXED, /* TurningMultiple */
@@ -2069,38 +2097,14 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 			1, /* CanCrouch */
 			1, /* CanRun */
 		},
-		#else
-		{ /* Encum_Idle */
-			7*ONE_FIXED/8, /* MovementMultiple	*/
-			7*ONE_FIXED/8, /* TurningMultiple */
-			7*ONE_FIXED/8, /* JumpingMultiple */
-			1, /* CanCrouch */
-			1, /* CanRun */
-		},
-		{ /* Encum_FirePrime */
-			2*ONE_FIXED/3, /* MovementMultiple	*/
-			7*ONE_FIXED/8, /* TurningMultiple */
-			2*ONE_FIXED/3, /* JumpingMultiple */
-			1, /* CanCrouch */
-			1, /* CanRun */
-		},
-		{ /* Encum_FireSec */
-			ONE_FIXED/2, /* MovementMultiple	*/
-			7*ONE_FIXED/8, /* TurningMultiple */
-			2*ONE_FIXED/3, /* JumpingMultiple */
-			1, /* CanCrouch */
-			1, /* CanRun */
-		},
-		#endif
-
 		/* UseStateMovement :1; */
-		1,
+		0,
 		/* IsSmartTarget :1; */
-		1,
+		0,
 		/* PrimaryIsRapidFire   :1; */   
-		1,
+		0,
 		/* PrimaryIsAutomatic	:1; */
-		1,
+		0,
 		/* PrimaryIsMeleeWeapon :1; */
 		0,  
 		/* SecondaryIsRapidFire   :1; */   
@@ -2116,19 +2120,19 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 		/* FireWhenCloaked */
 		1,
 		/* FireInChangeVision */
-		1,
+		0,
 		/* FirePrimaryLate */
 		0,
 		/* FireSecondaryLate */
 		0,
 		/* PrimaryMuzzleFlash */
-		1,
+		0,
 		/* SecondaryMuzzleFlash */
-		1,
+		0,
 		/* LogAccuracy */
-		0,
+		1,
 		/* LogShots */
-		0,
+		1,
 	},
 	
 
@@ -2298,14 +2302,12 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 	*********************KJL*/
 	{
 		/* PrimaryAmmoID; */
-		AMMO_PRED_PISTOL,
+		AMMO_SHOTGUN,
 		/* SecondaryAmmoID; */
-		AMMO_PRED_PISTOL,
+		AMMO_NONE,
 		   
-		//FirePredPistol, /* FirePrimaryFunction */
-		PredPistolSecondaryFire, /* FirePrimaryFunction */
+		FireNonAutomaticWeapon, /* FirePrimaryFunction */
 		NULL, /* FireSecondaryFunction */
-		//PlayerFirePredPistolFlechettes, /* FireSecondaryFunction */
 		NULL,	/* WeaponInitFunction */
 
 	    /* TimeOutRateForState[MAX_NO_OF_WEAPON_STATES]; in 16.16 */
@@ -2317,8 +2319,8 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 			WEAPONSTATE_INSTANTTIMEOUT,	/* WEAPONSTATE_RELOAD_PRIMARY */
 										
 			WEAPONSTATE_INSTANTTIMEOUT, /* WEAPONSTATE_FIRING_SECONDARY */
-		   	WEAPONSTATE_INSTANTTIMEOUT,	/* WEAPONSTATE_RECOIL_SECONDARY */
-			65536,						/* WEAPONSTATE_RELOAD_SECONDARY */
+		   	(65536*2),					/* WEAPONSTATE_RECOIL_SECONDARY */
+			WEAPONSTATE_INSTANTTIMEOUT,	/* WEAPONSTATE_RELOAD_SECONDARY */
 
 			((65536*5)/6),				/* WEAPONSTATE_SWAPPING_IN	*/ /* Was >>2 */
 			((65536*5)/6), 				/* WEAPONSTATE_SWAPPING_OUT	*/
@@ -2421,9 +2423,9 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 		/* PrimaryIsMeleeWeapon :1; */
 		0,  
 		/* SecondaryIsRapidFire   :1; */   
-		1,  
+		0,  
 		/* SecondaryIsAutomatic	:1; */
-		1,
+		0,
 		/* SecondaryIsMeleeWeapon :1; */
 		0,  
 		/* HasShapeAnimation */
@@ -2437,11 +2439,11 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 		/* FirePrimaryLate */
 		0,
 		/* FireSecondaryLate */
-		1,
+		0,
 		/* PrimaryMuzzleFlash */
-		1,
+		0,
 		/* SecondaryMuzzleFlash */
-		1,
+		0,
 		/* LogAccuracy */
 		1,
 		/* LogShots */
@@ -2449,31 +2451,26 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 	},
 
 	/*KJL********************
-	*   WEAPON_PRED_RIFLE   *
+	*   WEAPON_PRED_RIFLE   *	Combi-Stick
 	********************KJL*/
 	{
 		/* PrimaryAmmoID; */
-		AMMO_PRED_RIFLE,
+		AMMO_PRED_STAFF,
 		/* SecondaryAmmoID; */
-		AMMO_NONE,
+		AMMO_PRED_STAFF,
 		   
-		FireSpeargun, /* FirePrimaryFunction */
+		ThrustWithSpear, /* FirePrimaryFunction */
 		NULL, /* FireSecondaryFunction */
 		NULL,	/* WeaponInitFunction */
 
 	    /* TimeOutRateForState[MAX_NO_OF_WEAPON_STATES]; in 16.16 */
 		{
-			65536,/* WEAPONSTATE_IDLE	*/
-			#if 0
-			65536*2,					/* WEAPONSTATE_FIRING_PRIMARY */
-		   	WEAPONSTATE_INSTANTTIMEOUT,	/* WEAPONSTATE_RECOIL_PRIMARY */
-			#else
+			65536,						/* WEAPONSTATE_IDLE	*/
 		   	WEAPONSTATE_INSTANTTIMEOUT,	/* WEAPONSTATE_FIRING_PRIMARY */
 			65536*2,					/* WEAPONSTATE_RECOIL_PRIMARY */
-			#endif
 			65536*4,					/* WEAPONSTATE_RELOAD_PRIMARY */
 
-			WEAPONSTATE_INSTANTTIMEOUT, /* WEAPONSTATE_FIRING_SECONDARY	*/
+			WEAPONSTATE_INSTANTTIMEOUT,	/* WEAPONSTATE_FIRING_SECONDARY	*/
 			WEAPONSTATE_INSTANTTIMEOUT,	/* WEAPONSTATE_RECOIL_SECONDARY	*/
 			WEAPONSTATE_INSTANTTIMEOUT,	/* WEAPONSTATE_RELOAD_SECONDARY	*/
 										
@@ -2488,16 +2485,11 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 		},
 		{
 			GenericPredatorWeapon_Idle,  /* WEAPONSTATE_IDLE	*/
-			#if 0
-			GenericPredatorWeapon_Firing,  /* WEAPONSTATE_FIRING_PRIMARY */
-			GenericPredatorWeapon_Idle,  /* WEAPONSTATE_RECOIL_PRIMARY */
-			#else
 			GenericPredatorWeapon_Idle,  /* WEAPONSTATE_FIRING_PRIMARY */
-			SpearGun_Recoil,  /* WEAPONSTATE_RECOIL_PRIMARY */
-			#endif
+			SpearGun_Recoil,				/* WEAPONSTATE_RECOIL_PRIMARY */
 			GenericPredatorWeapon_Reload,  /* WEAPONSTATE_RELOAD_PRIMARY */
 			GenericPredatorWeapon_Idle,  /* WEAPONSTATE_FIRING_SECONDARY	*/
-			GenericPredatorWeapon_Idle,  /* WEAPONSTATE_RECOIL_SECONDARY	*/
+			SpearGun_Recoil,			/* WEAPONSTATE_RECOIL_SECONDARY	*/
 			GenericPredatorWeapon_Idle,  /* WEAPONSTATE_RELOAD_SECONDARY	*/
 			GenericPredatorWeapon_SwapIn,  /* WEAPONSTATE_SWAPPING_IN	*/
 			GenericPredatorWeapon_SwapOut,  /* WEAPONSTATE_SWAPPING_OUT	*/
@@ -2578,19 +2570,19 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 		/* PrimaryIsAutomatic	:1; */
 		1,
 		/* PrimaryIsMeleeWeapon :1; */
-		0,  
+		1,  
 		/* SecondaryIsRapidFire   :1; */   
 		0,  
 		/* SecondaryIsAutomatic	:1; */
 		0,
 		/* SecondaryIsMeleeWeapon :1; */
-		0,  
+		1,  
 		/* HasShapeAnimation */
 		0,
 		/* HasTextureAnimation */
 		0,
 		/* FireWhenCloaked */
-		0,
+		1,
 		/* FireInChangeVision */
 		0,
 		/* FirePrimaryLate */
@@ -2617,19 +2609,22 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 		   
 		//FirePCPlasmaCaster, /* FirePrimaryFunction */
 		SecondaryFirePCPlasmaCaster, /* FirePrimaryFunction */
-		SecondaryFirePCPlasmaCaster, /* FireSecondaryFunction */
+		PlasmacasterLockOn,
+		//SecondaryFirePCPlasmaCaster, /* FireSecondaryFunction */
 		NULL,	/* WeaponInitFunction */
 
 	    /* TimeOutRateForState[MAX_NO_OF_WEAPON_STATES]; in 16.16 */
 		{
 			65536,/* WEAPONSTATE_IDLE	*/
 			
-			WEAPONSTATE_INSTANTTIMEOUT, /* WEAPONSTATE_FIRING_PRIMARY */
+			65536*6,
+			//WEAPONSTATE_INSTANTTIMEOUT, /* WEAPONSTATE_FIRING_PRIMARY */
 		   	65536*8,					/* WEAPONSTATE_RECOIL_PRIMARY */
 			65536*4,					/* WEAPONSTATE_RELOAD_PRIMARY */
 
 			WEAPONSTATE_INSTANTTIMEOUT, /* WEAPONSTATE_FIRING_SECONDARY	*/
-			65536*8,	/* WEAPONSTATE_RECOIL_SECONDARY	*/
+			WEAPONSTATE_INSTANTTIMEOUT,
+			//65536*8,	/* WEAPONSTATE_RECOIL_SECONDARY	*/
 			WEAPONSTATE_INSTANTTIMEOUT,	/* WEAPONSTATE_RELOAD_SECONDARY	*/
 										
 			65536*3,					/* WEAPONSTATE_SWAPPING_IN	*/
@@ -2648,7 +2643,8 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 			PlasmaCaster_Recoil,  /* WEAPONSTATE_RECOIL_PRIMARY */
 			PlasmaCaster_Idle,  /* WEAPONSTATE_RELOAD_PRIMARY */
 			PlasmaCaster_Idle,  /* WEAPONSTATE_FIRING_SECONDARY	*/
-			Secondary_PlasmaCaster_Recoil,  /* WEAPONSTATE_RECOIL_SECONDARY	*/
+			PlasmaCaster_Idle,
+			//Secondary_PlasmaCaster_Recoil,  /* WEAPONSTATE_RECOIL_SECONDARY	*/
 			PlasmaCaster_Idle,  /* WEAPONSTATE_RELOAD_SECONDARY	*/
 			TemplateHands_SwapIn,  /* WEAPONSTATE_SWAPPING_IN	*/
 			TemplateHands_SwapOut,  /* WEAPONSTATE_SWAPPING_OUT	*/
@@ -2725,15 +2721,15 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 		/* IsSmartTarget :1; */
 		1,
 		/* PrimaryIsRapidFire   :1; */   
-		1, //0
+		0, //0
 		/* PrimaryIsAutomatic	:1; */
-		1, //0
+		0, //0
 		/* PrimaryIsMeleeWeapon :1; */
 		0,  
 		/* SecondaryIsRapidFire   :1; */   
-		1,  
+		0,  
 		/* SecondaryIsAutomatic	:1; */
-		1,
+		0,
 		/* SecondaryIsMeleeWeapon :1; */
 		0,  
 		/* HasShapeAnimation */
@@ -2874,7 +2870,7 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 		/* UseStateMovement :1; */
 		0,
 		/* IsSmartTarget :1; */
-		1,
+		0,
 		/* PrimaryIsRapidFire   :1; */   
 		0,  
 		/* PrimaryIsAutomatic	:1; */
@@ -3961,23 +3957,23 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 		},
 		#else
 		{ /* Encum_Idle */
-			7*ONE_FIXED/8, /* MovementMultiple	*/
-			7*ONE_FIXED/8, /* TurningMultiple */
-			7*ONE_FIXED/8, /* JumpingMultiple */
+			ONE_FIXED*1, /* MovementMultiple	*/
+			ONE_FIXED*1, /* TurningMultiple */
+			ONE_FIXED*1, /* JumpingMultiple */
 			1, /* CanCrouch */
 			1, /* CanRun */
 		},
 		{ /* Encum_FirePrime */
-			2*ONE_FIXED/3, /* MovementMultiple	*/
-			7*ONE_FIXED/8, /* TurningMultiple */
-			2*ONE_FIXED/3, /* JumpingMultiple */
+			ONE_FIXED*1, /* MovementMultiple	*/
+			ONE_FIXED*1, /* TurningMultiple */
+			ONE_FIXED*1, /* JumpingMultiple */
 			1, /* CanCrouch */
 			1, /* CanRun */
 		},
 		{ /* Encum_FireSec */
-			ONE_FIXED/2, /* MovementMultiple	*/
-			7*ONE_FIXED/8, /* TurningMultiple */
-			2*ONE_FIXED/3, /* JumpingMultiple */
+			ONE_FIXED*1, /* MovementMultiple	*/
+			ONE_FIXED*1, /* TurningMultiple */
+			ONE_FIXED*1, /* JumpingMultiple */
 			1, /* CanCrouch */
 			1, /* CanRun */
 		},
@@ -4029,7 +4025,7 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 		AMMO_NONE,
 		   
 		PredatorDisc_Prefiring, /* FirePrimaryFunction.  It's empty. */
-		NULL, /* FireSecondaryFunction */
+		PIGZoom, /* FireSecondaryFunction */
 		NULL,	/* WeaponInitFunction */
 
 	    /* TimeOutRateForState[MAX_NO_OF_WEAPON_STATES]; in 16.16 */
@@ -4103,7 +4099,7 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 		/* dummy shape*/
 		"Shell",
 		/* MuzzleFlashShapeName; */
-	    "Sntrymuz",
+	    "NULL",
 		/* RiffName */
 		"MarineWeapons",
 		/* HierarchyName */
@@ -4137,23 +4133,23 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 		},
 		#else
 		{ /* Encum_Idle */
-			7*ONE_FIXED/8, /* MovementMultiple	*/
-			7*ONE_FIXED/8, /* TurningMultiple */
-			7*ONE_FIXED/8, /* JumpingMultiple */
+			ONE_FIXED*0.7, /* MovementMultiple	*/
+			ONE_FIXED*1, /* TurningMultiple */
+			ONE_FIXED*0.3, /* JumpingMultiple */
 			1, /* CanCrouch */
 			1, /* CanRun */
 		},
 		{ /* Encum_FirePrime */
-			2*ONE_FIXED/3, /* MovementMultiple	*/
-			7*ONE_FIXED/8, /* TurningMultiple */
-			2*ONE_FIXED/3, /* JumpingMultiple */
+			ONE_FIXED/3, /* MovementMultiple	*/
+			ONE_FIXED*1, /* TurningMultiple */
+			ONE_FIXED*0, /* JumpingMultiple */
 			1, /* CanCrouch */
 			1, /* CanRun */
 		},
 		{ /* Encum_FireSec */
-			ONE_FIXED/2, /* MovementMultiple	*/
-			7*ONE_FIXED/8, /* TurningMultiple */
-			2*ONE_FIXED/3, /* JumpingMultiple */
+			ONE_FIXED*1, /* MovementMultiple	*/
+			ONE_FIXED*1, /* TurningMultiple */
+			ONE_FIXED*1, /* JumpingMultiple */
 			1, /* CanCrouch */
 			1, /* CanRun */
 		},
@@ -4188,9 +4184,9 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 		/* FireSecondaryLate */
 		0,
 		/* PrimaryMuzzleFlash */
-		1,
+		0,
 		/* SecondaryMuzzleFlash */
-		1,
+		0,
 		/* LogAccuracy */
 		1,
 		/* LogShots */
@@ -4584,10 +4580,10 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 	},
 	/* AMMO_SHOTGUN */
 	{
-		20*65536,
+		1*65536,
 		{
 			{
-				20,10,0,0,0,0,	/* Impact point damage */
+				0,0,2,0,0,0,	/* Impact point damage */
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -4598,7 +4594,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_SHOTGUN,
 			},
 			{
-				20,10,0,0,0,0,	/* Impact point damage */
+				0,0,2,0,0,0,	/* Impact point damage */
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -4609,7 +4605,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_SHOTGUN,
 			},
 			{
-				20,10,0,0,0,0,	/* Impact point damage */
+				0,0,2,0,0,0,	/* Impact point damage */
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -4620,7 +4616,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_SHOTGUN,
 			},
 			{
-				20,10,0,0,0,0,	/* Impact point damage */
+				0,0,2,0,0,0,	/* Impact point damage */
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -4631,18 +4627,18 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_SHOTGUN,
 			},
 		},
-		0,
+		10000,
 		TEXTSTRING_AMMO_SHORTNAME_SHOTGUN, /* ShortName */
-		0,
-		0,
+		1,
+		1,
 	},
 	/* AMMO_SMARTGUN */
 	{
-		500*65536,
+		950*65536,
 		{
 			//6,0,6,0,0,0,
 			{
-				8,0,2,0,0,0,
+				2,0,8,0,0,0,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -4653,7 +4649,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_SMARTGUN,
 			},
 			{
-				8,0,2,0,0,0,
+				2,0,8,0,0,0,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -4664,7 +4660,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_SMARTGUN,
 			},
 			{
-				8,0,2,0,0,0,
+				2,0,8,0,0,0,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -4675,7 +4671,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_SMARTGUN,
 			},
 			{
-				8,0,2,0,0,0,
+				2,0,8,0,0,0,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -4693,10 +4689,10 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 	},
 	/* AMMO_FLAMETHROWER */
 	{
-		100*65536,
+		750*65536,
 		{
 			{
-				0,0,0,25,0,0,
+				10,0,0,40,0,0,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -4707,7 +4703,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_FLAMETHROWER,
 			},
 			{
-				0,0,0,25,0,0,
+				10,0,0,40,0,0,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -4718,7 +4714,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_FLAMETHROWER,
 			},
 			{
-				0,0,0,25,0,0,
+				10,0,0,40,0,0,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -4729,7 +4725,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_FLAMETHROWER,
 			},
 			{
-				0,0,0,25,0,0,
+				10,0,0,40,0,0,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -4747,10 +4743,10 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 	},
 	/* AMMO_PLASMA */
 	{
-		10*65536,		 /* AmmoPerMagazine */
+		1*65536,		 /* AmmoPerMagazine */
 		{
 			{
-				0,0,0,0,0,0,
+				0,0,0,5,0,0,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -4761,7 +4757,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_PLASMA,
 			},
 			{
-				0,0,0,0,0,0,
+				0,0,0,5,0,0,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -4772,7 +4768,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_PLASMA,
 			},
 			{
-				0,0,0,0,0,0,
+				0,0,0,5,0,0,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -4783,7 +4779,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_PLASMA,
 			},
 			{
-				0,0,0,0,0,0,
+				0,0,0,5,0,0,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -4801,163 +4797,163 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 	},
 	/* AMMO_SADAR_TOW */
 	{
-		1*65536,
+		15*65536,
 		{
 			{
-				0,0,500,0,0,0,
-				2,	/* ExplosivePower */
+				16,0,32,0,0,0,
+				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
 				0,	/* BlowUpSections */
 				0,	/* Special */
-				0,	/* MakeExitWounds */
+				1,	/* MakeExitWounds */
 				AMMO_SADAR_TOW,
 			},
 			{
-				0,0,500,0,0,0,
-				2,	/* ExplosivePower */
+				16,0,32,0,0,0,
+				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
 				0,	/* BlowUpSections */
 				0,	/* Special */
-				0,	/* MakeExitWounds */
+				1,	/* MakeExitWounds */
 				AMMO_SADAR_TOW,
 			},
 			{
-				0,0,500,0,0,0,
-				2,	/* ExplosivePower */
+				16,0,32,0,0,0,
+				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
 				0,	/* BlowUpSections */
 				0,	/* Special */
-				0,	/* MakeExitWounds */
+				1,	/* MakeExitWounds */
 				AMMO_SADAR_TOW,
 			},
 			{
-				0,0,500,0,0,0,
-				2,	/* ExplosivePower */
+				16,0,32,0,0,0,
+				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
 				0,	/* BlowUpSections */
 				0,	/* Special */
-				0,	/* MakeExitWounds */
+				1,	/* MakeExitWounds */
 				AMMO_SADAR_TOW,
 			},
 		},
-		14000, //Was 7500,
+		3000, //Was 7500,
 		TEXTSTRING_AMMO_SHORTNAME_SADAR_TOW, /* ShortName */
-		1,
+		0,
 		0
 	},
 	/* AMMO_GRENADE */ 
 	{
-		6*65536,
+		8*65536,
 		{
 			{
-				110,0,1,5,0,0,
-				2,	/* ExplosivePower */
+				10,0,12,0,0,0,
+				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
 				0,	/* BlowUpSections */
 				0,	/* Special */
-				0,	/* MakeExitWounds */
+				1,	/* MakeExitWounds */
 				AMMO_GRENADE,
 			},
 			{
-				110,0,1,5,0,0,
-				2,	/* ExplosivePower */
+				10,0,12,0,0,0,
+				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
 				0,	/* BlowUpSections */
 				0,	/* Special */
-				0,	/* MakeExitWounds */
+				1,	/* MakeExitWounds */
 				AMMO_GRENADE,
 			},
 			{
-				110,0,1,5,0,0,
-				2,	/* ExplosivePower */
+				10,0,12,0,0,0,
+				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
 				0,	/* BlowUpSections */
 				0,	/* Special */
-				0,	/* MakeExitWounds */
+				1,	/* MakeExitWounds */
 				AMMO_GRENADE,
 			},
 			{
-				110,0,1,5,0,0,
-				2,	/* ExplosivePower */
+				10,0,12,0,0,0,
+				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
 				0,	/* BlowUpSections */
 				0,	/* Special */
-				0,	/* MakeExitWounds */
+				1,	/* MakeExitWounds */
 				AMMO_GRENADE,
 			},
 		},
 		10000,
 		TEXTSTRING_AMMO_SHORTNAME_GRENADE, /* ShortName */
-		1,
-		1
+		0,
+		0
 	},
 	/* AMMO_MINIGUN */
 	{
-		800*65536,
+		1*65536,
 		{
 			//11,0,1,0,0,0,
 			{
-				20,0,8,0,0,0,
+				0,0,0,0,20,0,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
 				0,	/* BlowUpSections */
 				0,	/* Special */
-				1,	/* MakeExitWounds */
+				0,	/* MakeExitWounds */
 				AMMO_MINIGUN,
 			},
 			{
-				20,0,8,0,0,0,
+				0,0,0,0,20,0,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
 				0,	/* BlowUpSections */
 				0,	/* Special */
-				1,	/* MakeExitWounds */
+				0,	/* MakeExitWounds */
 				AMMO_MINIGUN,
 			},
 			{
-				20,0,8,0,0,0,
+				0,0,0,0,20,0,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
 				0,	/* BlowUpSections */
 				0,	/* Special */
-				1,	/* MakeExitWounds */
+				0,	/* MakeExitWounds */
 				AMMO_MINIGUN,
 			},
 			{
-				20,0,8,0,0,0,
+				0,0,0,0,20,0,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
 				0,	/* BlowUpSections */
 				0,	/* Special */
-				1,	/* MakeExitWounds */
+				0,	/* MakeExitWounds */
 				AMMO_MINIGUN,
 			},
 		},
-		0,
+		6000,
 		TEXTSTRING_AMMO_SHORTNAME_MINIGUN, /* ShortName */
 		0,
 		0
@@ -4967,7 +4963,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 		5*65536,
 		{
 			{
-				50,0,1,0,0,0,
+				50,0,30,10,0,0,
 				1,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -4978,7 +4974,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_PULSE_GRENADE,
 			},
 			{
-				50,0,1,0,0,0,
+				50,0,30,10,0,0,
 				1,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -4989,7 +4985,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_PULSE_GRENADE,
 			},
 			{
-				50,0,1,0,0,0,
+				50,0,30,10,0,0,
 				1,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -5000,7 +4996,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_PULSE_GRENADE,
 			},
 			{
-				50,0,1,0,0,0,
+				50,0,30,10,0,0,
 				1,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -5065,18 +5061,18 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_FLARE_GRENADE,
 			},
 		},
-		0,
+		3000,
 		TEXTSTRING_AMMO_SHORTNAME_FLARE_GRENADE, /* ShortName */
-		1,
+		0,
 		0
 	},
 	/* AMMO_FRAGMENTATION_GRENADE */
 	{
-		6*65536,
+		1*65536,
 		{	
 			{
-				40,10,1,10,0,0,
-				1,	/* ExplosivePower */
+				110,0,20,5,0,0,
+				2,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
@@ -5086,8 +5082,8 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_FRAGMENTATION_GRENADE,
 			},
 			{
-				40,10,1,10,0,0,
-				1,	/* ExplosivePower */
+				110,0,20,5,0,0,
+				2,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
@@ -5097,8 +5093,8 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_FRAGMENTATION_GRENADE,
 			},
 			{
-				40,10,1,10,0,0,
-				1,	/* ExplosivePower */
+				110,0,20,5,0,0,
+				2,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
@@ -5108,8 +5104,8 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_FRAGMENTATION_GRENADE,
 			},
 			{
-				40,10,1,10,0,0,
-				1,	/* ExplosivePower */
+				110,0,20,5,0,0,
+				2,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
@@ -5119,8 +5115,8 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_FRAGMENTATION_GRENADE,
 			},
 		},
-		0,
-		TEXTSTRING_AMMO_SHORTNAME_FRAGMENTATION_GRENADE, /* ShortName */
+		10000,
+		TEXTSTRING_AMMO_SHORTNAME_PROXIMITY_GRENADE, /* ShortName */
 		1,
 		1
 	},
@@ -5129,8 +5125,8 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 		6*65536,
 		{
 			{
-				40,0,1,5,0,0,
-				1,	/* ExplosivePower */
+				0,0,0,10,0,0,
+				5,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
@@ -5140,8 +5136,8 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_PROXIMITY_GRENADE,
 			},
 			{
-				40,0,1,5,0,0,
-				1,	/* ExplosivePower */
+				0,0,0,10,0,0,
+				5,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
@@ -5151,8 +5147,8 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_PROXIMITY_GRENADE,
 			},
 			{
-				40,0,1,5,0,0,
-				1,	/* ExplosivePower */
+				0,0,0,10,0,0,
+				5,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
@@ -5162,8 +5158,8 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_PROXIMITY_GRENADE,
 			},
 			{
-				40,0,1,5,0,0,
-				1,	/* ExplosivePower */
+				0,0,0,10,0,0,
+				5,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
@@ -5183,7 +5179,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 		100*65536,
 		{
 			{
-				0,0,0,0,15,0,
+				0,0,0,0,1,0,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -5194,7 +5190,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_PARTICLE_BEAM,
 			},
 			{
-				0,0,0,0,15,0,
+				0,0,0,0,1,0,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -5205,7 +5201,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_PARTICLE_BEAM,
 			},
 			{
-				0,0,0,0,15,0,
+				0,0,0,0,1,0,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -5216,7 +5212,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_PARTICLE_BEAM,
 			},
 			{
-				0,0,0,0,15,0,
+				0,0,0,0,1,0,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -5281,9 +5277,9 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_SONIC_PULSE,
 			},
 		},			 /* MaxDamage */
-		0,			 /* MaxRange */
+		3000,			 /* MaxRange */
 		TEXTSTRING_BLANK, /* ShortName */
-		1,			 /* CreatesProjectile */
+		0,			 /* CreatesProjectile */
 		0
 	},
 	
@@ -5404,7 +5400,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 		100*65536,		/* AmmoPerMagazine */
 		{
 			{
-				0,0,0,0,20,0,
+				0,0,300,0,0,0,
 				3,	/* ExplosivePower */
 				0,	/* Slicing */
 				1,	/* ProduceBlood */
@@ -5415,7 +5411,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_PRED_PISTOL,
 			},
 			{
-				0,0,0,0,20,0,
+				0,0,300,0,0,0,
 				3,	/* ExplosivePower */
 				0,	/* Slicing */
 				1,	/* ProduceBlood */
@@ -5426,7 +5422,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_PRED_PISTOL,
 			},
 			{
-				0,0,0,0,20,0,
+				0,0,300,0,0,0,
 				3,	/* ExplosivePower */
 				0,	/* Slicing */
 				1,	/* ProduceBlood */
@@ -5437,7 +5433,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_PRED_PISTOL,
 			},
 			{
-				0,0,0,0,20,0,
+				0,0,300,0,0,0,
 				3,	/* ExplosivePower */
 				0,	/* Slicing */
 				1,	/* ProduceBlood */
@@ -5460,7 +5456,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 		{
 			{
 				//0,0,40,0,10,0,  //That's just wuss!
-				0,0,200,0,20,0,
+				100,0,0,0,0,0,
 				0,	/* ExplosivePower */
 				2,	/* Slicing */
 				1,	/* ProduceBlood */
@@ -5471,7 +5467,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_PRED_RIFLE,
 			},
 			{
-				0,0,200,0,20,0,
+				100,0,0,0,0,0,
 				0,	/* ExplosivePower */
 				2,	/* Slicing */
 				1,	/* ProduceBlood */
@@ -5482,7 +5478,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_PRED_RIFLE,
 			},
 			{
-				0,0,200,0,20,0,
+				100,0,0,0,0,0,
 				0,	/* ExplosivePower */
 				2,	/* Slicing */
 				1,	/* ProduceBlood */
@@ -5493,7 +5489,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_PRED_RIFLE,
 			},
 			{
-				0,0,200,0,20,0,
+				100,0,0,0,0,0,
 				0,	/* ExplosivePower */
 				2,	/* Slicing */
 				1,	/* ProduceBlood */
@@ -5514,45 +5510,45 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 		99*65536,
 		{
 			{
-				50,0,300,50,100,0,
+				0,0,100,0,0,0,
 				4,	/* ExplosivePower */
 				0,	/* Slicing */
 				1,	/* ProduceBlood */
 				0,	/* ForceBoom */
-				1,	/* BlowUpSections */
+				0,	/* BlowUpSections */
 				0,	/* Special */
 				0,	/* MakeExitWounds */
 				AMMO_PRED_ENERGY_BOLT,
 			},
 			{
-				50,0,300,50,100,0,
+				0,0,100,0,0,0,
 				4,	/* ExplosivePower */
 				0,	/* Slicing */
 				1,	/* ProduceBlood */
 				0,	/* ForceBoom */
-				1,	/* BlowUpSections */
+				0,	/* BlowUpSections */
 				0,	/* Special */
 				0,	/* MakeExitWounds */
 				AMMO_PRED_ENERGY_BOLT,
 			},
 			{
-				50,0,300,50,100,0,
+				0,0,100,0,0,0,
 				4,	/* ExplosivePower */
 				0,	/* Slicing */
 				1,	/* ProduceBlood */
 				0,	/* ForceBoom */
-				1,	/* BlowUpSections */
+				0,	/* BlowUpSections */
 				0,	/* Special */
 				0,	/* MakeExitWounds */
 				AMMO_PRED_ENERGY_BOLT,
 			},
 			{
-				50,0,300,50,100,0,
+				0,0,100,0,0,0,
 				4,	/* ExplosivePower */
 				0,	/* Slicing */
 				1,	/* ProduceBlood */
 				0,	/* ForceBoom */
-				1,	/* BlowUpSections */
+				0,	/* BlowUpSections */
 				0,	/* Special */
 				0,	/* MakeExitWounds */
 				AMMO_PRED_ENERGY_BOLT,
@@ -5627,7 +5623,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 		0,
 		{
 			{
-				0,21,0,0,0,2,
+				0,20,0,0,0,2,
 				0,	/* ExplosivePower */
 				1,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -5638,7 +5634,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_ALIEN_CLAW,
 			},
 			{
-				0,21,0,0,0,2,
+				0,20,0,0,0,2,
 				0,	/* ExplosivePower */
 				1,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -5649,7 +5645,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_ALIEN_CLAW,
 			},
 			{
-				0,21,0,0,0,2,
+				0,20,0,0,0,2,
 				0,	/* ExplosivePower */
 				1,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -5660,7 +5656,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_ALIEN_CLAW,
 			},
 			{
-				0,21,0,0,0,2,
+				0,20,0,0,0,2,
 				0,	/* ExplosivePower */
 				1,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -5900,7 +5896,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 		0,
 		{
 			{
-				0,40,0,0,0,20,
+				0,10,0,0,0,0,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -5911,7 +5907,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_FACEHUGGER,
 			},
 			{
-				0,40,0,0,0,20,
+				0,10,0,0,0,0,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -5922,7 +5918,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_FACEHUGGER,
 			},
 			{
-				0,40,0,0,0,20,
+				0,10,0,0,0,0,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -5933,7 +5929,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_FACEHUGGER,
 			},
 			{
-				0,40,0,0,0,20,
+				0,10,0,0,0,0,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -6008,7 +6004,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 		0,
 		{
 			{
-				0,0,0,0,0,10, // Change me!
+				0,0,0,0,0,2, // Change me!
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -6019,7 +6015,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_ALIEN_FRAG,
 			},
 			{
-				0,0,0,0,0,10, // Change me!
+				0,0,0,0,0,5, // Change me!
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -6062,7 +6058,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 		0,
 		{
 			{
-				0,0,0,0,0,10,
+				0,0,0,0,0,2,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -6073,7 +6069,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_ALIEN_DEATH,
 			},
 			{
-				0,0,0,0,0,10,
+				0,0,0,0,0,5,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -6113,50 +6109,50 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 	},
 	/* AMMO_SHOTGUN_BLAST */
 	{
-		20*65536,
+		8*65536,
 		{
 			{
-				10,0,0,5,0,0,	/* Blast damage */
-				1,	/* ExplosivePower */
+				20,50,25,0,0,0,	/* Blast damage */
+				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
 				0,	/* BlowUpSections */
 				0,	/* Special */
-				0,	/* MakeExitWounds */
+				1,	/* MakeExitWounds */
 				AMMO_SHOTGUN_BLAST,
 			},
 			{
-				10,0,0,5,0,0,	/* Blast damage */
-				1,	/* ExplosivePower */
+				20,50,25,0,0,0,	/* Blast damage */
+				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
 				0,	/* BlowUpSections */
 				0,	/* Special */
-				0,	/* MakeExitWounds */
+				1,	/* MakeExitWounds */
 				AMMO_SHOTGUN_BLAST,
 			},
 			{
-				10,0,0,5,0,0,	/* Blast damage */
-				1,	/* ExplosivePower */
+				20,50,25,0,0,0,	/* Blast damage */
+				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
 				0,	/* BlowUpSections */
 				0,	/* Special */
-				0,	/* MakeExitWounds */
+				1,	/* MakeExitWounds */
 				AMMO_SHOTGUN_BLAST,
 			},
 			{
-				10,0,0,5,0,0,	/* Blast damage */
-				1,	/* ExplosivePower */
+				20,50,25,0,0,0,	/* Blast damage */
+				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
 				0,	/* BlowUpSections */
 				0,	/* Special */
-				0,	/* MakeExitWounds */
+				1,	/* MakeExitWounds */
 				AMMO_SHOTGUN_BLAST,
 			},
 		},
@@ -6167,11 +6163,11 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 	},
 	/* AMMO_SADAR_BLAST */
 	{
-		1*65536,
+		30*65536,
 		{
 			{
-				60,0,0,10,0,0,
-				2,	/* ExplosivePower */
+				0,0,100,0,0,0,
+				4,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
@@ -6181,8 +6177,8 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_SADAR_BLAST,
 			},
 			{
-				60,0,0,10,0,0,
-				2,	/* ExplosivePower */
+				0,0,100,0,0,0,
+				4,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
@@ -6192,8 +6188,8 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_SADAR_BLAST,
 			},
 			{
-				60,0,0,10,0,0,
-				2,	/* ExplosivePower */
+				0,0,100,0,0,0,
+				4,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
@@ -6203,8 +6199,8 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_SADAR_BLAST,
 			},
 			{
-				60,0,0,10,0,0,
-				2,	/* ExplosivePower */
+				0,0,100,0,0,0,
+				4,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
@@ -6217,7 +6213,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 		10000,
 		TEXTSTRING_AMMO_SHORTNAME_UNKNOWN, /* ShortName */
 		1,
-		0
+		1
 	},
 	/* AMMO_ALIEN_BITE_KILLSECTION */
 	{
@@ -6334,7 +6330,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 		0,
 		{
 			{
-				0,10,0,0,0,2,
+				0,20,0,0,0,2,
 				0,	/* ExplosivePower */
 				1,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -6345,7 +6341,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_NPC_ALIEN_CLAW,
 			},
 			{
-				0,10,0,0,0,2,
+				0,20,0,0,0,2,
 				0,	/* ExplosivePower */
 				1,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -6356,7 +6352,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_NPC_ALIEN_CLAW,
 			},
 			{
-				0,10,0,0,0,2,
+				0,20,0,0,0,2,
 				0,	/* ExplosivePower */
 				1,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -6367,7 +6363,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_NPC_ALIEN_CLAW,
 			},
 			{
-				0,10,0,0,0,2,
+				0,20,0,0,0,2,
 				0,	/* ExplosivePower */
 				1,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -6496,7 +6492,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 		0,
 		{
 			{
-				0,10,30,0,0,2,
+				0,30,10,0,0,2,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				1,	/* ProduceBlood */
@@ -6507,7 +6503,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_NPC_ALIEN_TAIL,
 			},
 			{
-				0,10,30,0,0,2,
+				0,30,10,0,0,2,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				1,	/* ProduceBlood */
@@ -6518,7 +6514,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_NPC_ALIEN_TAIL,
 			},
 			{
-				0,10,30,0,0,2,
+				0,30,10,0,0,2,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				1,	/* ProduceBlood */
@@ -6529,7 +6525,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_NPC_ALIEN_TAIL,
 			},
 			{
-				0,10,30,0,0,2,
+				0,30,10,0,0,2,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				1,	/* ProduceBlood */
@@ -6550,7 +6546,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 		0,
 		{	
 			{
-				0,20,10,0,0,2,
+				0,40,20,0,0,2,
 				0,	/* ExplosivePower */
 				1,	/* Slicing */
 				1,	/* ProduceBlood */
@@ -6561,7 +6557,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_NPC_ALIEN_BITE,
 			},
 			{
-				0,20,10,0,0,2,
+				0,40,20,0,0,2,
 				0,	/* ExplosivePower */
 				1,	/* Slicing */
 				1,	/* ProduceBlood */
@@ -6572,7 +6568,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_NPC_ALIEN_BITE,
 			},
 			{
-				0,20,10,0,0,2,
+				0,40,20,0,0,2,
 				0,	/* ExplosivePower */
 				1,	/* Slicing */
 				1,	/* ProduceBlood */
@@ -6583,7 +6579,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_NPC_ALIEN_BITE,
 			},
 			{
-				0,20,10,0,0,2,
+				0,40,20,0,0,2,
 				0,	/* ExplosivePower */
 				1,	/* Slicing */
 				1,	/* ProduceBlood */
@@ -6928,10 +6924,10 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 		0,
 		{
 			{
-				0,120,0,0,0,0,
+				0,30,0,0,2,0,
 				0,	/* ExplosivePower */
 				1,	/* Slicing */
-				1,	/* ProduceBlood */
+				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
 				0,	/* BlowUpSections */
 				0,	/* Special */
@@ -6939,10 +6935,10 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_PRED_STAFF,
 			},
 			{
-				0,120,0,0,0,0,
+				0,30,0,0,2,0,
 				0,	/* ExplosivePower */
 				1,	/* Slicing */
-				1,	/* ProduceBlood */
+				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
 				0,	/* BlowUpSections */
 				0,	/* Special */
@@ -6950,10 +6946,10 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_PRED_STAFF,
 			},
 			{
-				0,120,0,0,0,0,
+				0,30,0,0,2,0,
 				0,	/* ExplosivePower */
 				1,	/* Slicing */
-				1,	/* ProduceBlood */
+				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
 				0,	/* BlowUpSections */
 				0,	/* Special */
@@ -6961,10 +6957,10 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_PRED_STAFF,
 			},
 			{
-				0,120,0,0,0,0,
+				0,30,0,0,2,0,
 				0,	/* ExplosivePower */
 				1,	/* Slicing */
-				1,	/* ProduceBlood */
+				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
 				0,	/* BlowUpSections */
 				0,	/* Special */
@@ -6972,7 +6968,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_PRED_STAFF,
 			},
 		},
-		0,
+		5000,
 		TEXTSTRING_AMMO_SHORTNAME_UNKNOWN, /* ShortName */
 		0,
 		0
@@ -7415,7 +7411,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 		{
 			//6,0,6,0,0,0,
 			{
-				8,0,2,0,0,0,
+				2,0,8,0,0,0,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -7426,7 +7422,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_SMARTGUN_NPC,
 			},
 			{
-				8,0,2,0,0,0,
+				2,0,8,0,0,0,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -7437,7 +7433,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_SMARTGUN_NPC,
 			},
 			{
-				8,0,2,0,0,0,
+				2,0,8,0,0,0,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -7448,7 +7444,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_SMARTGUN_NPC,
 			},
 			{
-				8,0,2,0,0,0,
+				2,0,8,0,0,0,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -7470,40 +7466,40 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 		{
 			//11,0,1,0,0,0,
 			{
-				20,0,8,0,0,0,
+				0,0,0,0,40,0,
 				0,	/* ExplosivePower */
-				0,	/* Slicing */
+				1,	/* Slicing */
 				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
 				0,	/* BlowUpSections */
 				0,	/* Special */
-				1,	/* MakeExitWounds */
+				0,	/* MakeExitWounds */
 				AMMO_MINIGUN_NPC,
 			},
 			{
-				20,0,8,0,0,0,
+				0,0,0,0,40,0,
 				0,	/* ExplosivePower */
-				0,	/* Slicing */
+				1,	/* Slicing */
 				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
 				0,	/* BlowUpSections */
 				0,	/* Special */
-				1,	/* MakeExitWounds */
+				0,	/* MakeExitWounds */
 				AMMO_MINIGUN_NPC,
 			},
 			{
-				20,0,8,0,0,0,
+				0,0,0,0,40,0,
 				0,	/* ExplosivePower */
-				0,	/* Slicing */
+				1,	/* Slicing */
 				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
 				0,	/* BlowUpSections */
 				0,	/* Special */
-				1,	/* MakeExitWounds */
+				0,	/* MakeExitWounds */
 				AMMO_MINIGUN_NPC,
 			},
 			{
-				20,0,8,0,0,0,
+				0,0,0,0,40,0,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -7514,7 +7510,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_MINIGUN_NPC,
 			},
 		},
-		0,
+		2500,
 		TEXTSTRING_AMMO_SHORTNAME_MINIGUN, /* ShortName */
 		0,
 		0
@@ -7687,7 +7683,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 		0,
 		{
 			{
-				10,0,0,0,0,0,
+				0,5,0,0,0,0,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -7698,7 +7694,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_CUDGEL,
 			},
 			{
-				10,0,0,0,0,0,
+				0,5,0,0,0,0,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -7709,7 +7705,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_CUDGEL,
 			},
 			{
-				10,0,0,0,0,0,
+				0,5,0,0,0,0,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -7720,7 +7716,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_CUDGEL,
 			},
 			{
-				10,0,0,0,0,0,
+				0,5,0,0,0,0,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -7796,7 +7792,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 		12*65536,		/* AmmoPerMagazine */
 		{
 			{
-				4,0,16,0,0,0,	/* MaxDamage - I,C,P,F,E,A */
+				2,0,8,0,0,0,	/* MaxDamage - I,C,P,F,E,A */
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -7807,7 +7803,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_MARINE_PISTOL_PC,
 			},
 			{
-				4,0,16,0,0,0,	/* MaxDamage - I,C,P,F,E,A */
+				2,0,8,0,0,0,	/* MaxDamage - I,C,P,F,E,A */
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -7818,7 +7814,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_MARINE_PISTOL_PC,
 			},
 			{
-				4,0,16,0,0,0,	/* MaxDamage - I,C,P,F,E,A */
+				2,0,8,0,0,0,	/* MaxDamage - I,C,P,F,E,A */
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -7829,7 +7825,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_MARINE_PISTOL_PC,
 			},
 			{
-				4,0,16,0,0,0,	/* MaxDamage - I,C,P,F,E,A */
+				2,0,8,0,0,0,	/* MaxDamage - I,C,P,F,E,A */
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -7850,7 +7846,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 		1*65536,
 		{
 			{
-				0,0,500,0,0,0,
+				0,0,300,0,0,0,
 				6,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -7861,7 +7857,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_FRISBEE,
 			},
 			{
-				0,0,500,0,0,0,
+				0,0,300,0,0,0,
 				6,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -7872,7 +7868,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_FRISBEE,
 			},
 			{
-				0,0,500,0,0,0,
+				0,0,300,0,0,0,
 				6,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -7883,7 +7879,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_FRISBEE,
 			},
 			{
-				0,0,500,0,0,0,
+				0,0,300,0,0,0,
 				6,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -7904,8 +7900,8 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 		1*65536,
 		{
 			{
-				60,0,0,10,0,0,
-				2,	/* ExplosivePower */
+				1,0,0,0,0,0,
+				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
@@ -7915,8 +7911,8 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_FRISBEE_BLAST,
 			},
 			{
-				60,0,0,10,0,0,
-				2,	/* ExplosivePower */
+				1,0,0,0,0,0,
+				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
@@ -7926,8 +7922,8 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_FRISBEE_BLAST,
 			},
 			{
-				60,0,0,10,0,0,
-				2,	/* ExplosivePower */
+				1,0,0,0,0,0,
+				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
@@ -7937,7 +7933,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_FRISBEE_BLAST,
 			},
 			{
-				60,0,0,10,0,0,
+				1,0,0,0,0,0,
 				2,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -7950,16 +7946,16 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 		},
 		10000,
 		TEXTSTRING_AMMO_SHORTNAME_UNKNOWN, /* ShortName */
-		1,
+		0,
 		0
 	},
 	/* AMMO_FRISBEE_FIRE */
 	{
-		5*65536,
+		1*65536,
 		{
 			{
-				50,0,1,0,0,0,
-				1,	/* ExplosivePower */
+				0,0,0,0,0,0,
+				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
@@ -7969,8 +7965,8 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_FRISBEE_FIRE,
 			},
 			{
-				50,0,1,0,0,0,
-				1,	/* ExplosivePower */
+				0,0,0,0,0,0,
+				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
@@ -7980,8 +7976,8 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_FRISBEE_FIRE,
 			},
 			{
-				50,0,1,0,0,0,
-				1,	/* ExplosivePower */
+				0,0,0,0,0,0,
+				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
@@ -7991,8 +7987,8 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_FRISBEE_FIRE,
 			},
 			{
-				50,0,1,0,0,0,
-				1,	/* ExplosivePower */
+				0,0,0,0,0,0,
+				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
 				0,	/* ForceBoom */
@@ -8002,10 +7998,10 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_FRISBEE_FIRE,
 			},
 		},
-		5000,
+		2500,
 		TEXTSTRING_AMMO_SHORTNAME_UNKNOWN, /* ShortName */
-		1,
-		1
+		0,
+		0
 	},
 
 };
@@ -8021,7 +8017,7 @@ DAMAGE_PROFILE SmallExplosionDamage = {50,0,1,0,0,0, 1,0,0,0,0,0,AMMO_NONE};
 DAMAGE_PROFILE BigExplosionDamage = {60,0,10,0,0,0, 2,0,0,0,0,0,AMMO_NONE};
 
 /* KJL 17:05:19 27/08/98 - Flechette damage */
-DAMAGE_PROFILE FlechetteDamage={0,10,0,0,0,0,0,0,0,0,0,0,1,AMMO_FLECHETTE_POSTMAX};
+DAMAGE_PROFILE FlechetteDamage={0,10,0,0,0,0,0,0,0,0,0,0,1,AMMO_NONE};
 
 /* CDF 16:45 9/11/98 - Fan damage, from bh_fan.c */
 DAMAGE_PROFILE fan_damage={0,100,0,0,0,0,2,1,1,0,0,0,AMMO_NONE};
@@ -8031,17 +8027,17 @@ DAMAGE_PROFILE fan_damage={0,100,0,0,0,0,2,1,1,0,0,0,AMMO_NONE};
 DAMAGE_PROFILE FallingDamage={0,0,1,0,0,0,0,0,0,0,0,0,0,AMMO_FALLING_POSTMAX};
 
 /* CDF 7/12/98 Pred Pistol Flechette Damage */
-DAMAGE_PROFILE PredPistol_FlechetteDamage={0,0,0,0,1,0,0,0,0,0,0,0,1,AMMO_NONE};
+DAMAGE_PROFILE PredPistol_FlechetteDamage={0,0,0,0,1,0,0,0,0,0,0,0,0,AMMO_FLECHETTE_POSTMAX};
 
 /*Damage profiles related to queen level*/
 DAMAGE_PROFILE QueenButtDamage={40,0,0,0,0,0,0,0,0,0,0,0,AMMO_NONE};
 //the impact damage entry is filled in when the damage is done
 DAMAGE_PROFILE QueenImpactDamage={0,0,0,0,0,0,0,0,0,0,0,0,AMMO_NONE}; 
-DAMAGE_PROFILE VacuumDamage={0,0,0,0,20,0,0,0,0,0,0,0,AMMO_NONE};
+DAMAGE_PROFILE VacuumDamage={0,0,2,0,0,0,0,0,0,0,0,0,AMMO_NONE};
 
 
 //Damage for death volumes that do damage per second
-DAMAGE_PROFILE DeathVolumeDamage={0,0,1,0,0,0,0,0,0,0,0,0,0,AMMO_NONE};
+DAMAGE_PROFILE DeathVolumeDamage={0,0,2,0,0,0,0,0,0,0,0,0,0,AMMO_NONE};
 
 /* KJL 11:23:25 04/07/97 - hackette for the grenade launcher which has 4 ammo types */
 GRENADE_LAUNCHER_DATA GrenadeLauncherData;

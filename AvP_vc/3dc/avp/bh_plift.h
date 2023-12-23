@@ -50,7 +50,7 @@ typedef struct platformlift_tools_template
 
 #define PLATFORMLIFT_SPEED				5000 		/* mm/s */
 #define PLATFORMLIFT_ACTIVATIONTIME		((ONE_FIXED*3)>>1)	/* fixed point seconds */
-#define PLATFORMLIFT_NUMNETMESSAGES			5
+#define PLATFORMLIFT_NUMNETMESSAGES		5
 
 void InitialisePlatformLift(void* bhdata, STRATEGYBLOCK *sbPtr);
 void PlatformLiftBehaviour(STRATEGYBLOCK *sbPtr);

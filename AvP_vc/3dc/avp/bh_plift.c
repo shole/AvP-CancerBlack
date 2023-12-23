@@ -34,6 +34,9 @@ static int PLiftIsNearerUpThanDown(STRATEGYBLOCK *sbPtr);
 
 /* external globals used in this file */
 extern int NormalFrameTime;
+extern void CauseDamageToObject(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int multiple, VECTORCH *incoming);
+extern void MakeFragments(STRATEGYBLOCK *sbptr);
+extern int InanimateDamageFromNetHost;
 
 /*------------------------------Patrick 15/3/97-----------------------------------
   Behaviour function for platform lift
@@ -95,6 +98,14 @@ void PlatformLiftBehaviour(STRATEGYBLOCK *sbPtr)
 		{
 			if(AvP.Network!=I_Peer)
 			{
+				// If the platform lift is in it's origin position,
+				// set the Delay to zero so it activates immediately.
+				// This is to make all AMP doors react faster.
+				if(dynPtr->Position.vy > ((platformliftdata->upHeight+platformliftdata->downHeight)/2))
+				{
+					platformliftdata->activationDelayTimer = 0;
+				}
+
 				if(platformliftdata->activationDelayTimer>0)
 				{
 					platformliftdata->activationDelayTimer -= NormalFrameTime;
@@ -258,7 +269,7 @@ void InitialisePlatformLift(void* bhdata, STRATEGYBLOCK *sbPtr)
 
 	sbPtr->SBdataptr = platformliftdata; 
 	platformliftdata->homePosition = toolsData->position;
-	platformliftdata->activationDelayTimer = 0;
+	platformliftdata->activationDelayTimer = 0;//toolsData->nameID[0];
 	platformliftdata->state = PLBS_AtRest;
 	platformliftdata->netMsgCount = 0;
 	
@@ -409,7 +420,7 @@ static int SquashingSomething(DYNAMICSBLOCK *dynPtr)
 				squashingSomething=1;
 				
 				/* squish! */
-				CauseDamageToObject(sbPtr, &FallingDamage, (100*NormalFrameTime), NULL);
+				CauseDamageToObject(sbPtr, &FallingDamage, (10*NormalFrameTime), NULL);
 			}
 			else if (nextReport->ObstacleNormal.vy > 46340)
 			{
@@ -622,6 +633,52 @@ void NetworkPeerChangePlatformLiftState(STRATEGYBLOCK* sbPtr,PLATFORMLIFT_STATES
 
 }
 
+void PlatformLiftIsDamaged(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int multiple)
+{
+	PLATFORMLIFT_BEHAVIOUR_BLOCK *platformliftdata;
+	int valid=0;
+	LOCALASSERT(sbPtr);
+	platformliftdata = (PLATFORMLIFT_BEHAVIOUR_BLOCK *)sbPtr->SBdataptr;
+	LOCALASSERT(platformliftdata);
+	LOCALASSERT(sbPtr->DynPtr);
+
+	if (damage->Id == AMMO_CUDGEL)
+	{
+		valid=1;
+		Sound_Play(SID_WIL_PRED_PISTOL_EXPLOSION, "d", &sbPtr->DynPtr->Position);
+	}
+	if (damage->Id == AMMO_PRED_STAFF) valid=1;
+	if (damage->ExplosivePower > 0) valid=1;
+
+	// 10% that Ram and Combi-Stick will break through.
+	if (((FastRandom()%10) < 9) && !damage->ExplosivePower)
+		valid=0;
+
+	// 20% that a Pulse Grenade will break through
+	if (((FastRandom()%10) < 2) && (damage->ExplosivePower==1))
+		valid=0;
+
+	if (valid)
+	{
+		#if SupportWindows95
+        if((AvP.Network==I_Peer)&&(!InanimateDamageFromNetHost))
+        {
+                /* this means that the damage was generated locally in a net-game:
+                in this case, just send a damage message to the host */
+                AddNetMsg_InanimateObjectDamaged(sbPtr,damage,multiple);
+                return;
+        }
+        else if(AvP.Network==I_Host) 
+        {
+                /* if we're the host, inform everyone that the object is dead */
+                AddNetMsg_InanimateObjectDestroyed(sbPtr);
+        }
+        #endif
+
+		MakeFragments(sbPtr);
+		DestroyAnyStrategyBlock(sbPtr);
+	}
+}
 
 /*--------------------**
 ** Loading and Saving **

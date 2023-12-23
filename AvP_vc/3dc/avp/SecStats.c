@@ -1966,8 +1966,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"head",
 		NULL,
 		{
-			10,	/* Health */
-			5,		/* Armour */
+			80,	/* Health */
+			30,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -1986,8 +1986,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"chest",
 		NULL,
 		{
-			20,	/* Health */
-			5,		/* Armour */
+			80,	/* Health */
+			30,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -1999,15 +1999,15 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 				0,	/* Indestructable */
 			},
 		},
-		section_has_sparkoflife|section_sprays_acid|section_flag_gibbwhenfragged,
+		section_has_sparkoflife|section_sprays_acid,
 	},
 	{
 		"HNPCalien",
 		"abdom",
 		NULL,
 		{
-			20,	/* Health */
-			5,		/* Armour */
+			40,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2026,8 +2026,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"left thigh",
 		NULL,
 		{
-			20,	/* Health */
-			5,		/* Armour */
+			40,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2046,8 +2046,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"left shin",
 		NULL,
 		{
-			15,	/* Health */
-			5,		/* Armour */
+			30,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2066,8 +2066,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"left foot",
 		NULL,
 		{
-			5,	/* Health */
-			5,		/* Armour */
+			10,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2086,8 +2086,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"right thigh",
 		NULL,
 		{
-			20,	/* Health */
-			5,		/* Armour */
+			40,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2106,8 +2106,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"right shin",
 		NULL,
 		{
-			15,	/* Health */
-			5,		/* Armour */
+			30,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2126,8 +2126,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"right foot",
 		NULL,
 		{
-			5,	/* Health */
-			5,		/* Armour */
+			10,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2146,8 +2146,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"pipe_rt",
 		NULL,
 		{
-			5,	/* Health */
-			5,		/* Armour */
+			10,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2166,8 +2166,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"pipe_rb",
 		NULL,
 		{
-			5,	/* Health */
-			5,		/* Armour */
+			10,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2186,8 +2186,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"pipe_lt",
 		NULL,
 		{
-			5,	/* Health */
-			5,		/* Armour */
+			10,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2206,8 +2206,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"pipe_lb",
 		NULL,
 		{
-			5,	/* Health */
-			5,		/* Armour */
+			10,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2226,8 +2226,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"spike",
 		NULL,
 		{
-			5,	/* Health */
-			5,		/* Armour */
+			10,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2246,8 +2246,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"neck",
 		NULL,
 		{
-			5,	/* Health */
-			5,		/* Armour */
+			10,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2266,8 +2266,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"bite main",
 		NULL,
 		{
-			3,	/* Health */
-			5,		/* Armour */
+			6,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2286,8 +2286,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"bite bottom",
 		NULL,
 		{
-			3,	/* Health */
-			5,		/* Armour */
+			6,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2306,8 +2306,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"bite top",
 		NULL,
 		{
-			3,	/* Health */
-			5,		/* Armour */
+			6,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2326,8 +2326,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"right bicep",
 		NULL,
 		{
-			10,	/* Health */
-			5,		/* Armour */
+			20,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2346,8 +2346,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"right forearm",
 		NULL,
 		{
-			10,	/* Health */
-			5,		/* Armour */
+			20,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2366,8 +2366,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"right palm",
 		NULL,
 		{
-			10,	/* Health */
-			5,		/* Armour */
+			20,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2386,8 +2386,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"right thumb b",
 		NULL,
 		{
-			2,	/* Health */
-			5,		/* Armour */
+			4,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2406,8 +2406,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"right thumb a",
 		NULL,
 		{
-			2,	/* Health */
-			5,		/* Armour */
+			4,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2426,8 +2426,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"right finger b",
 		NULL,
 		{
-			2,	/* Health */
-			5,		/* Armour */
+			4,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2446,8 +2446,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"right finger a",
 		NULL,
 		{
-			2,	/* Health */
-			5,		/* Armour */
+			4,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2466,8 +2466,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"left bicep",
 		NULL,
 		{
-			10,	/* Health */
-			5,		/* Armour */
+			20,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2486,8 +2486,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"left forearm",
 		NULL,
 		{
-			10,	/* Health */
-			5,		/* Armour */
+			20,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2506,8 +2506,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"left palm",
 		NULL,
 		{
-			10,	/* Health */
-			5,		/* Armour */
+			20,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2526,8 +2526,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"left thumb b",
 		NULL,
 		{
-			2,	/* Health */
-			5,		/* Armour */
+			4,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2546,8 +2546,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"left thumb a",
 		NULL,
 		{
-			2,	/* Health */
-			5,		/* Armour */
+			4,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2566,8 +2566,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"left finger b",
 		NULL,
 		{
-			2,	/* Health */
-			5,		/* Armour */
+			4,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2586,8 +2586,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"left finger a",
 		NULL,
 		{
-			2,	/* Health */
-			5,		/* Armour */
+			4,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2606,8 +2606,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"l00 tail",
 		NULL,
 		{
-			5,	/* Health */
-			5,		/* Armour */
+			10,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2626,8 +2626,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"l01 tail",
 		NULL,
 		{
-			5,	/* Health */
-			5,		/* Armour */
+			10,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2646,8 +2646,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"l02 tail",
 		NULL,
 		{
-			5,	/* Health */
-			5,		/* Armour */
+			10,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2666,8 +2666,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"l03 tail",
 		NULL,
 		{
-			5,	/* Health */
-			5,		/* Armour */
+			10,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2686,8 +2686,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"l04 tail",
 		NULL,
 		{
-			5,	/* Health */
-			5,		/* Armour */
+			10,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2706,8 +2706,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"l05 tail",
 		NULL,
 		{
-			5,	/* Health */
-			5,		/* Armour */
+			10,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2726,8 +2726,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"l06 tail",
 		NULL,
 		{
-			5,	/* Health */
-			5,		/* Armour */
+			10,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2746,8 +2746,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"l07 tail",
 		NULL,
 		{
-			5,	/* Health */
-			5,		/* Armour */
+			10,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2766,8 +2766,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"l08 tail",
 		NULL,
 		{
-			5,	/* Health */
-			5,		/* Armour */
+			10,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2786,8 +2786,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"l09 tail",
 		NULL,
 		{
-			5,	/* Health */
-			5,		/* Armour */
+			10,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2806,8 +2806,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"l10 tail",
 		NULL,
 		{
-			5,	/* Health */
-			5,		/* Armour */
+			10,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2826,8 +2826,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"l11 tail",
 		NULL,
 		{
-			5,	/* Health */
-			5,		/* Armour */
+			10,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -2880,7 +2880,7 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 				0,	/* Indestructable */
 			},
 		},
-		section_has_sparkoflife|section_sprays_acid|section_flag_gibbwhenfragged,
+		section_has_sparkoflife|section_sprays_acid,
 	},
 	{
 		"hnpcpretorian",
@@ -3701,7 +3701,7 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 				0,	/* Indestructable */
 			},
 		},
-		section_has_sparkoflife|section_sprays_acid|section_flag_gibbwhenfragged,
+		section_has_sparkoflife|section_sprays_acid,
 	},
 	{
 		"hnpcpred_alien",
@@ -3721,7 +3721,7 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 				0,	/* Indestructable */
 			},
 		},
-		section_has_sparkoflife|section_sprays_acid|section_flag_gibbwhenfragged,
+		section_has_sparkoflife|section_sprays_acid,
 	},
 	{
 		"hnpcpred_alien",
@@ -5251,7 +5251,7 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 				0,	/* Indestructable */
 			},
 		},
-		section_has_sparkoflife|section_sprays_predoblood,
+		section_has_sparkoflife|section_sprays_predoblood/*|section_flag_heatsource*/,
 	},
 	{
 		"hnpcpredator",
@@ -5278,7 +5278,7 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"head",
 		NULL,
 		{
-			PRED_SECTION_HEALTH,	/* Health */
+			PRED_SECTION_HEALTH>>1,	/* Health */
 			PRED_SECTION_ARMOUR,	/* Armour */
 			0, /* IsOnFire */
 			{
@@ -6040,7 +6040,7 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"pelvis presley",
 		NULL,
 		{
-			8,	/* Health */
+			80,	/* Health */
 			1,		/* Armour */
 			0, /* IsOnFire */
 			{
@@ -6061,7 +6061,7 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"male left thigh",
 		NULL,
 		{
-			8,	/* Health */
+			50,	/* Health */
 			1,		/* Armour */
 			0, /* IsOnFire */
 			{
@@ -6081,7 +6081,7 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"male left shin",
 		NULL,
 		{
-			8,	/* Health */
+			20,	/* Health */
 			1,		/* Armour */
 			0, /* IsOnFire */
 			{
@@ -6121,7 +6121,7 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"male right thigh",
 		NULL,
 		{
-			8,	/* Health */
+			50,	/* Health */
 			1,		/* Armour */
 			0, /* IsOnFire */
 			{
@@ -6141,7 +6141,7 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"male right shin",
 		NULL,
 		{
-			8,	/* Health */
+			20,	/* Health */
 			1,		/* Armour */
 			0, /* IsOnFire */
 			{
@@ -6181,7 +6181,7 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"stomach",
 		NULL,
 		{
-			8,	/* Health */
+			100,	/* Health */
 			1,		/* Armour */
 			0, /* IsOnFire */
 			{
@@ -6201,7 +6201,7 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"chest",
 		NULL,
 		{
-			8,	/* Health */
+			100,	/* Health */
 			1,		/* Armour */
 			0, /* IsOnFire */
 			{
@@ -6221,7 +6221,7 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"neck",
 		NULL,
 		{
-			8,	/* Health */
+			25,	/* Health */
 			1,		/* Armour */
 			0, /* IsOnFire */
 			{
@@ -6241,7 +6241,7 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"head",
 		NULL,
 		{
-			8,	/* Health */
+			40,	/* Health */
 			1,		/* Armour */
 			0, /* IsOnFire */
 			{
@@ -6261,7 +6261,7 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"male right bicep",
 		NULL,
 		{
-			8,	/* Health */
+			30,	/* Health */
 			1,		/* Armour */
 			0, /* IsOnFire */
 			{
@@ -6281,7 +6281,7 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"male right forearm",
 		NULL,
 		{
-			8,	/* Health */
+			30,	/* Health */
 			1,		/* Armour */
 			0, /* IsOnFire */
 			{
@@ -6381,7 +6381,7 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"male left bicep",
 		NULL,
 		{
-			8,	/* Health */
+			30,	/* Health */
 			1,		/* Armour */
 			0, /* IsOnFire */
 			{
@@ -6401,7 +6401,7 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"male left forearm",
 		NULL,
 		{
-			8,	/* Health */
+			30,	/* Health */
 			1,		/* Armour */
 			0, /* IsOnFire */
 			{
@@ -6501,7 +6501,7 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"hair",
 		NULL,
 		{
-			10,		/* Health */
+			50,		/* Health */
 			8,		/* Armour */
 			0, /* IsOnFire */
 			{
@@ -6524,8 +6524,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"pelvis presley",
 		Android_Hierarchy_Names,
 		{
-			8,	/* Health */
-			1,		/* Armour */
+			90,	/* Health */
+			15,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -6545,8 +6545,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"male left thigh",
 		Android_Hierarchy_Names,
 		{
-			8,	/* Health */
-			1,		/* Armour */
+			60,	/* Health */
+			15,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -6565,8 +6565,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"male left shin",
 		Android_Hierarchy_Names,
 		{
-			8,	/* Health */
-			1,		/* Armour */
+			40,	/* Health */
+			15,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -6585,8 +6585,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"male left foot",
 		Android_Hierarchy_Names,
 		{
-			8,	/* Health */
-			1,		/* Armour */
+			10,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -6605,8 +6605,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"male right thigh",
 		Android_Hierarchy_Names,
 		{
-			8,	/* Health */
-			1,		/* Armour */
+			10,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -6625,8 +6625,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"male right shin",
 		Android_Hierarchy_Names,
 		{
-			8,	/* Health */
-			1,		/* Armour */
+			40,	/* Health */
+			15,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -6645,8 +6645,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"male right foot",
 		Android_Hierarchy_Names,
 		{
-			8,	/* Health */
-			1,		/* Armour */
+			10,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -6665,8 +6665,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"stomach",
 		Android_Hierarchy_Names,
 		{
-			8,	/* Health */
-			1,		/* Armour */
+			100,	/* Health */
+			20,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -6685,8 +6685,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"chest",
 		Android_Hierarchy_Names,
 		{
-			8,	/* Health */
-			1,		/* Armour */
+			100,	/* Health */
+			20,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -6705,8 +6705,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"neck",
 		Android_Hierarchy_Names,
 		{
-			8,	/* Health */
-			1,		/* Armour */
+			14,	/* Health */
+			10,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -6725,8 +6725,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"head",
 		Android_Hierarchy_Names,
 		{
-			8,	/* Health */
-			1,		/* Armour */
+			50,	/* Health */
+			15,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -6745,8 +6745,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"male right bicep",
 		Android_Hierarchy_Names,
 		{
-			8,	/* Health */
-			1,		/* Armour */
+			75,	/* Health */
+			15,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -6765,8 +6765,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"male right forearm",
 		Android_Hierarchy_Names,
 		{
-			8,	/* Health */
-			1,		/* Armour */
+			45,	/* Health */
+			15,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -6865,8 +6865,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"male left bicep",
 		Android_Hierarchy_Names,
 		{
-			8,	/* Health */
-			1,		/* Armour */
+			75,	/* Health */
+			15,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -6885,8 +6885,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"male left forearm",
 		Android_Hierarchy_Names,
 		{
-			8,	/* Health */
-			1,		/* Armour */
+			45,	/* Health */
+			15,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -6985,8 +6985,8 @@ SECTION_ATTACHMENT Global_Section_Attachments[] = {
 		"hair",
 		Android_Hierarchy_Names,
 		{
-			10,		/* Health */
-			8,		/* Armour */
+			50,		/* Health */
+			15,		/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */

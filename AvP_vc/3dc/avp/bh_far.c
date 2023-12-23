@@ -40,6 +40,7 @@ static int ProcessFarAlienTargetModule(STRATEGYBLOCK *sbPtr, AIMODULE* targetMod
 extern void AlienNearState_Dormant(STRATEGYBLOCK *sbPtr);
 extern void AlienNearState_Awakening(STRATEGYBLOCK *sbPtr);
 extern void AlienNearState_Taunting(STRATEGYBLOCK *sbPtr);
+extern void AddNetMsg_FarAlienPosition(STRATEGYBLOCK *sbPtr, int targetModuleIndex, int index, BOOL indexIsModuleIndex);
 
 /* external global variables used in this file */
 extern int NormalFrameTime;
@@ -168,7 +169,7 @@ void FarAlienBehaviour(STRATEGYBLOCK *sbPtr)
 		
 		LOCALASSERT(thisModule);
 
-		PrintDebuggingText("This FAR %s ALIEN is in module %d, %s\n",descriptor,thisModule->m_index,thisModule->name);
+//		PrintDebuggingText("This FAR %s ALIEN is in module %d, %s\n",descriptor,thisModule->m_index,thisModule->name);
 
 	}
 		

@@ -35,9 +35,13 @@
 #if SOFTWARE_RENDERER
 #define D3D_ZBufferedGouraudTexturedPolygon_Output Software_ZBufferedGouraudTexturedPolygon_Output
 #endif
-#define ALIENS_LIFEFORCE_GLOW_COLOUR 0x20ff8080
-#define MARINES_LIFEFORCE_GLOW_COLOUR 0x208080ff
+#define ALIENS_LIFEFORCE_GLOW_COLOUR 0x20ffff00
+#define MARINES_LIFEFORCE_GLOW_COLOUR 0x20ff8080
 #define PREDATORS_LIFEFORCE_GLOW_COLOUR 0x2080ff80
+
+#define DEAD_ALIENS_LIFEFORCE_GLOW_COLOUR 0x20c68e17
+#define DEAD_MARINES_LIFEFORCE_GLOW_COLOUR 0x20800517
+#define DEAD_PREDATORS_LIFEFORCE_GLOW_COLOUR 0x20667c26
 
 /* KJL 15:02:50 05/14/97 - new max lighting intensity */
 #define MAX_INTENSITY (65536*4-1)
@@ -49,6 +53,9 @@ extern int *Global_EID_IPtr;
 extern int ScanDrawMode;
 extern int ZBufferMode;
 extern int NormalFrameTime;
+
+extern int VisionTag;
+extern int SpatialShockwave;
 
 extern SHAPEHEADER *Global_ShapeHeaderPtr;
 extern int *Global_ShapePoints;
@@ -74,11 +81,25 @@ extern int VideoModeType;
 extern int GlobalAmbience;
 extern int NumActiveBlocks;
 
+extern void HandleObjectOnFire(DISPLAYBLOCK *disPtr);
+extern void MakeMatrixFromDirection(VECTORCH *directionPtr, MATRIXCH *matrixPtr);
+extern void RenderAllParticlesFurtherAwayThan(int zThreshold);
+extern void D3D_SkyPolygon_Output(POLYHEADER *inputpolyPtr, RENDERVERTEX *renderVerticesPtr);
+extern void SetSeededFastRandom(int seed);
+extern int SeededFastRandom();
+extern void D3D_BLTTargetingSightToHUD(int screenX, int screenY);
+
 extern DISPLAYBLOCK *ActiveBlockList[];
 extern SHAPEHEADER **mainshapelist;
 
 int MirroringActive=0;
 int MirroringAxis=-149*2;
+
+/* 3rd-person test */
+
+int ThirdPersonActive=0;
+
+/* 3rd-person test */
 
 VECTORCHF FogPosition;
 float FogMagnitude;
@@ -93,6 +114,9 @@ int TripTasticPhase;
 
 void SetupShapePipeline(void);
 void ShapePipeline(SHAPEHEADER *shapePtr);
+void DoThermalEnergyView(DISPLAYBLOCK *dispPtr);
+void DoMovementEnergyView(DISPLAYBLOCK *dispPtr);
+void RenderLightFlare(VECTORCH *positionPtr, unsigned int colour);
 
 static void GouraudPolygon_Construct(POLYHEADER *polyPtr);
 static void GouraudPolygon_Output(POLYHEADER *inputPolyPtr, RENDERVERTEX *renderVerticesPtr);
@@ -107,26 +131,32 @@ static void (*VertexIntensity)(RENDERVERTEX *renderVertexPtr);
 static void VertexIntensity_Hierarchical(RENDERVERTEX *renderVertexPtr);
 static void VertexIntensity_PreLit(RENDERVERTEX *renderVertexPtr);
 static void VertexIntensity_Pred_Thermal(RENDERVERTEX *renderVertexPtr);
+static void VertexIntensity_Thermal(RENDERVERTEX *renderVertexPtr);
 static void VertexIntensity_Pred_SeeAliens(RENDERVERTEX *renderVertexPtr);
 static void VertexIntensity_Pred_SeePredatorTech(RENDERVERTEX *renderVertexPtr);
 static void VertexIntensity_ImageIntensifier(RENDERVERTEX *renderVertexPtr);
 static void VertexIntensity_Standard(RENDERVERTEX *renderVertexPtr);
 static void VertexIntensity_Alien_Sense(RENDERVERTEX *renderVertexPtr);
-
 static void VertexIntensity_Standard_Opt(RENDERVERTEX *renderVertexPtr);
 static void VertexIntensity_FullBright(RENDERVERTEX *renderVertexPtr);
 static void VertexIntensity_DiscoInferno(RENDERVERTEX *renderVertexPtr);
 static void VertexIntensity_Underwater(RENDERVERTEX *renderVertexPtr);
+/* Zombie-game Test: Black and White Mode */
+static void VertexIntensity_BlackAndWhite(RENDERVERTEX *renderVertexPtr);
 
 
 extern void CreateTxAnimUVArray(int *txa_data, int *uv_array, int *shapeitemptr);
 
 void PredatorThermalVision_ShapePipeline(SHAPEHEADER *shapePtr);
 void PredatorSeeAliensVision_ShapePipeline(SHAPEHEADER *shapePtr);
+void PredatorMovementVision_ShapePipeline(SHAPEHEADER *shapePtr);
 static void CloakedPolygon_Construct(POLYHEADER *polyPtr);
 static void PredatorThermalVisionPolygon_Construct(POLYHEADER *polyPtr);
+static void MarineIRVisionPolygon_Construct(POLYHEADER *polyPtr);
 static void PredatorSeeAliensVisionPolygon_Construct(POLYHEADER *polyPtr);
+static void PredatorMovementVisionPolygon_Construct(POLYHEADER *polyPtr);
 void DoAlienEnergyView(DISPLAYBLOCK *dispPtr);
+void DoIREnergyView(DISPLAYBLOCK *dispPtr);
 static void FindAlienEnergySource_Recursion(HMODELCONTROLLER *controllerPtr, SECTION_DATA *sectionDataPtr, unsigned int colour);
 void SquishPoints(SHAPEINSTR *shapeinstrptr);
 void MorphPoints(SHAPEINSTR *shapeinstrptr);
@@ -202,6 +232,9 @@ so that the HUD can be drawn over the top without sinking into walls, etc. */
 int HeadUpDisplayZOffset=0;
 
 extern int CloakingPhase;
+extern int Underwater;
+extern int Surface;
+extern int Fog;
 static VECTORCH ObjectCentre;
 static int HierarchicalObjectsLowestYValue;
 
@@ -287,9 +320,16 @@ void SetupShapePipeline(void)
 
 void ChooseLightingModel(DISPLAYBLOCK *dispPtr)
 {
+	extern char LevelName[];
+
 	LOCALASSERT(dispPtr);
 	LOCALASSERT(dispPtr->ObShapeData);
 
+	if ((!stricmp("Custom\\coop_nuke",&LevelName)) && (CurrentVisionMode == VISION_MODE_NORMAL)) {
+		VertexIntensity = VertexIntensity_Underwater;
+		return;
+	}
+	
 	if (DrawFullBright)
 	{
 		VertexIntensity = VertexIntensity_FullBright;
@@ -298,9 +338,47 @@ void ChooseLightingModel(DISPLAYBLOCK *dispPtr)
 	{
 		VertexIntensity = VertexIntensity_DiscoInferno;
 	}
-	else if (UNDERWATER_CHEATMODE)
+	else if (((UNDERWATER_CHEATMODE) && (CurrentVisionMode == VISION_MODE_NORMAL)) ||
+		      (Underwater==1) || (Surface==1) || (Fog==1))
 	{
-		VertexIntensity = VertexIntensity_Underwater;
+		if (CurrentVisionMode == VISION_MODE_NORMAL)
+			VertexIntensity = VertexIntensity_Underwater;
+		else {
+			switch (CurrentVisionMode)
+			{
+				default:
+				case VISION_MODE_NORMAL:
+				{
+					VertexIntensity = VertexIntensity_Standard_Opt;
+					break;
+				}
+				case VISION_MODE_ALIEN_SENSE:
+				{
+					VertexIntensity = VertexIntensity_Alien_Sense;
+					break;
+				}
+				case VISION_MODE_IMAGEINTENSIFIER:
+				{
+					VertexIntensity = VertexIntensity_ImageIntensifier;
+					break;
+				}
+				case VISION_MODE_PRED_THERMAL:
+				{
+				  	VertexIntensity = VertexIntensity_Pred_Thermal;
+				  	break;
+				}
+				case VISION_MODE_PRED_SEEALIENS:
+				{
+					VertexIntensity = VertexIntensity_Pred_SeeAliens;
+					break;
+				}
+				case VISION_MODE_PRED_SEEPREDTECH:
+				{
+					VertexIntensity = VertexIntensity_Pred_SeePredatorTech;
+					break;
+				}
+			}
+		}
 	}
 	else
 	{
@@ -368,9 +446,22 @@ void ShapePipeline(SHAPEHEADER *shapePtr)
 			}
 			break;
 		}
+		case VISION_MODE_IMAGEINTENSIFIER:
+		{
+			//if (SmartgunMode == I_Track)
+			{
+				if (NumberOfHeatSources)
+				{
+					PredatorThermalVision_ShapePipeline(shapePtr);
+					return;
+				}
+			}
+			break;
+		}
 		case VISION_MODE_PRED_SEEALIENS:
 		{
 			STRATEGYBLOCK *sbPtr = Global_ODB_Ptr->ObStrategyBlock;
+
 		 	if(sbPtr)
 		 	{
 				int useVision=0;
@@ -382,8 +473,14 @@ void ShapePipeline(SHAPEHEADER *shapePtr)
 					case I_BehaviourFaceHugger:
 					case I_BehaviourPredatorAlien:
 					case I_BehaviourXenoborg:
+					case I_BehaviourPredator:
 					{
-						useVision=1;
+						if (sbPtr->DynPtr->LinVelocity.vx ||
+							sbPtr->DynPtr->LinVelocity.vy ||
+							sbPtr->DynPtr->LinVelocity.vz)
+						{
+							useVision=1;
+						}
 						break;
 					}
 					case I_BehaviourMarine:
@@ -391,7 +488,9 @@ void ShapePipeline(SHAPEHEADER *shapePtr)
 						MARINE_STATUS_BLOCK *marineStatusPointer = (MARINE_STATUS_BLOCK *)(sbPtr->SBdataptr);    
 						GLOBALASSERT(marineStatusPointer);
 						
-						if (marineStatusPointer->Android)
+						if (sbPtr->DynPtr->LinVelocity.vx ||
+							sbPtr->DynPtr->LinVelocity.vy ||
+							sbPtr->DynPtr->LinVelocity.vz)
 						{
 							useVision=1;
 						}
@@ -400,48 +499,17 @@ void ShapePipeline(SHAPEHEADER *shapePtr)
 
 					case I_BehaviourNetGhost:
 					{
+						DYNAMICSBLOCK *objectDynPtr = sbPtr->DynPtr;
 			   			NETGHOSTDATABLOCK *ghostDataPtr = (NETGHOSTDATABLOCK *)Global_ODB_Ptr->ObStrategyBlock->SBdataptr;
 
-						if (ghostDataPtr->type==I_BehaviourAlienPlayer || ghostDataPtr->type==I_BehaviourAlien
-						 	|| (ghostDataPtr->type==I_BehaviourNetCorpse&&ghostDataPtr->subtype==I_BehaviourAlienPlayer) )
+						if ((objectDynPtr->Position.vx == objectDynPtr->PrevPosition.vx)
+						&&(objectDynPtr->Position.vy == objectDynPtr->PrevPosition.vy)
+						&&(objectDynPtr->Position.vz == objectDynPtr->PrevPosition.vz))
 						{	
+							useVision=0;
+						} else {
 							useVision=1;
 						}
-						break;
-					}
-
-					case I_BehaviourNetCorpse:
-					{
-						NETCORPSEDATABLOCK *corpseDataPtr = (NETCORPSEDATABLOCK *)sbPtr->SBdataptr;
-						if (corpseDataPtr->Android || corpseDataPtr->Type==I_BehaviourAlienPlayer || corpseDataPtr->Type==I_BehaviourAlien)
-						{
-							useVision=1;
-						}
-						break;
-					}
-					case I_BehaviourHierarchicalFragment:
-					{
-						HDEBRIS_BEHAV_BLOCK *debrisDataPtr  = (HDEBRIS_BEHAV_BLOCK *)sbPtr->SBdataptr;
-						if (debrisDataPtr->Type==I_BehaviourAlien
-						  ||debrisDataPtr->Type==I_BehaviourQueenAlien
-						  ||debrisDataPtr->Type==I_BehaviourPredatorAlien
-						  ||debrisDataPtr->Type==I_BehaviourAutoGun
-						  ||debrisDataPtr->Android)
-						{
-							useVision=1;
-						}
-						break;
-					}
-					case I_BehaviourSpeargunBolt:
-					{
-						SPEAR_BEHAV_BLOCK *spearDataPtr  = (SPEAR_BEHAV_BLOCK *)sbPtr->SBdataptr;
-						if (spearDataPtr->SpearThroughFragment) // more flags required!
-						if (spearDataPtr->Type==I_BehaviourAlien
-						  ||spearDataPtr->Type==I_BehaviourPredatorAlien
-						  ||spearDataPtr->Type==I_BehaviourAutoGun)
-						{
-							useVision=1;
-						}	
 						break;
 					}
 					default:
@@ -450,7 +518,16 @@ void ShapePipeline(SHAPEHEADER *shapePtr)
 	
 				if (useVision)
 				{
-					PredatorSeeAliensVision_ShapePipeline(shapePtr);
+					PredatorMovementVision_ShapePipeline(shapePtr);
+					return;
+				}
+			}
+			else if (!Global_ODB_Ptr->ObMyModule)
+			{
+				PLAYER_STATUS *playerStatusPtr= (PLAYER_STATUS *) (Player->ObStrategyBlock->SBdataptr);
+				if (!(playerStatusPtr->cloakOn||playerStatusPtr->CloakingEffectiveness!=0))
+				{
+					PredatorMovementVision_ShapePipeline(shapePtr);
 					return;
 				}
 			}
@@ -468,10 +545,33 @@ void ShapePipeline(SHAPEHEADER *shapePtr)
 					{
 			   			PREDATOR_STATUS_BLOCK *predData = (PREDATOR_STATUS_BLOCK *)Global_ODB_Ptr->ObStrategyBlock->SBdataptr;
 					
-						if (!predData->CloakingEffectiveness)
+						useVision=1;
+						break;
+					}
+					case I_BehaviourAutoGun:
+			 		case I_BehaviourAlien:
+					case I_BehaviourQueenAlien:
+					case I_BehaviourFaceHugger:
+					case I_BehaviourPredatorAlien:
+					{
+						useVision=1;
+						break;
+					}
+					case I_BehaviourSpeargunBolt:
+					{
+						SPEAR_BEHAV_BLOCK *spearDataPtr  = (SPEAR_BEHAV_BLOCK *)sbPtr->SBdataptr;
+						if (spearDataPtr->SpearThroughFragment) // more flags required!
+						if (spearDataPtr->Type==I_BehaviourAlien
+						  ||spearDataPtr->Type==I_BehaviourPredatorAlien
+						  ||spearDataPtr->Type==I_BehaviourAutoGun)
 						{
 							useVision=1;
-						}
+						}	
+						break;
+					}
+					case I_BehaviourThrownSpear:
+					{
+						useVision=1;
 						break;
 					}
 					case I_BehaviourNPCPredatorDisc:
@@ -492,13 +592,20 @@ void ShapePipeline(SHAPEHEADER *shapePtr)
 						{	
 							useVision=1;
 						}
+						if((ghostDataPtr->CloakingEffectiveness == 0)
+						&& (ghostDataPtr->type==I_BehaviourAlienPlayer || ghostDataPtr->type==I_BehaviourAlien
+						|| (ghostDataPtr->type==I_BehaviourNetCorpse&&ghostDataPtr->subtype==I_BehaviourAlienPlayer)))
+						{
+							useVision=1;
+						}
 						break;
 					}
 
 					case I_BehaviourNetCorpse:
 					{
 						NETCORPSEDATABLOCK *corpseDataPtr = (NETCORPSEDATABLOCK *)sbPtr->SBdataptr;
-						if (corpseDataPtr->Type==I_BehaviourPredatorPlayer || corpseDataPtr->Type==I_BehaviourPredator)
+						if (corpseDataPtr->Type==I_BehaviourPredatorPlayer || corpseDataPtr->Type==I_BehaviourPredator
+						||  corpseDataPtr->Type==I_BehaviourAlienPlayer || corpseDataPtr->Type==I_BehaviourAlien)
 						{
 							useVision=1;
 						}
@@ -507,7 +614,8 @@ void ShapePipeline(SHAPEHEADER *shapePtr)
 					case I_BehaviourHierarchicalFragment:
 					{
 						HDEBRIS_BEHAV_BLOCK *debrisDataPtr  = (HDEBRIS_BEHAV_BLOCK *)sbPtr->SBdataptr;
-						if (debrisDataPtr->Type==I_BehaviourPredator)
+						if (debrisDataPtr->Type==I_BehaviourPredator ||
+							debrisDataPtr->Type==I_BehaviourAlien)
 						{
 							useVision=1;
 						}
@@ -515,9 +623,9 @@ void ShapePipeline(SHAPEHEADER *shapePtr)
 					}
 					case I_BehaviourInanimateObject:
 					{
-						INANIMATEOBJECT_STATUSBLOCK* objStatPtr = (INANIMATEOBJECT_STATUSBLOCK*) sbPtr->SBdataptr;
+						//INANIMATEOBJECT_STATUSBLOCK* objStatPtr = (INANIMATEOBJECT_STATUSBLOCK*) sbPtr->SBdataptr;
 
-						switch(objStatPtr->typeId)
+						/*switch(objStatPtr->typeId)
 						{
 							case IOT_FieldCharge:
 							{
@@ -534,7 +642,8 @@ void ShapePipeline(SHAPEHEADER *shapePtr)
 							}
 							default:
 								break;
-						}
+						}*/
+						useVision=1;
 						break;
 					}
 
@@ -599,7 +708,8 @@ void ShapePipeline(SHAPEHEADER *shapePtr)
 			}
 		}
 
-		if (cloakingStatus == PCLOAK_On)
+		if ((cloakingStatus == PCLOAK_On) && ((AvP.PlayerType == I_Marine && SmartgunMode != I_Track)
+			|| (AvP.PlayerType == I_Predator && CurrentVisionMode != VISION_MODE_PRED_SEEPREDTECH)))
 		{
 			do
 			{
@@ -643,7 +753,7 @@ void ShapePipeline(SHAPEHEADER *shapePtr)
 						else D3D_ZBufferedCloakedPolygon_Output(polyPtr,VerticesBuffer);
 						break;
 						default:
-							textprint("found polygon of type %d\n",polyPtr->PolyItemType);
+//							textprint("found polygon of type %d\n",polyPtr->PolyItemType);
 							break;
 					}
 					#else
@@ -709,7 +819,7 @@ void ShapePipeline(SHAPEHEADER *shapePtr)
 						else D3D_ZBufferedCloakedPolygon_Output(polyPtr,VerticesBuffer);
 						break;
 						default:
-							textprint("found polygon of type %d\n",polyPtr->PolyItemType);
+//							textprint("found polygon of type %d\n",polyPtr->PolyItemType);
 							break;
 					}
 				}
@@ -920,8 +1030,11 @@ void PredatorThermalVision_ShapePipeline(SHAPEHEADER *shapePtr)
 		int pif = PolygonWithinFrustrum(polyPtr);
 				 
 		if (pif)
-		{		 
-			PredatorThermalVisionPolygon_Construct(polyPtr);
+		{
+			if (AvP.PlayerType == I_Predator)
+				PredatorThermalVisionPolygon_Construct(polyPtr);
+			else
+				MarineIRVisionPolygon_Construct(polyPtr);
 
 			if (pif!=2)
 			{
@@ -1010,6 +1123,53 @@ void PredatorSeeAliensVision_ShapePipeline(SHAPEHEADER *shapePtr)
 	while(--numitems);
 }
 
+void PredatorMovementVision_ShapePipeline(SHAPEHEADER *shapePtr)
+{
+	int numitems= shapePtr->numitems;
+	int **itemArrayPtr = shapePtr->items;
+
+	LOCALASSERT(numitems);
+   
+	TestVerticesWithFrustrum();
+	do
+	{
+		POLYHEADER *polyPtr = (POLYHEADER*) (*itemArrayPtr++);
+	
+		switch (polyPtr->PolyItemType)
+		{
+	 		case I_ZB_Gouraud3dTexturedPolygon:
+			case I_ZB_Gouraud2dTexturedPolygon:
+			{
+				int pif = PolygonWithinFrustrum(polyPtr);
+						 
+				if (pif)
+				{		 
+					PredatorMovementVisionPolygon_Construct(polyPtr);
+
+					if (pif!=2)
+					{
+						GouraudTexturedPolygon_ClipWithZ();
+						if(RenderPolygon.NumberOfVertices<3) continue;
+						GouraudTexturedPolygon_ClipWithNegativeX();
+						if(RenderPolygon.NumberOfVertices<3) continue;
+						GouraudTexturedPolygon_ClipWithPositiveY();
+						if(RenderPolygon.NumberOfVertices<3) continue;
+						GouraudTexturedPolygon_ClipWithNegativeY();
+						if(RenderPolygon.NumberOfVertices<3) continue;
+						GouraudTexturedPolygon_ClipWithPositiveX();
+						if(RenderPolygon.NumberOfVertices<3) continue;
+						D3D_ZBufferedGouraudTexturedPolygon_Output(polyPtr,RenderPolygon.Vertices);
+					}
+					else D3D_ZBufferedGouraudTexturedPolygon_Output(polyPtr,VerticesBuffer);
+				}
+				break;
+			}
+			default:
+				break;
+		}
+	}
+	while(--numitems);
+}
 
 /* CLOAKED POLYGONS */
 static void CloakedPolygon_Construct(POLYHEADER *polyPtr)
@@ -1108,6 +1268,9 @@ static void CloakedPolygon_Construct(POLYHEADER *polyPtr)
 				if (alpha>255) alpha = 255;
 				renderVerticesPtr->A = alpha;
 
+				if (AvP.Network == I_No_Network)
+					renderVerticesPtr->A = alpha/5;
+
 				if(CloakingMode>ONE_FIXED)
 				{
 					alpha = GetSin(((mag.vx+mag.vy+mag.vz)+CloakingPhase)&4095);
@@ -1128,6 +1291,92 @@ static void CloakedPolygon_Construct(POLYHEADER *polyPtr)
 	    while(--i);
 	}
 
+}
+
+static void MarineIRVisionPolygon_Construct(POLYHEADER *polyPtr)
+{
+	RENDERVERTEX *renderVerticesPtr = VerticesBuffer;
+	int i = RenderPolygon.NumberOfVertices;
+
+	VertexNumberPtr = &polyPtr->Poly1stPt;
+
+	do
+	{
+		VECTORCH *vertexPtr = &(RotatedPts[*VertexNumberPtr]);
+		renderVerticesPtr->X = vertexPtr->vx;
+		renderVerticesPtr->Y = vertexPtr->vy;
+		renderVerticesPtr->Z = vertexPtr->vz;
+
+		{
+			int alpha;
+			if (Global_ODB_Ptr->SpecialFXFlags&SFXFLAG_ISAFFECTEDBYHEAT)
+			{
+				int distanceFromHeatSource = 100000;
+				int sourceNumber=NumberOfHeatSources;
+				while(sourceNumber--)
+				{
+					VECTORCH mag;
+					int m;
+					mag.vx = vertexPtr->vx - HeatSourceList[sourceNumber].Position.vx;
+					mag.vy = vertexPtr->vy - HeatSourceList[sourceNumber].Position.vy;
+					mag.vz = vertexPtr->vz - HeatSourceList[sourceNumber].Position.vz;
+
+					m = Approximate3dMagnitude(&mag)*64;
+					
+					if(m<distanceFromHeatSource) distanceFromHeatSource = m;
+				}
+				
+				alpha = distanceFromHeatSource+(GetSin(CloakingPhase&4095)>>3);
+				if (alpha>65536) alpha = 65536;
+			}
+			else
+			{
+				alpha = 65536;
+			}
+
+			{
+				int brightness = MUL_FIXED(MUL_FIXED(alpha,alpha),1275);
+
+				if (brightness<256)
+				{
+					renderVerticesPtr->R=0;//255;
+					renderVerticesPtr->G=255;//brightness;
+					renderVerticesPtr->B=0;
+				}
+				else if (brightness<255+256)
+				{
+					int b=brightness-255;
+					renderVerticesPtr->R=0;//(255-b);
+					renderVerticesPtr->G=200;//255;
+					renderVerticesPtr->B=0;
+				}
+				else if (brightness<255*2+256)
+				{
+					int b=brightness-255*2;
+					renderVerticesPtr->R=0;
+					renderVerticesPtr->G=155;
+					renderVerticesPtr->B=0;//b;
+				}
+				else if (brightness<255*3+256)
+				{
+					int b=brightness-255*3;
+					renderVerticesPtr->R=0;
+					renderVerticesPtr->G=100;
+					renderVerticesPtr->B=0;//255;
+				}
+				else
+				{
+					int b=brightness-255*4;
+					renderVerticesPtr->R=0;
+					renderVerticesPtr->G=55;//0;
+					renderVerticesPtr->B=0;//255-b/2;
+				}
+		 	}
+		}
+		renderVerticesPtr++;
+		VertexNumberPtr++;
+	}
+    while(--i);
 }
 
 static void PredatorThermalVisionPolygon_Construct(POLYHEADER *polyPtr)
@@ -1287,7 +1536,92 @@ static void PredatorSeeAliensVisionPolygon_Construct(POLYHEADER *polyPtr)
 				colour = MUL_FIXED(colour,colour);
 				colour = MUL_FIXED(colour,colour);
 
-				renderVerticesPtr->SpecularR = colour/1024;
+				renderVerticesPtr->SpecularR = 32;//colour/1024;
+				renderVerticesPtr->SpecularG = 32;//colour/1024;
+				renderVerticesPtr->SpecularB = 32;//colour/1024;
+				renderVerticesPtr->A = alpha;
+			}
+
+			texture_defn_ptr += 2;
+			renderVerticesPtr++;
+			VertexNumberPtr++;
+		}
+	    while(--i);
+	}
+}
+
+static void PredatorMovementVisionPolygon_Construct(POLYHEADER *polyPtr)
+{
+	int *texture_defn_ptr;
+	RENDERVERTEX *renderVerticesPtr = VerticesBuffer;
+	int i = RenderPolygon.NumberOfVertices;
+	int alpha;
+
+	VertexNumberPtr = &polyPtr->Poly1stPt;
+
+	{
+		{
+			int texture_defn_index = (polyPtr->PolyColour >> TxDefn);
+			texture_defn_ptr = Global_ShapeTextures[texture_defn_index];
+		}
+
+		/* get ptr to uv coords for this polygon */
+		if(polyPtr->PolyFlags & iflag_txanim)
+		{
+			/* Create the UV array */
+			int uv_array[maxpolypts * 2];
+			CreateTxAnimUVArray(texture_defn_ptr, uv_array, (int*)polyPtr);
+			texture_defn_ptr = uv_array;
+		}
+
+		if( (Global_ODB_Ptr->SpecialFXFlags & SFXFLAG_MELTINGINTOGROUND)
+		  &&(Global_ODB_Ptr->ObFlags2 < ONE_FIXED) )	
+		{
+			alpha = Global_ODB_Ptr->ObFlags2 >> 8;
+			RenderPolygon.TranslucencyMode = TRANSLUCENCY_NORMAL;
+		}
+		else
+		{
+			alpha = 0;
+			RenderPolygon.TranslucencyMode = TRANSLUCENCY_OFF;
+		}
+		
+		do
+		{
+			VECTORCH *vertexPtr = &(RotatedPts[*VertexNumberPtr]);
+		
+			if(polyPtr->PolyFlags & iflag_txanim)
+			{
+				renderVerticesPtr->U = texture_defn_ptr[0];
+				renderVerticesPtr->V = texture_defn_ptr[1];
+			}
+			else
+			{
+				renderVerticesPtr->U = texture_defn_ptr[0] << 16;
+				renderVerticesPtr->V = texture_defn_ptr[1] << 16;
+			}
+			
+		
+			renderVerticesPtr->X = vertexPtr->vx;
+			renderVerticesPtr->Y = vertexPtr->vy;
+			renderVerticesPtr->Z = vertexPtr->vz;
+			{
+				VECTORCH mag = RotatedPts[*VertexNumberPtr];//*(((VECTORCH *)Global_ShapeVNormals) + *VertexNumberPtr);
+				int colour;
+				mag.vx = vertexPtr->vx - Global_ODB_Ptr->ObView.vx;
+				mag.vy = vertexPtr->vy - Global_ODB_Ptr->ObView.vy;
+				mag.vz = vertexPtr->vz - Global_ODB_Ptr->ObView.vz;
+				
+				colour = GetSin(((mag.vx+mag.vy+mag.vz)*8+CloakingPhase)&4095);
+				colour = MUL_FIXED(colour,colour);
+				renderVerticesPtr->B = 0;//MUL_FIXED(colour,255);
+				renderVerticesPtr->R = 255;//renderVerticesPtr->B/2;
+				renderVerticesPtr->G = 0;//renderVerticesPtr->B/2;
+
+				colour = MUL_FIXED(colour,colour);
+				colour = MUL_FIXED(colour,colour);
+
+				renderVerticesPtr->SpecularR = 128;//colour/1024;
 				renderVerticesPtr->SpecularG = colour/1024;
 				renderVerticesPtr->SpecularB = colour/1024;
 				renderVerticesPtr->A = alpha;
@@ -1339,7 +1673,6 @@ static void GouraudTexturedPolygon_Construct(POLYHEADER *polyPtr)
 	RENDERVERTEX *renderVerticesPtr = VerticesBuffer;
 	int i = RenderPolygon.NumberOfVertices;
 
-
 	/* get ptr to uv coords for this polygon */
 	{
 		int texture_defn_index = (polyPtr->PolyColour >> TxDefn);
@@ -1367,9 +1700,9 @@ static void GouraudTexturedPolygon_Construct(POLYHEADER *polyPtr)
 			}
 			else if (UNDERWATER_CHEATMODE)
 			{
-				renderVerticesPtr->X = vertexPtr->vx+(GetSin((CloakingPhase/2	+vertexPtr->vz)&4095))/1024;
-				renderVerticesPtr->Y = vertexPtr->vy+(GetSin((CloakingPhase-3000+vertexPtr->vx)&4095))/1024;
-				renderVerticesPtr->Z = vertexPtr->vz+(GetSin((CloakingPhase/3+239+vertexPtr->vy)&4095))/1024;
+				renderVerticesPtr->X = vertexPtr->vx;//+(GetSin((CloakingPhase/2	+vertexPtr->vz)&4095))/1024;
+				renderVerticesPtr->Y = vertexPtr->vy;//+(GetSin((CloakingPhase-3000+vertexPtr->vx)&4095))/1024;
+				renderVerticesPtr->Z = vertexPtr->vz;//+(GetSin((CloakingPhase/3+239+vertexPtr->vy)&4095))/1024;
 			}
 			else
 			{
@@ -1427,7 +1760,7 @@ static void GouraudTexturedPolygon_Construct(POLYHEADER *polyPtr)
 					case VISION_MODE_IMAGEINTENSIFIER:
 					{
 						renderVerticesPtr->R = 0;
-						renderVerticesPtr->G = 255;
+						renderVerticesPtr->G = 128;
 						renderVerticesPtr->B = 0;
 						renderVerticesPtr->SpecularR = 0;
 						renderVerticesPtr->SpecularG = 0;
@@ -1483,11 +1816,13 @@ static void GouraudTexturedPolygon_Construct(POLYHEADER *polyPtr)
 		do
 		{
 			VECTORCH *vertexPtr = &(RotatedPts[*VertexNumberPtr]);
-			#if UNDERWATER
-			renderVerticesPtr->X = vertexPtr->vx+GetSin((CloakingPhase*2	+vertexPtr->vz)&4095)/1024;
-			renderVerticesPtr->Y = vertexPtr->vy+GetSin((CloakingPhase-3000	+vertexPtr->vx)&4095)/1024;
-			renderVerticesPtr->Z = vertexPtr->vz+GetSin((CloakingPhase*3+239+vertexPtr->vy)&4095)/1024;
-			#elif SPATIAL_SHOCKWAVE
+			/*if (Underwater)
+			{
+				renderVerticesPtr->X = vertexPtr->vx+GetSin((CloakingPhase*2+vertexPtr->vz)&4095)/1024;
+				renderVerticesPtr->Y = vertexPtr->vy+GetSin((CloakingPhase-3000	+vertexPtr->vx)&4095)/1024;
+				renderVerticesPtr->Z = vertexPtr->vz+GetSin((CloakingPhase*3+239+vertexPtr->vy)&4095)/1024;
+			}
+			else*/ if (SpatialShockwave)
 			{
 				int d = Magnitude(vertexPtr);
 				int a = (CloakingPhase&16383)+4000;
@@ -1500,7 +1835,7 @@ static void GouraudTexturedPolygon_Construct(POLYHEADER *polyPtr)
 					Normalise(&n);
 					u<<=3;
 					offset = MUL_FIXED(MUL_FIXED(2*u,ONE_FIXED-u),8000) + MUL_FIXED(MUL_FIXED(u,u),8192 );
-					LOCALASSERT(offset>=0 && offset<=8192);
+
 					renderVerticesPtr->X = MUL_FIXED(n.vx,d);//a+offset*2);
 					renderVerticesPtr->Y = MUL_FIXED(n.vy,d);//a+offset*2);
 					renderVerticesPtr->Z = MUL_FIXED(n.vz,a+offset);
@@ -1511,11 +1846,9 @@ static void GouraudTexturedPolygon_Construct(POLYHEADER *polyPtr)
 					renderVerticesPtr->X = vertexPtr->vx;
 					renderVerticesPtr->Y = vertexPtr->vy;
 					renderVerticesPtr->Z = vertexPtr->vz;
-				}
-				
+				}	
 			}
-			#else
-			if (TRIPTASTIC_CHEATMODE)
+			else if (TRIPTASTIC_CHEATMODE)
 			{
 				renderVerticesPtr->X = vertexPtr->vx+GetSin((CloakingPhase*2	+vertexPtr->vz)&4095)/1024;
 				renderVerticesPtr->Y = vertexPtr->vy+GetSin((CloakingPhase-3000	+vertexPtr->vx)&4095)/1024;
@@ -1523,17 +1856,16 @@ static void GouraudTexturedPolygon_Construct(POLYHEADER *polyPtr)
 			}
 			else if (UNDERWATER_CHEATMODE)
 			{
-				renderVerticesPtr->X = vertexPtr->vx+(GetSin((CloakingPhase/2	+vertexPtr->vz)&4095))/1024;
-				renderVerticesPtr->Y = vertexPtr->vy+(GetSin((CloakingPhase-3000	+vertexPtr->vx)&4095))/1024;
-				renderVerticesPtr->Z = vertexPtr->vz+(GetSin((CloakingPhase/3+239+vertexPtr->vy)&4095))/1024;
+				renderVerticesPtr->X = vertexPtr->vx;//+(GetSin((CloakingPhase/2	+vertexPtr->vz)&4095))/1024;
+				renderVerticesPtr->Y = vertexPtr->vy;//+(GetSin((CloakingPhase-3000	+vertexPtr->vx)&4095))/1024;
+				renderVerticesPtr->Z = vertexPtr->vz;//+(GetSin((CloakingPhase/3+239+vertexPtr->vy)&4095))/1024;
 			}
 			else
 			{
 				renderVerticesPtr->X = vertexPtr->vx;
 				renderVerticesPtr->Y = vertexPtr->vy;
 				renderVerticesPtr->Z = vertexPtr->vz;
-			}
-			#endif															
+			}															
 			renderVerticesPtr->U = texture_defn_ptr[0] << 16;
 			renderVerticesPtr->V = texture_defn_ptr[1] << 16;
 
@@ -1570,6 +1902,11 @@ static void GouraudTexturedPolygon_Construct(POLYHEADER *polyPtr)
 				{
 					renderVerticesPtr->A = 128;
 				}
+				// Testing...
+				else if (AvP.PlayerType == I_Alien)
+				{
+					renderVerticesPtr->A = 128;
+				}
 				else
 				{
 					renderVerticesPtr->A = 255;
@@ -1577,6 +1914,9 @@ static void GouraudTexturedPolygon_Construct(POLYHEADER *polyPtr)
 				#endif
 
 				RenderPolygon.TranslucencyMode = TRANSLUCENCY_OFF;
+
+				if (AvP.PlayerType == I_Alien)
+					RenderPolygon.TranslucencyMode = TRANSLUCENCY_NORMAL;
 			}
 
 	
@@ -1598,7 +1938,7 @@ static void GouraudTexturedPolygon_Construct(POLYHEADER *polyPtr)
 					case VISION_MODE_IMAGEINTENSIFIER:
 					{
 						renderVerticesPtr->R = 0;
-						renderVerticesPtr->G = 255;
+						renderVerticesPtr->G = 128;
 						renderVerticesPtr->B = 0;
 						renderVerticesPtr->SpecularR = 0;
 						renderVerticesPtr->SpecularG = 0;
@@ -1640,7 +1980,7 @@ static void GouraudTexturedPolygon_Construct(POLYHEADER *polyPtr)
 			}
 			else
 			{
-		 		VertexIntensity(renderVerticesPtr);
+				VertexIntensity(renderVerticesPtr);
 			}
 			renderVerticesPtr++;
 			VertexNumberPtr++;
@@ -1652,18 +1992,12 @@ static void GouraudTexturedPolygon_Construct(POLYHEADER *polyPtr)
 
 }
 
-
-
-
-
-static void VertexIntensity_Pred_Thermal(RENDERVERTEX *renderVertexPtr)
+static void VertexIntensity_Thermal(RENDERVERTEX *renderVertexPtr)
 {
-	int redI,blueI,specular=0;
+	int redI,greenI,blueI,specular=0;
 
 	int vertexNumber = *VertexNumberPtr;
 
-
-	
 	if(ColourIntensityArray[vertexNumber].Stamp==ObjectCounter)
 	{
 		renderVertexPtr->R = ColourIntensityArray[vertexNumber].R;
@@ -1673,7 +2007,8 @@ static void VertexIntensity_Pred_Thermal(RENDERVERTEX *renderVertexPtr)
 		renderVertexPtr->SpecularG = ColourIntensityArray[vertexNumber].SpecularG;
 		renderVertexPtr->SpecularB = ColourIntensityArray[vertexNumber].SpecularB;	
 		return;
-	}	
+	}
+#if 0
 	{
 		VECTORCH *vertexNormalPtr = ((VECTORCH *)Global_ShapeVNormals) + vertexNumber;
 		VECTORCH *vertexPtr = ((VECTORCH *)Global_ShapePoints)+vertexNumber;
@@ -1734,6 +2069,122 @@ static void VertexIntensity_Pred_Thermal(RENDERVERTEX *renderVertexPtr)
 			}
 	  	}
 	}
+#endif
+	greenI = ONE_FIXED/2;
+	if (renderVertexPtr->Z>5000)
+	{
+		int a = (renderVertexPtr->Z-5000);	
+		if (a>4096) blueI = (greenI*4096)/a;
+	}
+
+	greenI >>= 8;
+
+ 	if(redI >= ONE_FIXED)	redI = (ONE_FIXED - 1);
+	redI >>=8;
+
+	specular>>=6;
+	if (specular >= 255) specular = 255;
+
+	/* KJL 12:41:54 05/10/98 - red/green swapped, whilst testing colours */
+	renderVertexPtr->R = 0;
+	ColourIntensityArray[vertexNumber].R = 0;
+	renderVertexPtr->B = blueI/2;
+	ColourIntensityArray[vertexNumber].B = blueI/2;
+	renderVertexPtr->G = greenI;
+	ColourIntensityArray[vertexNumber].G = greenI;
+
+	renderVertexPtr->SpecularR = specular;//specularR;
+	ColourIntensityArray[vertexNumber].SpecularR = specular;//specularR;
+	
+	renderVertexPtr->SpecularG = specular;
+	ColourIntensityArray[vertexNumber].SpecularG = specular;
+		
+	renderVertexPtr->SpecularB = specular;//specularB;
+	ColourIntensityArray[vertexNumber].SpecularB = specular;//specularB;
+	
+	ColourIntensityArray[vertexNumber].Stamp=ObjectCounter;
+}
+
+static void VertexIntensity_Pred_Thermal(RENDERVERTEX *renderVertexPtr)
+{
+	int redI,blueI,specular=0;
+
+	int vertexNumber = *VertexNumberPtr;
+
+
+	
+	if(ColourIntensityArray[vertexNumber].Stamp==ObjectCounter)
+	{
+		renderVertexPtr->R = ColourIntensityArray[vertexNumber].R;
+		renderVertexPtr->G = ColourIntensityArray[vertexNumber].G;
+		renderVertexPtr->B = ColourIntensityArray[vertexNumber].B;	
+		renderVertexPtr->SpecularR = ColourIntensityArray[vertexNumber].SpecularR;
+		renderVertexPtr->SpecularG = ColourIntensityArray[vertexNumber].SpecularG;
+		renderVertexPtr->SpecularB = ColourIntensityArray[vertexNumber].SpecularB;	
+		return;
+	}
+
+	{
+		VECTORCH *vertexNormalPtr = ((VECTORCH *)Global_ShapeVNormals) + vertexNumber;
+		VECTORCH *vertexPtr = ((VECTORCH *)Global_ShapePoints)+vertexNumber;
+		LIGHTBLOCK **larrayptr;
+		LIGHTBLOCK *lptr;
+		int i;
+
+		redI = 0;
+
+		larrayptr = LightSourcesForObject;
+
+		for(i = NumLightSourcesForObject; i!=0; i--) 
+		{
+
+			VECTORCH vertexToLight;
+			int distanceToLight;
+	
+			lptr = *larrayptr++;
+			
+			if (lptr->LightFlags & LFlag_PreLitSource) continue;
+
+			vertexToLight.vx = lptr->LocalLP.vx - vertexPtr->vx;
+			vertexToLight.vy = lptr->LocalLP.vy - vertexPtr->vy;
+			vertexToLight.vz = lptr->LocalLP.vz - vertexPtr->vz;
+
+			#if 0
+			distanceToLight = Approximate3dMagnitude(&vertexToLight)/2;
+			#else
+			distanceToLight = Approximate3dMagnitude(&vertexToLight);
+			#endif														  				
+			if(distanceToLight < lptr->LightRange) 
+			{
+				int idot = MUL_FIXED(lptr->LightRange-distanceToLight,lptr->BrightnessOverRange);
+
+				if( (distanceToLight>0) && (!(Global_ODB_Ptr->ObFlags3 & ObFlag3_NoLightDot)) )
+				{
+				 	int dotproduct = MUL_FIXED(vertexNormalPtr->vx,vertexToLight.vx)
+					     + MUL_FIXED(vertexNormalPtr->vy,vertexToLight.vy)
+					     + MUL_FIXED(vertexNormalPtr->vz,vertexToLight.vz);
+					if(dotproduct>0)
+					{ 
+						idot = WideMulNarrowDiv(idot,dotproduct,distanceToLight);
+					}
+					else
+					{
+						idot = 0;
+					}
+	
+					idot = WideMulNarrowDiv(idot,dotproduct,distanceToLight);
+				}
+
+		  				
+		  		redI += idot;			
+				if (lptr->LightFlags&LFlag_Thermal)
+				{
+					specular += idot;
+				}
+			}
+	  	}
+	}
+
 	blueI = ONE_FIXED/2;
 	if (renderVertexPtr->Z>5000)
 	{
@@ -1754,9 +2205,10 @@ static void VertexIntensity_Pred_Thermal(RENDERVERTEX *renderVertexPtr)
 	ColourIntensityArray[vertexNumber].R = 0;
 	renderVertexPtr->B = blueI;
 	ColourIntensityArray[vertexNumber].B = blueI;
-	renderVertexPtr->G = redI/2;
-	ColourIntensityArray[vertexNumber].G = redI/2;
+	renderVertexPtr->G = 0;//redI/2;
+	ColourIntensityArray[vertexNumber].G = 0;//redI/2;
 	
+	specular=0;
 
 	renderVertexPtr->SpecularR = specular;//specularR;
 	ColourIntensityArray[vertexNumber].SpecularR = specular;//specularR;
@@ -1764,14 +2216,14 @@ static void VertexIntensity_Pred_Thermal(RENDERVERTEX *renderVertexPtr)
 	renderVertexPtr->SpecularG = specular;
 	ColourIntensityArray[vertexNumber].SpecularG = specular;
 		
-	renderVertexPtr->SpecularB = specular;//specularB;
-	ColourIntensityArray[vertexNumber].SpecularB = specular;//specularB;
+	renderVertexPtr->SpecularB = specular;//200 //specularB;
+	ColourIntensityArray[vertexNumber].SpecularB = specular;//200 //specularB;
 	
 	ColourIntensityArray[vertexNumber].Stamp=ObjectCounter;
 }
 static void VertexIntensity_Pred_SeeAliens(RENDERVERTEX *renderVertexPtr)
 {
-	int redI,blueI,specular=0;
+	int redI,blueI,specular=0,specularR=0;
 
 	int vertexNumber = *VertexNumberPtr;
 
@@ -1840,7 +2292,7 @@ static void VertexIntensity_Pred_SeeAliens(RENDERVERTEX *renderVertexPtr)
 		if (a>4096) blueI = (blueI*4096)/a;
 	}
 	/* KJL 12:41:54 05/10/98 - red/green swapped, whilst testing colours */
-	blueI >>= 9;
+	blueI = 64;
 	renderVertexPtr->R = blueI;
 	ColourIntensityArray[vertexNumber].R = blueI;
 	renderVertexPtr->B = 0;
@@ -1848,12 +2300,24 @@ static void VertexIntensity_Pred_SeeAliens(RENDERVERTEX *renderVertexPtr)
 
 	specular >>=10;
  	if(specular>255) specular = 255;
-	renderVertexPtr->SpecularR = specular;//specularR;
-	ColourIntensityArray[vertexNumber].SpecularR = specular;//specularR;
+
+	specularR=240;
+
+	{
+		unsigned int Speed = Approximate3dMagnitude(&Player->ObStrategyBlock->DynPtr->LinVelocity);
+		
+		if (Speed > 1000)
+		{
+			specularR=100;
+		}
+	}
+
+	renderVertexPtr->SpecularR = specularR;
+	ColourIntensityArray[vertexNumber].SpecularR = specularR;
 	renderVertexPtr->SpecularG = specular;
-	ColourIntensityArray[vertexNumber].SpecularG = specular;
-	renderVertexPtr->SpecularB = specular;//specularB;
-	ColourIntensityArray[vertexNumber].SpecularB = specular;//specularB;
+	ColourIntensityArray[vertexNumber].SpecularG = 0;//specular;
+	renderVertexPtr->SpecularB = specular;
+	ColourIntensityArray[vertexNumber].SpecularB = 0;//specular;
 }
 static void VertexIntensity_Pred_SeePredatorTech(RENDERVERTEX *renderVertexPtr)
 {
@@ -1931,8 +2395,8 @@ static void VertexIntensity_Pred_SeePredatorTech(RENDERVERTEX *renderVertexPtr)
 	renderVertexPtr->SpecularR = 255;//specularR;
 	ColourIntensityArray[vertexNumber].SpecularR = 255;//specularR;
 	
-	renderVertexPtr->SpecularG = redI;
-	ColourIntensityArray[vertexNumber].SpecularG = redI;
+	renderVertexPtr->SpecularG = redI; //128
+	ColourIntensityArray[vertexNumber].SpecularG = redI; //128
 		
 	renderVertexPtr->SpecularB = 255;//specularB;
 	ColourIntensityArray[vertexNumber].SpecularB = 255;//specularB;
@@ -2045,16 +2509,19 @@ static void VertexIntensity_ImageIntensifier(RENDERVERTEX *renderVertexPtr)
 			}
 	  	}
 	}
-
-	greenI = 255;
+#if 0
+	greenI = 0;
 	if (renderVertexPtr->Z>5000)
 	{
 		int a = (renderVertexPtr->Z-5000);	
-		if (a>4096) greenI = (greenI*4096)/a;
+		if (a>4096) greenI = (a/128);
+		if (greenI<0) greenI = 0;
 	}
-	renderVertexPtr->G = greenI;
-	ColourIntensityArray[vertexNumber].G = greenI;
+#endif
+	renderVertexPtr->G = 128;//greenI;
+	ColourIntensityArray[vertexNumber].G = 128;//greenI;
 
+	// Only whiteout if using regular Image Intensifier
 	renderVertexPtr->R = 0;
 	ColourIntensityArray[vertexNumber].R = 0;
 	renderVertexPtr->B = 0;
@@ -2062,14 +2529,24 @@ static void VertexIntensity_ImageIntensifier(RENDERVERTEX *renderVertexPtr)
 
  	specular>>=7;
  	if (specular>254) specular=254;
-	LOCALASSERT(specular>=0 && specular<=254); 
-	renderVertexPtr->SpecularR = specular;
-	ColourIntensityArray[vertexNumber].SpecularR = specular;
-	renderVertexPtr->SpecularG = specular;
-	ColourIntensityArray[vertexNumber].SpecularG = specular;
-	renderVertexPtr->SpecularB = specular;
-	ColourIntensityArray[vertexNumber].SpecularB = specular;
+	LOCALASSERT(specular>=0 && specular<=254);
 
+	// Only whiteout for regular Image Intensifier
+	//if (SmartgunMode == I_Track) {
+		renderVertexPtr->SpecularR = 0;//specular;
+		ColourIntensityArray[vertexNumber].SpecularR = 0;//specular;
+		renderVertexPtr->SpecularG = 0;//specular;
+		ColourIntensityArray[vertexNumber].SpecularG = 0;//specular;
+		renderVertexPtr->SpecularB = 0;//specular;
+		ColourIntensityArray[vertexNumber].SpecularB = 0;//specular;
+	/*} else {
+		renderVertexPtr->SpecularR = specular;
+		ColourIntensityArray[vertexNumber].SpecularR = specular;
+		renderVertexPtr->SpecularG = specular;
+		ColourIntensityArray[vertexNumber].SpecularG = specular;
+		renderVertexPtr->SpecularB = specular;
+		ColourIntensityArray[vertexNumber].SpecularB = specular;
+	}*/
 }
 
 static void VertexIntensity_Alien_Sense(RENDERVERTEX *renderVertexPtr)
@@ -2082,9 +2559,9 @@ static void VertexIntensity_Alien_Sense(RENDERVERTEX *renderVertexPtr)
 		renderVertexPtr->R = ColourIntensityArray[vertexNumber].R;
 		renderVertexPtr->G = ColourIntensityArray[vertexNumber].G;
 		renderVertexPtr->B = ColourIntensityArray[vertexNumber].B;	
-		renderVertexPtr->SpecularR = 0;
-		renderVertexPtr->SpecularG = 0;
-		renderVertexPtr->SpecularB = 0;	
+		renderVertexPtr->SpecularR = ColourIntensityArray[vertexNumber].SpecularR;
+		renderVertexPtr->SpecularG = ColourIntensityArray[vertexNumber].SpecularG;
+		renderVertexPtr->SpecularB = ColourIntensityArray[vertexNumber].SpecularB;	
 		return;
 	}	
 	ColourIntensityArray[vertexNumber].Stamp=ObjectCounter;
@@ -2106,12 +2583,13 @@ static void VertexIntensity_Alien_Sense(RENDERVERTEX *renderVertexPtr)
 	ColourIntensityArray[vertexNumber].B = intensity;
 
 	renderVertexPtr->SpecularR = 0;
+	ColourIntensityArray[vertexNumber].SpecularR = 0;
 	renderVertexPtr->SpecularG = 0;
-	renderVertexPtr->SpecularB = 0; 
+	ColourIntensityArray[vertexNumber].SpecularG = 0;
+	renderVertexPtr->SpecularB = 0;
+	ColourIntensityArray[vertexNumber].SpecularB = 0;
 	
 }
-
-
 
 static void VertexIntensity_Standard_Opt(RENDERVERTEX *renderVertexPtr)
 {
@@ -2294,17 +2772,36 @@ static void VertexIntensity_Standard_Opt(RENDERVERTEX *renderVertexPtr)
 	if(specularB > 255) specularB = 255;
 	renderVertexPtr->SpecularB = specularB;
 	ColourIntensityArray[vertexNumber].SpecularB = specularB;
-	
 }
 static void VertexIntensity_FullBright(RENDERVERTEX *renderVertexPtr)
 {
 	int vertexNumber = *VertexNumberPtr;
-	renderVertexPtr->R = 255;
-	ColourIntensityArray[vertexNumber].R = 255;
-	renderVertexPtr->G = 255;
-	ColourIntensityArray[vertexNumber].G = 255;
-	renderVertexPtr->B = 255;
-	ColourIntensityArray[vertexNumber].B = 255;
+	int Red, Green, Blue;
+
+	Red = Green = Blue = 255;
+
+	// Different color for different vision modes...
+	switch(CurrentVisionMode)
+	{
+		case VISION_MODE_IMAGEINTENSIFIER:
+			Red = Blue = 0;
+			break;
+		case VISION_MODE_PRED_THERMAL:
+			Red = Green = 0;
+			break;
+		case VISION_MODE_PRED_SEEALIENS:
+			Green = Blue = 0;
+			break;
+		case VISION_MODE_PRED_SEEPREDTECH:
+			Green = 0;
+			break;
+	}
+	renderVertexPtr->R = Red;
+	ColourIntensityArray[vertexNumber].R = Red;
+	renderVertexPtr->G = Green;
+	ColourIntensityArray[vertexNumber].G = Green;
+	renderVertexPtr->B = Blue;
+	ColourIntensityArray[vertexNumber].B = Blue;
 
 	renderVertexPtr->SpecularR = 0;
 	ColourIntensityArray[vertexNumber].SpecularR = 0;
@@ -2529,6 +3026,7 @@ static void VertexIntensity_DiscoInferno(RENDERVERTEX *renderVertexPtr)
 }
 static void VertexIntensity_Underwater(RENDERVERTEX *renderVertexPtr)
 {
+	extern char LevelName[];
 	int redI,greenI,blueI;
 	int specularR,specularG,specularB;
 
@@ -2679,12 +3177,89 @@ static void VertexIntensity_Underwater(RENDERVERTEX *renderVertexPtr)
 	}
 
 	{
-		if (specularB<renderVertexPtr->Z*4)
-			specularB = renderVertexPtr->Z*4;
-
+		if (Underwater==1) {
+			switch(CurrentVisionMode)
+			{
+				case VISION_MODE_NORMAL:
+				case VISION_MODE_PRED_THERMAL:
+					if (specularB<renderVertexPtr->Z*2)
+						specularB = renderVertexPtr->Z*2;
+					break;
+				case VISION_MODE_IMAGEINTENSIFIER:
+					if (specularG<renderVertexPtr->Z*2)
+						specularG = renderVertexPtr->Z*2;
+					break;
+				case VISION_MODE_PRED_SEEALIENS:
+					if (specularR<renderVertexPtr->Z*2)
+						specularR = renderVertexPtr->Z*2;
+					break;
+			}
+		} else
+		if (Surface==1) {
+			switch(CurrentVisionMode)
+			{
+				case VISION_MODE_NORMAL:
+				case VISION_MODE_PRED_SEEALIENS:
+					if (specularR<renderVertexPtr->Z*2)
+						specularR = renderVertexPtr->Z*2;
+					break;
+				case VISION_MODE_IMAGEINTENSIFIER:
+					if (specularG<renderVertexPtr->Z*2)
+						specularG = renderVertexPtr->Z*2;
+					break;
+				case VISION_MODE_PRED_THERMAL:
+					if (specularB<renderVertexPtr->Z*2)
+						specularB = renderVertexPtr->Z*2;
+					break;
+			}
+		} else
+		if (Fog==1) {
+			switch(CurrentVisionMode)
+			{
+				case VISION_MODE_NORMAL:
+					if (specularR<renderVertexPtr->Z*2)
+						specularR = renderVertexPtr->Z*2;
+					if (specularG<renderVertexPtr->Z*2)
+						specularG = renderVertexPtr->Z*2;
+					if (specularB<renderVertexPtr->Z*2)
+						specularB = renderVertexPtr->Z*2;
+					break;
+				case VISION_MODE_PRED_THERMAL:
+					if (specularB<renderVertexPtr->Z*2)
+						specularB = renderVertexPtr->Z*2;
+					break;
+				case VISION_MODE_IMAGEINTENSIFIER:
+					if (specularG<renderVertexPtr->Z*2)
+						specularG = renderVertexPtr->Z*2;
+					break;
+				case VISION_MODE_PRED_SEEALIENS:
+					if (specularR<renderVertexPtr->Z*2)
+						specularR = renderVertexPtr->Z*2;
+					break;
+			}
+		}
 	}
-
-
+	if (!stricmp("Custom\\coop_nuke",&LevelName)) {
+		switch(CurrentVisionMode)
+		{
+			case VISION_MODE_NORMAL:
+				if (specularB<renderVertexPtr->Z)
+					specularB = renderVertexPtr->Z;
+				break;
+			case VISION_MODE_PRED_THERMAL:
+				if (specularB<renderVertexPtr->Z)
+					specularB = renderVertexPtr->Z;
+				break;
+			case VISION_MODE_IMAGEINTENSIFIER:
+				if (specularG<renderVertexPtr->Z)
+					specularG = renderVertexPtr->Z;
+				break;
+			case VISION_MODE_PRED_SEEALIENS:
+				if (specularR<renderVertexPtr->Z)
+					specularR = renderVertexPtr->Z;
+				break;
+		}
+	}
 
 	/* Intensity for Textures */
 	redI >>= 8;
@@ -2716,8 +3291,6 @@ static void VertexIntensity_Underwater(RENDERVERTEX *renderVertexPtr)
 	if(specularB > 255) specularB = 255;
 	renderVertexPtr->SpecularB = specularB;
 	ColourIntensityArray[vertexNumber].SpecularB = specularB;
-
-
  }
 
 /*KJL***********************************************************************
@@ -3989,19 +4562,22 @@ void AddShape(DISPLAYBLOCK *dptr, VIEWDESCRIPTORBLOCK *VDB_Ptr)
 		if (dptr->ObStrategyBlock)
 		{
 			HierarchicalObjectsLowestYValue = dptr->ObStrategyBlock->DynPtr->ObjectVertices[0].vy;
-		 	if (CurrentVisionMode == VISION_MODE_NORMAL && AvP.PlayerType==I_Alien)
+		 	if (CurrentVisionMode == VISION_MODE_ALIEN_SENSE && AvP.PlayerType==I_Alien)
 			{
 				DoAlienEnergyView(dptr);
 			}
-			/*
-			else if (CurrentVisionMode == VISION_MODE_PRED_SEEALIENS && dptr->ObStrategyBlock->I_SBtype == I_BehaviourAlien)
-			{	
-				DoAlienEnergyView(dptr);
+			if (CurrentVisionMode == VISION_MODE_PRED_THERMAL && AvP.PlayerType==I_Predator)
+			{
+				DoThermalEnergyView(dptr);
 			}
-			*/
+			if (CurrentVisionMode == VISION_MODE_IMAGEINTENSIFIER && AvP.PlayerType==I_Marine)
+			{
+				DoIREnergyView(dptr);
+			}
 		}
 
-		if (CurrentVisionMode == VISION_MODE_PRED_THERMAL)
+		if (CurrentVisionMode == VISION_MODE_PRED_THERMAL ||
+			(CurrentVisionMode == VISION_MODE_IMAGEINTENSIFIER))
 		{
 			FindHeatSourcesInHModel(dptr);
 		}
@@ -4140,14 +4716,17 @@ void DoAlienEnergyView(DISPLAYBLOCK *dispPtr)
 					{
 						return;
 					}
-
 					if (corpseDataPtr->Type==I_BehaviourAlienPlayer || corpseDataPtr->Type==I_BehaviourAlien)
 					{
-						colour = ALIENS_LIFEFORCE_GLOW_COLOUR;
+						colour = DEAD_ALIENS_LIFEFORCE_GLOW_COLOUR;
 					}
 					else if (corpseDataPtr->Type==I_BehaviourPredatorPlayer || corpseDataPtr->Type==I_BehaviourPredator)
 					{
-						colour = PREDATORS_LIFEFORCE_GLOW_COLOUR;
+						colour = DEAD_PREDATORS_LIFEFORCE_GLOW_COLOUR;
+					}
+					else if (corpseDataPtr->Type==I_BehaviourMarinePlayer || corpseDataPtr->Type==I_BehaviourMarine)
+					{
+						colour = DEAD_MARINES_LIFEFORCE_GLOW_COLOUR;
 					}
 					break;
 				}
@@ -4160,15 +4739,15 @@ void DoAlienEnergyView(DISPLAYBLOCK *dispPtr)
 					}
 					else if(debrisDataPtr->Type==I_BehaviourAlien)
 					{
-						colour = ALIENS_LIFEFORCE_GLOW_COLOUR;
+						colour = DEAD_ALIENS_LIFEFORCE_GLOW_COLOUR;
 					}
 					else if (debrisDataPtr->Type==I_BehaviourPredator)
 					{
-						colour = PREDATORS_LIFEFORCE_GLOW_COLOUR;
+						colour = DEAD_PREDATORS_LIFEFORCE_GLOW_COLOUR;
 					}
 					else if ((debrisDataPtr->Type==I_BehaviourMarine)||(debrisDataPtr->Type==I_BehaviourSeal))
 					{
-						colour = MARINES_LIFEFORCE_GLOW_COLOUR;
+						colour = DEAD_MARINES_LIFEFORCE_GLOW_COLOUR;
 					}
 					else return;
 					break;
@@ -4182,6 +4761,356 @@ void DoAlienEnergyView(DISPLAYBLOCK *dispPtr)
 				}
 				default:
 					break;
+			}
+		}
+	}
+	if( (Global_ODB_Ptr->SpecialFXFlags & SFXFLAG_MELTINGINTOGROUND)
+	  &&(Global_ODB_Ptr->ObFlags2 < ONE_FIXED) )	
+	{
+		unsigned int alpha = MUL_FIXED(Global_ODB_Ptr->ObFlags2,colour >> 24);
+		colour = (colour&0xffffff)+(alpha<<24);
+	}
+
+	/* KJL 16:36:12 10/02/98 - check positions are up to date */
+	ProveHModel(controllerPtr,dispPtr);
+
+	D3D_DecalSystem_Setup();
+
+	FindAlienEnergySource_Recursion(controllerPtr,controllerPtr->section_data,colour);
+
+	D3D_DecalSystem_End();
+}
+
+void DoThermalEnergyView(DISPLAYBLOCK *dispPtr)
+{
+	HMODELCONTROLLER *controllerPtr = dispPtr->HModelControlBlock;
+	unsigned int colour = 0x200000ff;
+
+	colour=0x2000ff00;
+	
+	LOCALASSERT(controllerPtr);
+	
+
+
+	/* KJL 16:36:25 10/02/98 - process model */
+	{
+		STRATEGYBLOCK *sbPtr = Global_ODB_Ptr->ObStrategyBlock;
+	 	if(sbPtr)
+	 	{
+	 		switch (sbPtr->I_SBtype)
+			{
+		 		case I_BehaviourAlien:
+				{
+					return;
+				}
+		 		case I_BehaviourPredator:
+				{
+					return;
+				}
+				case I_BehaviourMarine:
+				case I_BehaviourSeal:
+				{
+					MARINE_STATUS_BLOCK *marineStatusPointer = (MARINE_STATUS_BLOCK *)(sbPtr->SBdataptr);    
+					GLOBALASSERT(marineStatusPointer);
+					
+					if (marineStatusPointer->Android)
+					{
+						return;
+					}
+				}
+
+				case I_BehaviourNetGhost:
+				{
+		   			NETGHOSTDATABLOCK *ghostDataPtr = (NETGHOSTDATABLOCK *)Global_ODB_Ptr->ObStrategyBlock->SBdataptr;
+
+					if (ghostDataPtr->type==I_BehaviourAlienPlayer || ghostDataPtr->type==I_BehaviourAlien
+					 	|| (ghostDataPtr->type==I_BehaviourNetCorpse&&ghostDataPtr->subtype==I_BehaviourAlienPlayer) )
+					{	
+						return;
+					}
+					else if (ghostDataPtr->type==I_BehaviourPredatorPlayer || ghostDataPtr->type==I_BehaviourPredator
+					 	|| (ghostDataPtr->type==I_BehaviourNetCorpse&&ghostDataPtr->subtype==I_BehaviourPredatorPlayer) )
+					{	
+						return;
+					}
+
+					break;
+				}
+
+				case I_BehaviourNetCorpse:
+				{
+					NETCORPSEDATABLOCK *corpseDataPtr = (NETCORPSEDATABLOCK *)sbPtr->SBdataptr;
+
+					if (corpseDataPtr->Android)
+					{
+						return;
+					}
+					if (corpseDataPtr->Type==I_BehaviourAlienPlayer || corpseDataPtr->Type==I_BehaviourAlien)
+					{
+						return;
+					}
+					else if (corpseDataPtr->Type==I_BehaviourPredatorPlayer || corpseDataPtr->Type==I_BehaviourPredator)
+					{
+						return;
+					}
+					break;
+				}
+				case I_BehaviourHierarchicalFragment:
+				{
+					HDEBRIS_BEHAV_BLOCK *debrisDataPtr  = (HDEBRIS_BEHAV_BLOCK *)sbPtr->SBdataptr;
+					if(debrisDataPtr->Type==I_BehaviourAutoGun || debrisDataPtr->Android)
+					{
+						return;
+					}
+					else if((debrisDataPtr->Type==I_BehaviourAlien) || (debrisDataPtr->Type==I_BehaviourAlienPlayer))
+					{
+						return;
+					}
+					else if (debrisDataPtr->Type==I_BehaviourPredator)
+					{
+						return;
+					}
+					else if ((debrisDataPtr->Type==I_BehaviourMarine)||(debrisDataPtr->Type==I_BehaviourSeal))
+					{
+
+					}
+					else return;
+					break;
+				}
+
+				case I_BehaviourAutoGun:
+				{
+					/* KJL 19:31:53 25/01/99 - organics only, please */
+					return;
+					break;
+				}
+				default:
+					break;
+			}
+		}
+	}
+	if( (Global_ODB_Ptr->SpecialFXFlags & SFXFLAG_MELTINGINTOGROUND)
+	  &&(Global_ODB_Ptr->ObFlags2 < ONE_FIXED) )	
+	{
+		unsigned int alpha = MUL_FIXED(Global_ODB_Ptr->ObFlags2,colour >> 24);
+		colour = (colour&0xffffff)+(alpha<<24);
+	}
+
+	/* KJL 16:36:12 10/02/98 - check positions are up to date */
+	ProveHModel(controllerPtr,dispPtr);
+
+	D3D_DecalSystem_Setup();
+
+	FindAlienEnergySource_Recursion(controllerPtr,controllerPtr->section_data,colour);
+
+	D3D_DecalSystem_End();
+}
+
+void DoIREnergyView(DISPLAYBLOCK *dispPtr)
+{
+	HMODELCONTROLLER *controllerPtr = dispPtr->HModelControlBlock;
+	unsigned int colour = 0xff001000;
+
+	//colour=0x2000ff00;
+	
+	LOCALASSERT(controllerPtr);
+	
+
+
+	/* KJL 16:36:25 10/02/98 - process model */
+	{
+		STRATEGYBLOCK *sbPtr = Global_ODB_Ptr->ObStrategyBlock;
+	 	if(sbPtr)
+	 	{
+	 		switch (sbPtr->I_SBtype)
+			{
+		 		case I_BehaviourAlien:
+				{
+					return;
+				}
+		 		case I_BehaviourPredator:
+				{
+					return;
+				}
+				case I_BehaviourMarine:
+				case I_BehaviourSeal:
+				{
+					MARINE_STATUS_BLOCK *marineStatusPointer = (MARINE_STATUS_BLOCK *)(sbPtr->SBdataptr);    
+					GLOBALASSERT(marineStatusPointer);
+					
+					if (marineStatusPointer->Android)
+					{
+						return;
+					}
+				}
+
+				case I_BehaviourNetGhost:
+				{
+		   			NETGHOSTDATABLOCK *ghostDataPtr = (NETGHOSTDATABLOCK *)Global_ODB_Ptr->ObStrategyBlock->SBdataptr;
+
+					if (ghostDataPtr->type==I_BehaviourAlienPlayer || ghostDataPtr->type==I_BehaviourAlien
+					 	|| (ghostDataPtr->type==I_BehaviourNetCorpse&&ghostDataPtr->subtype==I_BehaviourAlienPlayer) )
+					{	
+						return;
+					}
+					else if (ghostDataPtr->type==I_BehaviourPredatorPlayer || ghostDataPtr->type==I_BehaviourPredator
+					 	|| (ghostDataPtr->type==I_BehaviourNetCorpse&&ghostDataPtr->subtype==I_BehaviourPredatorPlayer) )
+					{	
+						return;
+					}
+
+					break;
+				}
+
+				case I_BehaviourNetCorpse:
+				{
+					NETCORPSEDATABLOCK *corpseDataPtr = (NETCORPSEDATABLOCK *)sbPtr->SBdataptr;
+
+					if (corpseDataPtr->Android)
+					{
+						return;
+					}
+					if (corpseDataPtr->Type==I_BehaviourAlienPlayer || corpseDataPtr->Type==I_BehaviourAlien)
+					{
+						return;
+					}
+					else if (corpseDataPtr->Type==I_BehaviourPredatorPlayer || corpseDataPtr->Type==I_BehaviourPredator)
+					{
+						return;
+					}
+					break;
+				}
+				case I_BehaviourHierarchicalFragment:
+				{
+					HDEBRIS_BEHAV_BLOCK *debrisDataPtr  = (HDEBRIS_BEHAV_BLOCK *)sbPtr->SBdataptr;
+					if(debrisDataPtr->Type==I_BehaviourAutoGun || debrisDataPtr->Android)
+					{
+						return;
+					}
+					else if(debrisDataPtr->Type==I_BehaviourAlien)
+					{
+						return;
+					}
+					else if (debrisDataPtr->Type==I_BehaviourPredator)
+					{
+						return;
+					}
+					else if ((debrisDataPtr->Type==I_BehaviourMarine)||(debrisDataPtr->Type==I_BehaviourSeal))
+					{
+
+					}
+					else return;
+					break;
+				}
+
+				case I_BehaviourAutoGun:
+				{
+					/* KJL 19:31:53 25/01/99 - organics only, please */
+					return;
+					break;
+				}
+				default:
+					break;
+			}
+		}
+	}
+	if( (Global_ODB_Ptr->SpecialFXFlags & SFXFLAG_MELTINGINTOGROUND)
+	  &&(Global_ODB_Ptr->ObFlags2 < ONE_FIXED) )	
+	{
+		unsigned int alpha = MUL_FIXED(Global_ODB_Ptr->ObFlags2,colour >> 24);
+		colour = (colour&0xffffff)+(alpha<<24);
+	}
+
+	/* KJL 16:36:12 10/02/98 - check positions are up to date */
+	ProveHModel(controllerPtr,dispPtr);
+
+	D3D_DecalSystem_Setup();
+
+	FindAlienEnergySource_Recursion(controllerPtr,controllerPtr->section_data,colour);
+
+	D3D_DecalSystem_End();
+}
+
+void DoMovementEnergyView(DISPLAYBLOCK *dispPtr)
+{
+	HMODELCONTROLLER *controllerPtr = dispPtr->HModelControlBlock;
+	unsigned int colour = 0xffe41b17;
+	
+	LOCALASSERT(controllerPtr);
+
+	/* KJL 16:36:25 10/02/98 - process model */
+	{
+		STRATEGYBLOCK *sbPtr = Global_ODB_Ptr->ObStrategyBlock;
+	 	if(sbPtr)
+	 	{
+	 		switch (sbPtr->I_SBtype)
+			{
+		 		case I_BehaviourAlien:
+				case I_BehaviourPredatorAlien:
+				case I_BehaviourQueenAlien:
+				case I_BehaviourFaceHugger:
+				{
+					if (!sbPtr->DynPtr->LinVelocity.vx &&
+						!sbPtr->DynPtr->LinVelocity.vy &&
+						!sbPtr->DynPtr->LinVelocity.vz)
+					{
+						return;
+					}
+					break;
+				}
+		 		case I_BehaviourPredator:
+				{
+					if (!sbPtr->DynPtr->LinVelocity.vx &&
+						!sbPtr->DynPtr->LinVelocity.vy &&
+						!sbPtr->DynPtr->LinVelocity.vz)
+					{
+						return;
+					}
+					break;
+				}
+				case I_BehaviourMarine:
+				case I_BehaviourSeal:
+				{
+					MARINE_STATUS_BLOCK *marineStatusPointer = (MARINE_STATUS_BLOCK *)(sbPtr->SBdataptr);    
+					GLOBALASSERT(marineStatusPointer);
+					
+					if (!sbPtr->DynPtr->LinVelocity.vx &&
+						!sbPtr->DynPtr->LinVelocity.vy &&
+						!sbPtr->DynPtr->LinVelocity.vz)
+					{
+						return;
+					}
+					break;
+				}
+				case I_BehaviourNetGhost:
+				{
+		   			NETGHOSTDATABLOCK *ghostDataPtr = (NETGHOSTDATABLOCK *)Global_ODB_Ptr->ObStrategyBlock->SBdataptr;
+					// for now...
+					return;
+					if (ghostDataPtr->type==I_BehaviourAlienPlayer || ghostDataPtr->type==I_BehaviourAlien
+					 	|| (ghostDataPtr->type==I_BehaviourNetCorpse&&ghostDataPtr->subtype==I_BehaviourAlienPlayer) )
+					{	
+						return;
+					}
+					else if (ghostDataPtr->type==I_BehaviourPredatorPlayer || ghostDataPtr->type==I_BehaviourPredator
+					 	|| (ghostDataPtr->type==I_BehaviourNetCorpse&&ghostDataPtr->subtype==I_BehaviourPredatorPlayer) )
+					{	
+						return;
+					}
+
+					break;
+				}
+				case I_BehaviourAutoGun:
+				{
+					/* KJL 19:31:53 25/01/99 - organics only, please */
+					return;
+					break;
+				}
+				default:
+				{
+					return;
+					break;
+				}
 			}
 		}
 	}
@@ -4222,7 +5151,10 @@ static void FindAlienEnergySource_Recursion(HMODELCONTROLLER *controllerPtr, SEC
 		PARTICLE particle;
 
 		particle.Position = sectionDataPtr->World_Offset;
-		particle.ParticleID=PARTICLE_MUZZLEFLASH;
+		if (AvP.PlayerType == I_Alien)
+			particle.ParticleID=PARTICLE_PHEROMONE;
+		else
+			particle.ParticleID=PARTICLE_MUZZLEFLASH;
 		particle.Colour = colour;//0x208080ff;
 //		particle.Colour = 0x20ff8080;
 //		particle.Size = sectionDataPtr->Shape->shaperadius*3;
@@ -4793,6 +5725,11 @@ void RenderParticle(PARTICLE *particlePtr)
 	  ||(particlePtr->ParticleID == PARTICLE_TRACER)
 	  ||(particlePtr->ParticleID == PARTICLE_PREDPISTOL_FLECHETTE)
 	  ||(particlePtr->ParticleID == PARTICLE_PREDPISTOL_FLECHETTE_NONDAMAGING)
+	  ||(particlePtr->ParticleID == PARTICLE_DRILL)
+	  ||(particlePtr->ParticleID == PARTICLE_DRILL2)
+	  ||(particlePtr->ParticleID == PARTICLE_SHADOW)
+	  ||(particlePtr->ParticleID == PARTICLE_RAIN)
+	  ||(particlePtr->ParticleID == PARTICLE_SNOW)
 	  )
 	{
 		VECTORCH translatedPosition = particlePtr->Offset;
@@ -4917,7 +5854,8 @@ void RenderParticle(PARTICLE *particlePtr)
 		offset[3].vx = -particleSize;
 		offset[3].vy = +particleSize;
 
-		if ((particlePtr->ParticleID == PARTICLE_MUZZLEFLASH) )
+		if ((particlePtr->ParticleID == PARTICLE_MUZZLEFLASH) ||
+			(particlePtr->ParticleID == PARTICLE_PHEROMONE))
 		{
 			extern void RotateVertex(VECTOR2D *vertexPtr, int theta);
 			int theta = FastRandom()&4095;
@@ -4929,7 +5867,9 @@ void RenderParticle(PARTICLE *particlePtr)
 		else if ((particlePtr->ParticleID == PARTICLE_SMOKECLOUD)
 			||(particlePtr->ParticleID == PARTICLE_GUNMUZZLE_SMOKE)
 			||(particlePtr->ParticleID == PARTICLE_PARGEN_FLAME) 
-			||(particlePtr->ParticleID == PARTICLE_FLAME)) 
+			||(particlePtr->ParticleID == PARTICLE_FLAME)
+			||(particlePtr->ParticleID == PARTICLE_FLAMETHROWER)
+			) 
 		{
 			extern void RotateVertex(VECTOR2D *vertexPtr, int theta);
 			int theta = (particlePtr->Offset.vx+MUL_FIXED(CloakingPhase,particlePtr->Offset.vy))&4095;
@@ -6147,6 +7087,9 @@ int setup=0;
 int SkyColour_R=200;
 int SkyColour_G=200;
 int SkyColour_B=200;
+
+extern int DrawFullBright;
+
 void RenderSky(void)
 {
    	POLYHEADER fakeHeader;
@@ -6164,9 +7107,9 @@ void RenderSky(void)
 		}											   
 	}
 	{
-		extern int CloudyImageNumber;
+		extern int SkyImageNumber; //Cloudy
 		fakeHeader.PolyFlags = iflag_transparent;
-		fakeHeader.PolyColour = CloudyImageNumber;
+		fakeHeader.PolyColour = SkyImageNumber;
 		RenderPolygon.TranslucencyMode = TRANSLUCENCY_GLOWING;
 	}
 	for (o=0; o<OCTAVES; o++)
@@ -6220,7 +7163,7 @@ void RenderSky(void)
 					case VISION_MODE_IMAGEINTENSIFIER:
 					{
 						VerticesBuffer[i].R = 0;
-						VerticesBuffer[i].G	= 255;
+						VerticesBuffer[i].G	= 128;
 						VerticesBuffer[i].B = 0;
 						break;
 					}
@@ -6234,8 +7177,14 @@ void RenderSky(void)
 					  	break;
 					}
 				}
-
-			}	
+				// Complete whiteout of sky if lightning strikes
+				if (DrawFullBright)
+				{
+					VerticesBuffer[i].R = 255;
+					VerticesBuffer[i].G	= 255;
+					VerticesBuffer[i].B = 255;
+				}
+			}
 			VerticesBuffer[0].U = (u[o]+size*x);
 			VerticesBuffer[0].V = (v[o]+size*z);
 			VerticesBuffer[1].U = (u[o]+size*x);
@@ -6727,6 +7676,8 @@ void RenderLightFlare(VECTORCH *positionPtr, unsigned int colour)
 		centreY = DIV_FIXED(point.vy,point.vz);
 		sizeX = (ScreenDescriptorBlock.SDB_Width<<13)/Global_VDB_Ptr->VDB_ProjX;
 		sizeY = MUL_FIXED(ScreenDescriptorBlock.SDB_Height<<13,87381)/Global_VDB_Ptr->VDB_ProjY;
+		sizeX = sizeX/2;
+		sizeY = sizeY/2;
 	}
 
 	VerticesBuffer[0].X = centreX - sizeX;
@@ -6750,6 +7701,82 @@ void RenderLightFlare(VECTORCH *positionPtr, unsigned int colour)
 			RenderPolygon.NumberOfVertices=4;
 			
 //			textprint("On Screen!\n");
+			VerticesBuffer[0].U = 192<<16;
+			VerticesBuffer[0].V = 0;
+
+			VerticesBuffer[1].U = 255<<16;
+			VerticesBuffer[1].V = 0;
+
+			VerticesBuffer[2].U = 255<<16;
+			VerticesBuffer[2].V = 63<<16;
+
+			VerticesBuffer[3].U = 192<<16;
+			VerticesBuffer[3].V = 63<<16;
+
+			if (outcode!=2)
+			{
+				TexturedPolygon_ClipWithZ();
+				if(RenderPolygon.NumberOfVertices<3) return;
+				TexturedPolygon_ClipWithNegativeX();
+				if(RenderPolygon.NumberOfVertices<3) return;
+				TexturedPolygon_ClipWithPositiveY();
+				if(RenderPolygon.NumberOfVertices<3) return;
+				TexturedPolygon_ClipWithNegativeY();
+				if(RenderPolygon.NumberOfVertices<3) return;
+				TexturedPolygon_ClipWithPositiveX();
+				if(RenderPolygon.NumberOfVertices<3) return;
+				D3D_Particle_Output(&particle,RenderPolygon.Vertices);
+  			
+  			}
+			else D3D_Particle_Output(&particle,VerticesBuffer);
+		}
+	}	
+}
+
+void RenderSmallLightFlare(VECTORCH *positionPtr, unsigned int colour)
+{
+	int centreX,centreY,sizeX,sizeY,z;
+	PARTICLE particle;
+	VECTORCH point = *positionPtr;
+
+	TranslatePointIntoViewspace(&point);
+	if(point.vz<64) return;	
+	
+	particle.ParticleID = PARTICLE_LIGHTFLARE;
+	particle.Colour = colour;
+
+	z=ONE_FIXED;
+	{
+		extern int SmartTargetSightX, SmartTargetSightY;
+		extern SCREENDESCRIPTORBLOCK ScreenDescriptorBlock;
+		centreX = DIV_FIXED(point.vx,point.vz);
+		centreY = DIV_FIXED(point.vy,point.vz);
+		sizeX = (ScreenDescriptorBlock.SDB_Width<<13)/Global_VDB_Ptr->VDB_ProjX;
+		sizeY = MUL_FIXED(ScreenDescriptorBlock.SDB_Height<<13,87381)/Global_VDB_Ptr->VDB_ProjY;
+		sizeX /= 2;
+		sizeY /= 2;
+	}
+
+	VerticesBuffer[0].X = centreX - sizeX;
+	VerticesBuffer[0].Y = centreY - sizeY;
+	VerticesBuffer[0].Z = z;
+	VerticesBuffer[1].X = centreX + sizeX;
+	VerticesBuffer[1].Y = centreY - sizeY;
+	VerticesBuffer[1].Z = z;
+	VerticesBuffer[2].X = centreX + sizeX;
+	VerticesBuffer[2].Y = centreY + sizeY;
+	VerticesBuffer[2].Z = z;
+	VerticesBuffer[3].X = centreX - sizeX;
+	VerticesBuffer[3].Y = centreY + sizeY;
+	VerticesBuffer[3].Z = z;
+	
+	{
+		int outcode = QuadWithinFrustrum();
+										  
+		if (outcode)
+		{		 
+			RenderPolygon.NumberOfVertices=4;
+			
 			VerticesBuffer[0].U = 192<<16;
 			VerticesBuffer[0].V = 0;
 

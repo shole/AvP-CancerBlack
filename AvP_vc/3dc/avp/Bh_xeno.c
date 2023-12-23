@@ -63,6 +63,7 @@ VECTORCH null_vec={0,0,0};
 extern HIERARCHY_SHAPE_REPLACEMENT* GetHierarchyAlternateShapeSetFromLibrary(const char* rif_name,const char* shape_set_name);
 extern SECTION * GetNamedHierarchyFromLibrary(const char * rif_name, const char * hier_name);
 extern void HandleWeaponImpact(VECTORCH *positionPtr, STRATEGYBLOCK *sbPtr, enum AMMO_ID AmmoID, VECTORCH *directionPtr, int multiple, SECTION_DATA *section_pointer); 
+extern void CurrentGameStats_CreatureKilled(STRATEGYBLOCK *sbPtr, SECTION_DATA *sectionDataPtr);
 
 int ShowXenoStats=0;
 
@@ -1886,7 +1887,7 @@ void Xeno_TurnAndTarget(STRATEGYBLOCK *sbPtr, int *ref_anglex,int *ref_angley) {
 void Xeno_Limbs_ShootTheRoof(STRATEGYBLOCK *sbPtr) {
 
 	XENO_STATUS_BLOCK *xenoStatusPointer;
-	int anglex,angley;
+//	int anglex,angley;
 
 	LOCALASSERT(sbPtr);
 	xenoStatusPointer = (XENO_STATUS_BLOCK *)(sbPtr->SBdataptr);    	
@@ -3302,7 +3303,7 @@ int Xeno_HeadMovement_TrackToAngles(STRATEGYBLOCK *sbPtr,int rate,int in_anglex,
 	GLOBALASSERT((angley<=1024)&&(angley>=-1024));
 
 	if (ShowXenoStats) {
-		PrintDebuggingText("Target head angles: %d %d\n",real_anglex,angley);
+//		PrintDebuggingText("Target head angles: %d %d\n",real_anglex,angley);
 	}
 
 	real_anglex<<=4;
@@ -4125,7 +4126,7 @@ void Execute_Xeno_TurnToFace_Far(STRATEGYBLOCK *sbPtr)
 void Execute_Xeno_Follow_Far(STRATEGYBLOCK *sbPtr)
 {
 	XENO_STATUS_BLOCK *xenoStatusPointer;
-	int anglex,angley;
+//	int anglex,angley;
 
 	LOCALASSERT(sbPtr);
 	xenoStatusPointer = (XENO_STATUS_BLOCK *)(sbPtr->SBdataptr);    	
@@ -4320,7 +4321,7 @@ void Execute_Xeno_Return_Far(STRATEGYBLOCK *sbPtr)
 void Execute_Xeno_Avoidance_Far(STRATEGYBLOCK *sbPtr)
 {
 	XENO_STATUS_BLOCK *xenoStatusPointer;    
-	int anglex,angley;
+//	int anglex,angley;
 	
 	LOCALASSERT(sbPtr);
 	xenoStatusPointer = (XENO_STATUS_BLOCK *)(sbPtr->SBdataptr);    
@@ -4956,7 +4957,7 @@ void XenoborgHandleMovingAnimation(STRATEGYBLOCK *sbPtr) {
 	}
 	GLOBALASSERT(animfactor>0);
 	if (ShowXenoStats) {
-		PrintDebuggingText("Anim Factor %d, Tweening %d\n",animfactor,xenoStatusPointer->HModelController.Tweening);
+//		PrintDebuggingText("Anim Factor %d, Tweening %d\n",animfactor,xenoStatusPointer->HModelController.Tweening);
 	}
 
 	/* Start animation. */

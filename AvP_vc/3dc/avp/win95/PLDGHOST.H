@@ -50,12 +50,23 @@ typedef struct netghostdatablock
 	HITLOCATIONTABLE *hltable;
 	
 	int CloakingEffectiveness;
+	// AMP Addition
+	int ArmorType;
+	unsigned int Class;
+	int SpecialSequence;
+	DPID Grab;
 
 	unsigned int IgnitionHandshaking :1;
 
 	unsigned int invulnerable :1; //for netghost's of players
 	unsigned int onlyValidFar:1; //set for alien ai that are far from everyone
 	unsigned int soundStartFlag:1;
+
+	// SHOULDER LAMP IN MULTI
+	unsigned int IAmUsingShoulderLamp:1;
+	// Position of shoulder lamp relative to player
+	VECTORCH	ShoulderLampOffset;
+	// END OF SHOULDER LAMP IN MULTI
 
 	#if EXTRAPOLATION_TEST
 	VECTORCH velocity;

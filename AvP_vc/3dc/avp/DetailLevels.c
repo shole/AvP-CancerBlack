@@ -8,53 +8,29 @@ extern int GlobalLevelOfDetail_Hierarchical;
 
 extern void SetToDefaultDetailLevels(void)
 {
-#if 0
-	LocalDetailLevels.BloodCollidesWithEnvironment=1;
-	LocalDetailLevels.DrawLightCoronas=1;
-	LocalDetailLevels.DrawHierarchicalDecals=1;
-	LocalDetailLevels.ExplosionsDeformToEnvironment=1;
-	LocalDetailLevels.GhostFlameThrowerCollisions=0;
-
-	LocalDetailLevels.MaximumAllowedNumberOfDecals = 1024;
-	LocalDetailLevels.AlienEnergyViewThreshold = 0;
-	LocalDetailLevels.NumberOfSmokeParticlesFromLargeExplosion=10;
-	LocalDetailLevels.NumberOfSmokeParticlesFromSmallExplosion=5;
-	
-	GlobalLevelOfDetail_Hierarchical = 65536;
-#endif
-
 	MenuDetailLevelOptions.DecalNumber = 3;
 	MenuDetailLevelOptions.LightCoronas = 1;
 	MenuDetailLevelOptions.DecalsOnCharacters = 1;
 	MenuDetailLevelOptions.DeformableExplosions = 1;
 	MenuDetailLevelOptions.CharacterComplexity = 3;
 	MenuDetailLevelOptions.ParticleComplexity = 1;
+	MenuDetailLevelOptions.MuzzleSmoke = 1;
+	MenuDetailLevelOptions.Shells = 1;
+	MenuDetailLevelOptions.WeatherFX = 1;
 	SetDetailLevelsFromMenu();
 }
 
 extern void SetToMinimalDetailLevels(void)
 {
-#if 0
-	LocalDetailLevels.BloodCollidesWithEnvironment=0;
-	LocalDetailLevels.DrawLightCoronas=0;
-	LocalDetailLevels.DrawHierarchicalDecals=0;
-	LocalDetailLevels.ExplosionsDeformToEnvironment=0;
-	LocalDetailLevels.GhostFlameThrowerCollisions=0;
-
-	LocalDetailLevels.MaximumAllowedNumberOfDecals = 16;
-	LocalDetailLevels.AlienEnergyViewThreshold = 450;
-	LocalDetailLevels.NumberOfSmokeParticlesFromLargeExplosion=5;
-	LocalDetailLevels.NumberOfSmokeParticlesFromSmallExplosion=2;
-
-	GlobalLevelOfDetail_Hierarchical = 128*65536;
-#endif
-
 	MenuDetailLevelOptions.DecalNumber = 0;
 	MenuDetailLevelOptions.LightCoronas = 0;
 	MenuDetailLevelOptions.DecalsOnCharacters = 0;
 	MenuDetailLevelOptions.DeformableExplosions = 0;
 	MenuDetailLevelOptions.CharacterComplexity = 0;
 	MenuDetailLevelOptions.ParticleComplexity = 0;
+	MenuDetailLevelOptions.MuzzleSmoke = 0;
+	MenuDetailLevelOptions.Shells = 0;
+	MenuDetailLevelOptions.WeatherFX = 0;
 	SetDetailLevelsFromMenu();
 }
 
@@ -90,22 +66,27 @@ extern void SetDetailLevelsFromMenu(void)
 	LocalDetailLevels.DrawHierarchicalDecals = MenuDetailLevelOptions.DecalsOnCharacters;
 	LocalDetailLevels.ExplosionsDeformToEnvironment = MenuDetailLevelOptions.DeformableExplosions;
 	
-	switch (MenuDetailLevelOptions.CharacterComplexity)
+	// Had to change here to avoid problems with the expanded skins -- Eldritch
+	GlobalLevelOfDetail_Hierarchical = 65536;
+
+	LocalDetailLevels.ExplosionFX = MenuDetailLevelOptions.CharacterComplexity;
+
+	/*switch (MenuDetailLevelOptions.CharacterComplexity)
 	{
 		default:
 		case 0:
 		{
-			GlobalLevelOfDetail_Hierarchical = 65536*128;
+			GlobalLevelOfDetail_Hierarchical = 65536;//*128;
 			break;
 		}
 		case 1:
 		{
-			GlobalLevelOfDetail_Hierarchical = 65536*4;
+			GlobalLevelOfDetail_Hierarchical = 65536;//*4;
 			break;
 		}
 		case 2:
 		{
-			GlobalLevelOfDetail_Hierarchical = 65536*2;
+			GlobalLevelOfDetail_Hierarchical = 65536;//*2;
 			break;
 		}
 		case 3:
@@ -113,7 +94,7 @@ extern void SetDetailLevelsFromMenu(void)
 			GlobalLevelOfDetail_Hierarchical = 65536;
 			break;
 		}
-	}
+	}*/
 	
 	switch (MenuDetailLevelOptions.ParticleComplexity)
 	{
@@ -137,7 +118,10 @@ extern void SetDetailLevelsFromMenu(void)
 			break;
 		}
 	}
-
+	
+	LocalDetailLevels.MuzzleSmoke = MenuDetailLevelOptions.MuzzleSmoke;
+	LocalDetailLevels.Shells = MenuDetailLevelOptions.Shells;
+	LocalDetailLevels.WeatherFX = MenuDetailLevelOptions.WeatherFX;
 }
 
 

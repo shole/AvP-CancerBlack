@@ -12,6 +12,7 @@ d  ----------------------------------------------------------------------*/
 #include "bh_alien.h"
 #include "bh_pred.h"
 #include "bh_marin.h"
+#include "bh_fhug.h"
 #include "pvisible.h"
 #include "pldnet.h"
 #include "pldghost.h"
@@ -25,6 +26,7 @@ d  ----------------------------------------------------------------------*/
 #include "bh_corpse.h"
 #include "bh_weap.h"
 #include "ShowCmds.h"
+#include "DetailLevels.h"
 
 #define UseLocalAssert Yes
 #include "ourasert.h"
@@ -45,6 +47,12 @@ extern DEATH_DATA Alien_Deaths[];
 extern HITLOCATIONTABLE *GetThisHitLocationTable(char *id);
 
 extern MATRIXCH Identity_RotMat; /* From HModel.c */
+extern void MakePlasmaTrailParticles(DYNAMICSBLOCK *dynPtr, int number);
+extern int ValidTargetForProxMine(STRATEGYBLOCK *obstaclePtr);
+extern void CauseDamageToObject(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int multiple, VECTORCH *incoming);
+extern void DoAlienLimbLossSound(VECTORCH *position);
+extern int TotalKineticDamage(DAMAGE_PROFILE *damage);
+extern void ModExSys(HMODELCONTROLLER *hmodel, char *model1, char *model2);
 
 /*-----------------------------------------------------------------------
   Prototypes
@@ -53,6 +61,7 @@ extern MATRIXCH Identity_RotMat; /* From HModel.c */
 static void SetPlayerGhostAnimationSequence(STRATEGYBLOCK *sbPtr, int sequence, int special);
 static void InitPlayerGhostAnimSequence(STRATEGYBLOCK *sbPtr);
 static void UpdatePlayerGhostAnimSequence(STRATEGYBLOCK *sbPtr, int sequence, int special);
+int DetermineMarineVoice(unsigned int Class);
 
 SOUND3DDATA Ghost_Explosion_SoundData={
 	{0,0,0,},
@@ -101,6 +110,7 @@ void UpdateGhost(STRATEGYBLOCK *sbPtr,VECTORCH *position,EULER *orientation,int 
 			   ghostData->type!=I_BehaviourRocket &&
 			   ghostData->type!=I_BehaviourPPPlasmaBolt &&
 			   ghostData->type!=I_BehaviourSpeargunBolt &&
+			   ghostData->type!=I_BehaviourThrownSpear &&
 			   ghostData->type!=I_BehaviourPredatorDisc_SeekTrack &&
 			   ghostData->type!=I_BehaviourPredatorEnergyBolt &&
 			   ghostData->type!=I_BehaviourPulseGrenade &&
@@ -222,11 +232,11 @@ void UpdateObjectTrails(STRATEGYBLOCK *sbPtr)
 			MakeRocketTrailParticles(&(sbPtr->DynPtr->PrevPosition), &(sbPtr->DynPtr->Position));
 			break;
 		}
-		case I_BehaviourRocket:
+		/*case I_BehaviourRocket:
 		{
 			MakeRocketTrailParticles(&(sbPtr->DynPtr->PrevPosition), &(sbPtr->DynPtr->Position));
 			break;
-		}
+		}*/
 		case I_BehaviourPredatorEnergyBolt:
 		{
 		  	MakePlasmaTrailParticles(sbPtr->DynPtr,32);
@@ -249,7 +259,7 @@ void UpdateObjectTrails(STRATEGYBLOCK *sbPtr)
 		case I_BehaviourGrenade:
 		case I_BehaviourProximityGrenade:
 		{
-			MakeGrenadeTrailParticles(&(sbPtr->DynPtr->PrevPosition), &(sbPtr->DynPtr->Position));
+			//MakeGrenadeTrailParticles(&(sbPtr->DynPtr->PrevPosition), &(sbPtr->DynPtr->Position));
 			break;
 		}
 		default:
@@ -281,32 +291,52 @@ void RemoveGhost(STRATEGYBLOCK *sbPtr)
 		{
 			if (sbPtr->containingModule) {
 				Ghost_Explosion_SoundData.position=sbPtr->DynPtr->Position;
-				Sound_Play(SID_ED_GRENADE_EXPLOSION,"n",&Ghost_Explosion_SoundData);
+				Sound_Play(SID_ED_GRENADE_PROXEXPLOSION,"n",&Ghost_Explosion_SoundData);
 			}
 			break;
     	}
-		case(I_BehaviourRocket):
+		/*case(I_BehaviourRocket):
 		{
 			if (sbPtr->containingModule) {
 				Ghost_Explosion_SoundData.position=sbPtr->DynPtr->Position;
 				Sound_Play(SID_NICE_EXPLOSION,"n",&Ghost_Explosion_SoundData);
 			}
 			break;
-    	}
+    	}*/
+		case(I_BehaviourFragmentationGrenade):
+		{
+			unsigned int i;
+
+			for (i=0; i<2; i++)
+			{
+				VECTORCH position = sbPtr->DynPtr->Position;
+				VECTORCH velocity;
+
+				velocity.vy = (-(FastRandom()%1023)-512)*2;
+				velocity.vx = ((FastRandom()&1023)-512)*2;
+				velocity.vz = ((FastRandom()&1023)-512)*2;
+
+				position.vx += (FastRandom()&2047)-1024;
+				position.vy -= (FastRandom()&1024);
+				position.vz += (FastRandom()&2047)-1024;
+
+				MakeParticle(&position, &velocity, PARTICLE_STREAM);
+			}
+			break;
+		}
 		case(I_BehaviourProximityGrenade):
 		{
 			if (sbPtr->containingModule) {
 				Ghost_Explosion_SoundData.position=sbPtr->DynPtr->Position;
-				Sound_Play(SID_ED_GRENADE_PROXEXPLOSION,"n",&Ghost_Explosion_SoundData);
+				Sound_Play(SID_ED_GRENADE_EXPLOSION,"n",&Ghost_Explosion_SoundData);
 			}
 			break;
     	}
-		case(I_BehaviourFragmentationGrenade):
 		case(I_BehaviourClusterGrenade):
 		{
 			if (sbPtr->containingModule) {
 				Ghost_Explosion_SoundData.position=sbPtr->DynPtr->Position;
-				Sound_Play(SID_NADEEXPLODE,"n",&Ghost_Explosion_SoundData);
+				Sound_Play(SID_ED_GRENADE_EXPLOSION,"n",&Ghost_Explosion_SoundData);
 			}
 			break;
     	}
@@ -322,7 +352,7 @@ void RemoveGhost(STRATEGYBLOCK *sbPtr)
 		case(I_BehaviourPredatorDisc_SeekTrack):
 		{
 			/* MakeAnExplosion... ?	*/
-		    Sound_Play(SID_NADEEXPLODE,"d",&(sbPtr->DynPtr->Position));
+		    //Sound_Play(SID_NADEEXPLODE,"d",&(sbPtr->DynPtr->Position));
 			break;
 		}
 		case(I_BehaviourFrisbee):
@@ -506,12 +536,25 @@ STRATEGYBLOCK *CreateNetGhost(DPID playerId, int objectId, VECTORCH *position, E
 		ghostData->currentAnimSequence = 0;
 		ghostData->timer = 0;
 		ghostData->CloakingEffectiveness = 0;
+		// AMP Additions
+		ghostData->ArmorType = 0;
+		ghostData->Class = 0;
+		ghostData->SpecialSequence = 0;
+		ghostData->Grab = 0;
+
 		ghostData->IgnitionHandshaking = 0;
 		ghostData->soundStartFlag = 0;
 		ghostData->FlameHitCount = 0;
 		ghostData->FlechetteHitCount = 0;
 		ghostData->invulnerable=0;
 		ghostData->onlyValidFar=0;
+
+		// SHOULDER LAMP IN MULTI
+		ghostData->IAmUsingShoulderLamp = 0;
+		ghostData->ShoulderLampOffset.vx = 0;
+		ghostData->ShoulderLampOffset.vy = 0;
+		ghostData->ShoulderLampOffset.vz = 0;
+		// END OF SHOULDER LAMP IN MULTI
 
 		#if EXTRAPOLATION_TEST
 		ghostData->velocity.vx=0;
@@ -557,7 +600,7 @@ STRATEGYBLOCK *CreateNetGhost(DPID playerId, int objectId, VECTORCH *position, E
 			}
 			case(I_BehaviourAlienPlayer):
 			{
-				CreateAlienHModel(ghostData,0);
+				CreateAlienHModel(ghostData,subtype);
 				ProveHModel_Far(&ghostData->HModelController,sbPtr);
 				break;
 			}
@@ -579,27 +622,29 @@ STRATEGYBLOCK *CreateNetGhost(DPID playerId, int objectId, VECTORCH *position, E
 			
 			
 			case(I_BehaviourGrenade):
+				sbPtr->shapeIndex = GetLoadedShapeMSL("incen");
+				break;
 			case(I_BehaviourPulseGrenade):
-				sbPtr->shapeIndex = GetLoadedShapeMSL("Shell");
+				sbPtr->shapeIndex = GetLoadedShapeMSL("pulsegrenade");
 				break;
 			case(I_BehaviourFragmentationGrenade):
-				sbPtr->shapeIndex = GetLoadedShapeMSL("Frag");
+				sbPtr->shapeIndex = GetLoadedShapeMSL("smoke");
 				break;
 			case(I_BehaviourClusterGrenade):
-				sbPtr->shapeIndex = GetLoadedShapeMSL("Cluster");
+				sbPtr->shapeIndex = GetLoadedShapeMSL("handgrenade");
 				break;
 			case(I_BehaviourRocket):
-				sbPtr->shapeIndex = GetLoadedShapeMSL("missile");
+				sbPtr->shapeIndex = GetLoadedShapeMSL("net");
 				break;
 			case(I_BehaviourPredatorEnergyBolt):
 				sbPtr->shapeIndex = 0; // uses a special effect
 				//need to play the energy bolt being fired sound
-				Sound_Play(SID_PRED_LAUNCHER,"hpd",(FastRandom()&255)-128,&sbPtr->DynPtr->Position);
+				//Sound_Play(SID_PRED_LAUNCHER,"hpd",(FastRandom()&255)-128,&sbPtr->DynPtr->Position);
 				break;
 			case(I_BehaviourFrisbeeEnergyBolt):
 				sbPtr->shapeIndex = 0; // uses a special effect
 				//need to play the energy bolt being fired sound
-				Sound_Play(SID_PRED_LAUNCHER,"hpd",(FastRandom()&255)-128,&sbPtr->DynPtr->Position);
+				//Sound_Play(SID_PRED_LAUNCHER,"hpd",(FastRandom()&255)-128,&sbPtr->DynPtr->Position);
 				break;
 			case(I_BehaviourPPPlasmaBolt):
 				sbPtr->shapeIndex = 0; // uses a special effect
@@ -703,11 +748,11 @@ STRATEGYBLOCK *CreateNetGhost(DPID playerId, int objectId, VECTORCH *position, E
 				break;
 				
 			case(I_BehaviourFlareGrenade):
-				sbPtr->shapeIndex = GetLoadedShapeMSL("Flare");
+				sbPtr->shapeIndex = GetLoadedShapeMSL("newflare");
 				ghostData->timer = FLARE_LIFETIME*ONE_FIXED;
 				break;		
 			case(I_BehaviourProximityGrenade):
-				sbPtr->shapeIndex = GetLoadedShapeMSL("Proxmine");
+				sbPtr->shapeIndex = GetLoadedShapeMSL("setcharge");
 				ghostData->timer = PROX_GRENADE_LIFETIME*ONE_FIXED*2;
 				break;
 			case(I_BehaviourAlienSpit):
@@ -717,7 +762,7 @@ STRATEGYBLOCK *CreateNetGhost(DPID playerId, int objectId, VECTORCH *position, E
 				sbPtr->shapeIndex = GetLoadedShapeMSL("Sentry01");
 				break;					
 			case(I_BehaviourSpeargunBolt):
-				sbPtr->shapeIndex = GetLoadedShapeMSL("spear");
+				sbPtr->shapeIndex = GetLoadedShapeMSL("prong");
 				//speargun bolt won't get any location updates , so set integrity 
 				//to be the standard speargun timeout time.
 				ghostData->integrity = 20*ONE_FIXED;		
@@ -733,7 +778,10 @@ STRATEGYBLOCK *CreateNetGhost(DPID playerId, int objectId, VECTORCH *position, E
 					MakeFocusedExplosion(&(sbPtr->DynPtr->Position), &pos, 20, PARTICLE_SPARK);
 				}
 				
-				break;					
+				break;
+			case(I_BehaviourThrownSpear):
+				sbPtr->shapeIndex = GetLoadedShapeMSL("combistick_thrown");
+				break;
 			default:
 				break;
 		}
@@ -898,8 +946,278 @@ void PostDynamicsExtrapolationUpdate()
 }
 #endif //EXTRAPOLATION_TEST
 
+int DetermineMarineVoice(unsigned int Class)
+{
+	switch(Class)
+	{
+	case CLASS_RIFLEMAN:
+	case CLASS_AA_SPEC:
+		return 0;
+		break;
+	case CLASS_SMARTGUNNER:
+		return 0;
+		break;
+	case CLASS_INC_SPEC:
+	case CLASS_EXF_SNIPER:
+		return 0;
+		break;
+	case CLASS_COM_TECH:
+	case CLASS_ENGINEER:
+		return 0;
+		break;
+	case CLASS_MEDIC_PR:
+	case CLASS_MEDIC_FT:
+		return 0;
+		break;
+	}
+	return 0;
+}
+
+int DeterminePredatorVoice(unsigned int Class)
+{
+	switch(Class)
+	{
+	case CLASS_PRED_HUNTER:
+		return 0;
+		break;
+	case CLASS_PRED_WARRIOR:
+		return -100;
+		break;
+	case CLASS_RENEGADE:
+		return 0;
+		break;
+	case CLASS_ELDER:
+		return -200;
+		break;
+	case CLASS_TANK_ALIEN:
+		return 200;
+		break;
+	}
+	return 0;
+}
+
+void SetAlternateAlienSkin(HMODELCONTROLLER *HModelController,unsigned int Class)
+{
+	SECTION_DATA *head;
+	TXACTRLBLK *tacb;
+	unsigned int i=0;
+
+	head=GetThisSectionData(HModelController->section_data,"head");
+
+	if (Class == CLASS_ALIEN_DRONE) i=1;	// Drone skin
+
+	if (head) {
+		if ((head->flags&section_data_notreal)==0) {
+			tacb = head->tac_ptr;
+
+			while (tacb) {
+				tacb->tac_sequence = i;
+				tacb->tac_txah_s = GetTxAnimHeaderFromShape(tacb, head->ShapeNum);
+				tacb = tacb->tac_next;
+			}
+		}
+	}
+}
+
+void SetAlternateCharacterSkin(HMODELCONTROLLER *HModelController,unsigned int Class)
+{
+	SECTION_DATA *head,*pelvis,*chest;
+	SECTION_DATA *l_shoulder,*l_bicep,*l_elbow,*l_forearm,*l_thi,*l_shin;
+	SECTION_DATA *r_shoulder,*r_bicep,*r_elbow,*r_forearm,*r_thi,*r_shin;
+	TXACTRLBLK *tacb;
+	unsigned int i=0;
+
+	head=GetThisSectionData(HModelController->section_data,"head");
+	pelvis=GetThisSectionData(HModelController->section_data,"Pelvis");
+	chest=GetThisSectionData(HModelController->section_data,"chest");
+	l_shoulder=GetThisSectionData(HModelController->section_data,"L shoulder");
+	r_shoulder=GetThisSectionData(HModelController->section_data,"R shoulder");
+	l_bicep=GetThisSectionData(HModelController->section_data,"L bicep");
+	r_bicep=GetThisSectionData(HModelController->section_data,"R bicep");
+	l_elbow=GetThisSectionData(HModelController->section_data,"L elbow");
+	r_elbow=GetThisSectionData(HModelController->section_data,"R elbow");
+	l_forearm=GetThisSectionData(HModelController->section_data,"L forearm");
+	r_forearm=GetThisSectionData(HModelController->section_data,"R forearm");
+	l_thi=GetThisSectionData(HModelController->section_data,"L thi");
+	r_thi=GetThisSectionData(HModelController->section_data,"R thi");
+	l_shin=GetThisSectionData(HModelController->section_data,"L shin");
+	r_shin=GetThisSectionData(HModelController->section_data,"R shin");
+
+	if (Class == CLASS_TANK_ALIEN) i=1;			// Female Hunter Skin
+	else if (Class == CLASS_RENEGADE) i=2;		// Bad Blood Skin
+	else if (Class == CLASS_PRED_HUNTER) i=3;	// Hunter Skin
+	else if (Class == CLASS_PRED_WARRIOR) i=4;	// Warrior Skin
+
+	if (head) {
+		if ((head->flags&section_data_notreal)==0) {
+			tacb = head->tac_ptr;
+
+			while (tacb) {
+				tacb->tac_sequence = i;
+				tacb->tac_txah_s = GetTxAnimHeaderFromShape(tacb, head->ShapeNum);
+				tacb = tacb->tac_next;
+			}
+		}
+	}
+	/* Only change pelvis and chest textures if this class is another than Hunter */
+	if (pelvis && (i != 3)) {
+		if ((pelvis->flags&section_data_notreal)==0) {
+			tacb = pelvis->tac_ptr;
+
+			while (tacb) {
+				tacb->tac_sequence = i;
+				tacb->tac_txah_s = GetTxAnimHeaderFromShape(tacb, pelvis->ShapeNum);
+				tacb = tacb->tac_next;
+			}
+		}
+	}
+	if (chest && (i != 3)) {
+		if ((chest->flags&section_data_notreal)==0) {
+			tacb = chest->tac_ptr;
+
+			while (tacb) {
+				tacb->tac_sequence = i;
+				tacb->tac_txah_s = GetTxAnimHeaderFromShape(tacb, chest->ShapeNum);
+				tacb = tacb->tac_next;
+			}
+		}
+	}
+	if (l_shoulder) {
+		if ((l_shoulder->flags&section_data_notreal)==0) {
+			tacb = l_shoulder->tac_ptr;
+
+			while (tacb) {
+				tacb->tac_sequence = i;
+				tacb->tac_txah_s = GetTxAnimHeaderFromShape(tacb, l_shoulder->ShapeNum);
+				tacb = tacb->tac_next;
+			}
+		}
+	}
+	if (r_shoulder) {
+		if ((r_shoulder->flags&section_data_notreal)==0) {
+			tacb = r_shoulder->tac_ptr;
+
+			while (tacb) {
+				tacb->tac_sequence = i;
+				tacb->tac_txah_s = GetTxAnimHeaderFromShape(tacb, r_shoulder->ShapeNum);
+				tacb = tacb->tac_next;
+			}
+		}
+	}
+	if (l_bicep) {
+		if ((l_bicep->flags&section_data_notreal)==0) {
+			tacb = l_bicep->tac_ptr;
+
+			while (tacb) {
+				tacb->tac_sequence = i;
+				tacb->tac_txah_s = GetTxAnimHeaderFromShape(tacb, l_bicep->ShapeNum);
+				tacb = tacb->tac_next;
+			}
+		}
+	}
+	if (r_bicep) {
+		if ((r_bicep->flags&section_data_notreal)==0) {
+			tacb = r_bicep->tac_ptr;
+
+			while (tacb) {
+				tacb->tac_sequence = i;
+				tacb->tac_txah_s = GetTxAnimHeaderFromShape(tacb, r_bicep->ShapeNum);
+				tacb = tacb->tac_next;
+			}
+		}
+	}
+	if (l_elbow) {
+		if ((l_elbow->flags&section_data_notreal)==0) {
+			tacb = l_elbow->tac_ptr;
+
+			while (tacb) {
+				tacb->tac_sequence = i;
+				tacb->tac_txah_s = GetTxAnimHeaderFromShape(tacb, l_elbow->ShapeNum);
+				tacb = tacb->tac_next;
+			}
+		}
+	}
+	if (r_elbow) {
+		if ((r_elbow->flags&section_data_notreal)==0) {
+			tacb = r_elbow->tac_ptr;
+
+			while (tacb) {
+				tacb->tac_sequence = i;
+				tacb->tac_txah_s = GetTxAnimHeaderFromShape(tacb, r_elbow->ShapeNum);
+				tacb = tacb->tac_next;
+			}
+		}
+	}
+	if (l_forearm) {
+		if ((l_forearm->flags&section_data_notreal)==0) {
+			tacb = l_forearm->tac_ptr;
+
+			while (tacb) {
+				tacb->tac_sequence = i;
+				tacb->tac_txah_s = GetTxAnimHeaderFromShape(tacb, l_forearm->ShapeNum);
+				tacb = tacb->tac_next;
+			}
+		}
+	}
+	if (r_forearm) {
+		if ((r_forearm->flags&section_data_notreal)==0) {
+			tacb = r_forearm->tac_ptr;
+
+			while (tacb) {
+				tacb->tac_sequence = i;
+				tacb->tac_txah_s = GetTxAnimHeaderFromShape(tacb, r_forearm->ShapeNum);
+				tacb = tacb->tac_next;
+			}
+		}
+	}
+	if (l_thi) {
+		if ((l_thi->flags&section_data_notreal)==0) {
+			tacb = l_thi->tac_ptr;
+
+			while (tacb) {
+				tacb->tac_sequence = i;
+				tacb->tac_txah_s = GetTxAnimHeaderFromShape(tacb, l_thi->ShapeNum);
+				tacb = tacb->tac_next;
+			}
+		}
+	}
+	if (r_thi) {
+		if ((r_thi->flags&section_data_notreal)==0) {
+			tacb = r_thi->tac_ptr;
+
+			while (tacb) {
+				tacb->tac_sequence = i;
+				tacb->tac_txah_s = GetTxAnimHeaderFromShape(tacb, r_thi->ShapeNum);
+				tacb = tacb->tac_next;
+			}
+		}
+	}
+	if (l_shin) {
+		if ((l_shin->flags&section_data_notreal)==0) {
+			tacb = l_shin->tac_ptr;
+
+			while (tacb) {
+				tacb->tac_sequence = i;
+				tacb->tac_txah_s = GetTxAnimHeaderFromShape(tacb, l_shin->ShapeNum);
+				tacb = tacb->tac_next;
+			}
+		}
+	}
+	if (r_shin) {
+		if ((r_shin->flags&section_data_notreal)==0) {
+			tacb = r_shin->tac_ptr;
+
+			while (tacb) {
+				tacb->tac_sequence = i;
+				tacb->tac_txah_s = GetTxAnimHeaderFromShape(tacb, r_shin->ShapeNum);
+				tacb = tacb->tac_next;
+			}
+		}
+	}
+}
+
 extern HIERARCHY_VARIANT_DATA* GetHierarchyAlternateShapeSetCollectionFromLibrary(const char* rif_name,int index);
-void ChangeGhostMarineAccoutrementSet(HMODELCONTROLLER *HModelController,DPID playerId)
+void ChangeGhostMarineAccoutrementSet(HMODELCONTROLLER *HModelController,DPID playerId,unsigned int Class)
 {
 
 	HIERARCHY_VARIANT_DATA* variant_data;
@@ -920,8 +1238,38 @@ void ChangeGhostMarineAccoutrementSet(HMODELCONTROLLER *HModelController,DPID pl
 			}
 		}
 	}
-	
-	variant_data=GetHierarchyAlternateShapeSetCollectionFromLibrary("hnpcmarine",index+1);
+
+	// Extended Multiplayer -- Eldritch
+	{
+		switch(Class) {
+		case CLASS_RIFLEMAN:
+			// Soldier+Helmet, Face1
+			variant_data=GetHierarchyAlternateShapeSetCollectionFromLibrary("hnpcmarine",1);
+			break;
+		case CLASS_SMARTGUNNER:
+			// Smartgunner, Face1
+			variant_data=GetHierarchyAlternateShapeSetCollectionFromLibrary("hnpcmarine",9);
+			break;
+		case CLASS_MEDIC_FT:
+		case CLASS_COM_TECH:
+		default:
+			// Soldier+Helmet, Face2
+			variant_data=GetHierarchyAlternateShapeSetCollectionFromLibrary("hnpcmarine",3);
+			break;
+		case CLASS_AA_SPEC:
+			// Officer+Cap, Face1
+			variant_data=GetHierarchyAlternateShapeSetCollectionFromLibrary("hnpcmarine",2);
+			break;
+		case CLASS_ENGINEER:
+		case CLASS_INC_SPEC:
+			// Soldier+Helmet, Face3
+			variant_data=GetHierarchyAlternateShapeSetCollectionFromLibrary("hnpcmarine",4);
+			break;
+		}
+	}
+	// -- End
+
+	//variant_data=GetHierarchyAlternateShapeSetCollectionFromLibrary("hnpcmarine",index+1);
 
 	if (variant_data==NULL) {
 		return;
@@ -1006,6 +1354,8 @@ void CreateMarineHModel(NETGHOSTDATABLOCK *ghostDataPtr, int weapon)
 			break;
 		}
 		case WEAPON_CUDGEL:
+		case WEAPON_PLASMAGUN:
+		case WEAPON_AUTOSHOTGUN:
 		{
 			root_section = GetNamedHierarchyFromLibrary("hnpcmarine","Cudgel");
 			break;
@@ -1019,7 +1369,31 @@ void CreateMarineHModel(NETGHOSTDATABLOCK *ghostDataPtr, int weapon)
 	Create_HModel(&ghostDataPtr->HModelController,root_section);
 	ghostDataPtr->CurrentWeapon = weapon;
 
-	ChangeGhostMarineAccoutrementSet(&ghostDataPtr->HModelController,ghostDataPtr->playerId);
+	if (weapon == WEAPON_AUTOSHOTGUN || weapon == WEAPON_PLASMAGUN || weapon == WEAPON_CUDGEL)
+	{
+		SECTION_DATA *pistol;
+
+		pistol=GetThisSectionData(ghostDataPtr->HModelController.section_data,"pulse rifle");
+		pistol->flags|=(section_data_notreal);
+
+		pistol=GetThisSectionData(ghostDataPtr->HModelController.section_data,"pulse mag");
+		pistol->flags|=(section_data_notreal);
+
+		pistol=GetThisSectionData(ghostDataPtr->HModelController.section_data,"pump");
+		pistol->flags|=(section_data_notreal);
+	}
+
+	ChangeGhostMarineAccoutrementSet(&ghostDataPtr->HModelController,ghostDataPtr->playerId,ghostDataPtr->Class);
+
+	/* Static Model Exchange System */
+	if (ghostDataPtr->Class == CLASS_RIFLEMAN)
+		ModExSys(&ghostDataPtr->HModelController,"chest","riflemanchest");
+	else if (ghostDataPtr->Class == CLASS_ENGINEER)
+		ModExSys(&ghostDataPtr->HModelController,"chest","engineerchest");
+	else if (ghostDataPtr->Class == CLASS_COM_TECH)
+		ModExSys(&ghostDataPtr->HModelController,"chest","comtechchest");
+	else if (ghostDataPtr->Class == CLASS_MEDIC_FT)
+		ModExSys(&ghostDataPtr->HModelController,"chest","medicchest");
 
 	/* KJL 11:09:38 27/01/98 - set a default anim sequence to use */
 	ghostDataPtr->currentAnimSequence = MSQ_Stand;
@@ -1052,6 +1426,8 @@ void CreateAlienHModel(NETGHOSTDATABLOCK *ghostDataPtr,int alienType)
 {
 	SECTION *root_section;
 
+	// Extended Multiplayer -- Eldritch
+	#if 1
 	switch(alienType)
 	{
 		case AT_Predalien :
@@ -1059,20 +1435,38 @@ void CreateAlienHModel(NETGHOSTDATABLOCK *ghostDataPtr,int alienType)
 			ghostDataPtr->hltable=GetThisHitLocationTable("predalien");
 			break;
 		case AT_Praetorian :
-			root_section=GetNamedHierarchyFromLibrary("hnpcpretorian","Template");
-			ghostDataPtr->hltable=GetThisHitLocationTable("praetorian");
+			root_section=GetHierarchyFromLibrary("hnpchugger");
+			ghostDataPtr->hltable=GetThisHitLocationTable("alien");
 			break;
 		default :
 			root_section = GetNamedHierarchyFromLibrary("hnpcalien","alien");
 			ghostDataPtr->hltable=GetThisHitLocationTable("alien");
 			break;
 	}
-
+	#else
+	//root_section=GetNamedHierarchyFromLibrary("hnpcpred_alien","TEMPLATE");
+	//ghostDataPtr->hltable=GetThisHitLocationTable("predalien");
+	//root_section=GetNamedHierarchyFromLibrary("queen","Template");
+	//ghostDataPtr->hltable=GetThisHitLocationTable("alien");
+	//root_section=GetHierarchyFromLibrary("hnpchugger");
+	//ghostDataPtr->hltable=GetThisHitLocationTable("alien");
+	#endif
+	// -- End
 
 	Create_HModel(&ghostDataPtr->HModelController,root_section);
-	ghostDataPtr->currentAnimSequence = ASQ_Stand;
-	InitHModelSequence(&ghostDataPtr->HModelController,(int)HMSQT_AlienStand,(int)ASSS_Standard,ONE_FIXED);
 
+	if (ghostDataPtr->Class != CLASS_EXF_SNIPER &&
+		ghostDataPtr->Class != CLASS_EXF_W_SPEC)
+		SetAlternateAlienSkin(&ghostDataPtr->HModelController,ghostDataPtr->Class);
+
+	if (ghostDataPtr->Class == CLASS_EXF_W_SPEC)
+	{
+		ghostDataPtr->currentAnimSequence = FhSQ_Stand;
+		InitHModelSequence(&ghostDataPtr->HModelController,(int)HMSQT_Hugger,(int)HSS_Stand,ONE_FIXED);
+	} else {
+		ghostDataPtr->currentAnimSequence = ASQ_Stand;
+		InitHModelSequence(&ghostDataPtr->HModelController,(int)HMSQT_AlienStand,(int)ASSS_Standard,ONE_FIXED);
+	}
 	ghostDataPtr->CurrentWeapon = 0;
 	
 	/* CDF 12/4/98 Elevation Delta Sequence. */
@@ -1102,12 +1496,21 @@ void CreatePredatorHModel(NETGHOSTDATABLOCK *ghostDataPtr, int weapon)
 			root_section = GetNamedHierarchyFromLibrary("hnpcpredator","pred with staff");
 			break;
 		}
-		case WEAPON_PRED_RIFLE:
+		case WEAPON_SONICCANNON:
 		{
 			root_section = GetNamedHierarchyFromLibrary("hnpcpredator","Speargun");
 			break;
 		}
+		case WEAPON_PRED_RIFLE:
+		{
+			// Extended Multiplayer -- Eldritch
+			root_section = GetNamedHierarchyFromLibrary("hnpcpredator","pred with staff");
+			// -- End
+			break;
+		}
 		case WEAPON_PRED_PISTOL:
+		case WEAPON_BEAMCANNON:
+		case WEAPON_MYSTERYGUN:
 		{
 			root_section = GetNamedHierarchyFromLibrary("hnpcpredator","pred + pistol");
 			break;
@@ -1136,6 +1539,37 @@ void CreatePredatorHModel(NETGHOSTDATABLOCK *ghostDataPtr, int weapon)
 
 	Create_HModel(&ghostDataPtr->HModelController,root_section);
 	ghostDataPtr->CurrentWeapon = weapon;
+
+	/* Remove pistol model from HModel when using Wrist Launcher/Dart Launcher */
+	if (weapon == WEAPON_BEAMCANNON || weapon == WEAPON_MYSTERYGUN)
+	{
+		SECTION_DATA *pistol;
+
+		pistol=GetThisSectionData(ghostDataPtr->HModelController.section_data,"pistol");
+		pistol->flags|=(section_data_notreal);
+
+		pistol=GetThisSectionData(ghostDataPtr->HModelController.section_data,"Pistol A");
+		pistol->flags|=(section_data_notreal);
+
+		pistol=GetThisSectionData(ghostDataPtr->HModelController.section_data,"Pistol B");
+		pistol->flags|=(section_data_notreal);
+
+		pistol=GetThisSectionData(ghostDataPtr->HModelController.section_data,"Pistol C");
+		pistol->flags|=(section_data_notreal);
+
+		pistol=GetThisSectionData(ghostDataPtr->HModelController.section_data,"Pistol MECH");
+		pistol->flags|=(section_data_notreal);
+	}
+
+	// Change Skin
+	SetAlternateCharacterSkin(&ghostDataPtr->HModelController,ghostDataPtr->Class);
+
+	/* Static Model Exchange System */
+	if (ghostDataPtr->Class == CLASS_PRED_HUNTER)
+	{
+		ModExSys(&ghostDataPtr->HModelController,"chest","hunterchest");
+		ModExSys(&ghostDataPtr->HModelController,"Pelvis","hunterpelvis");
+	}
 
 	GLOBALASSERT(ghostDataPtr->HModelController.Root_Section==root_section);
 	
@@ -1246,7 +1680,6 @@ void MakeGhostNear(STRATEGYBLOCK *sbPtr)
 	switch(ghostData->type)
 	{
 		case(I_BehaviourPulseGrenade):
-		case(I_BehaviourRocket):
 		{
 			AddLightingEffectToObject(dPtr,LFX_ROCKETJET);
 			break;		
@@ -1291,7 +1724,6 @@ void MakeGhostFar(STRATEGYBLOCK *sbPtr)
 	LOCALASSERT(i==0);
 	sbPtr->SBdptr = NULL;	
 }
-
 /* this function handles damage to a netghost object: 
 basically, it just sends a network message, which should be picked up by the owning object */
 void DamageNetworkGhost(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int multiple, SECTION_DATA *section,VECTORCH* incoming)
@@ -1624,12 +2056,12 @@ void HandleGhostGunFlashEffect(STRATEGYBLOCK *sbPtr, int gunFlashOn)
 				}
 				else if (ghostData->CurrentWeapon==WEAPON_FRISBEE_LAUNCHER)
 				{
-					ghostData->myGunFlash = AddNPCGunFlashEffect
+					/*ghostData->myGunFlash = AddNPCGunFlashEffect
 					(
 						&ghostData->GunflashSectionPtr->World_Offset,
 						&ghostData->GunflashSectionPtr->SecMat,
 						SFX_MUZZLE_FLASH_SKEETER
-					);
+					);*/
 				}
 				else
 				{
@@ -1643,6 +2075,21 @@ void HandleGhostGunFlashEffect(STRATEGYBLOCK *sbPtr, int gunFlashOn)
 			}
 		}
 	}
+	// Eject shells from Pistol and Shotgun
+	if ((ghostData->CurrentWeapon == WEAPON_MARINE_PISTOL) && (gunFlashOn) &&
+		(LocalDetailLevels.Shells))
+	{
+		extern DISPLAYBLOCK *MakeAIPistolCasing(VECTORCH *position, MATRIXCH *orient);
+		MakeAIPistolCasing(&ghostData->GunflashSectionPtr->World_Offset,&ghostData->GunflashSectionPtr->SecMat);
+	}
+	if ((ghostData->CurrentWeapon == WEAPON_GRENADELAUNCHER) && (gunFlashOn) &&
+		(LocalDetailLevels.Shells))
+	{
+		extern DISPLAYBLOCK *MakeShotgunShell(VECTORCH *position, MATRIXCH *orient);
+		MakeShotgunShell(&ghostData->GunflashSectionPtr->World_Offset,&ghostData->GunflashSectionPtr->SecMat);
+	}
+
+
 	#if 0
 	/* KJL 15:32:57 13/05/98 - Tracer code - isn't working too well */
 	if(ghostData->GunflashSectionPtr && !(FastRandom()&15)) 
@@ -2177,7 +2624,6 @@ static void SetPlayerGhostAnimationSequence(STRATEGYBLOCK *sbPtr, int sequence, 
 						}
 					} else {
 						InitHModelTweening(&ghostData->HModelController,(ONE_FIXED)>>3,(int)HMSQT_MarineStand,(int)MSSS_Standard,ONE_FIXED,1);
-	//					InitHModelSequence(&ghostData->HModelController,(int)HMSQT_MarineStand,(int)MSSS_Standard,ONE_FIXED);
 					}
 					break;
 				}
@@ -2340,6 +2786,32 @@ static void SetPlayerGhostAnimationSequence(STRATEGYBLOCK *sbPtr, int sequence, 
 		case(I_BehaviourAlienPlayer):
 		case(I_BehaviourAlien):
 		{
+			if (ghostData->Class == CLASS_EXF_W_SPEC)
+			{
+				switch((FHUG_SEQUENCE)sequence)
+				{
+					case(FhSQ_Run):
+					{
+						InitHModelTweening(&ghostData->HModelController,(ONE_FIXED>>3),(int)HMSQT_Hugger,(int)HSS_Run,ONE_FIXED,1);
+						break;
+					}
+					case(FhSQ_Attack):
+					{
+						InitHModelTweening(&ghostData->HModelController,(ONE_FIXED>>3),(int)HMSQT_Hugger,(int)HSS_Attack,ONE_FIXED,0);
+						break;
+					}
+					case(FhSQ_Stand):
+					{
+						InitHModelTweening(&ghostData->HModelController,(ONE_FIXED>>3),(int)HMSQT_Hugger,(int)HSS_Stand,ONE_FIXED,0);
+						break;
+					}
+					case(FhSQ_Jump):
+					{
+						InitHModelTweening(&ghostData->HModelController,(ONE_FIXED>>3),(int)HMSQT_Hugger,(int)HSS_Jump,ONE_FIXED,0);
+						break;
+					}
+				}
+			} else {
 			switch((ALIEN_SEQUENCE)sequence)
 			{
 				case(ASQ_Stand):
@@ -2638,6 +3110,7 @@ static void SetPlayerGhostAnimationSequence(STRATEGYBLOCK *sbPtr, int sequence, 
 					LOCALASSERT("Unknown Alien anim sequence"==0);
 					break;
 				}	
+			} // Facehugger Sequences...
 			}
 		  	break;
 		}
@@ -2665,7 +3138,6 @@ static void SetPlayerGhostAnimationSequence(STRATEGYBLOCK *sbPtr, int sequence, 
 						//if currently playing a standing attack allow it to finish first
 						if(!HModelAnimation_IsFinished(&ghostData->HModelController)) return;
 					}
-
 					InitHModelTweening(&ghostData->HModelController,(ONE_FIXED>>3),(int)HMSQT_PredatorStand,(int)PSSS_Standard,ONE_FIXED,1);
 					break;
 				}
@@ -2949,22 +3421,45 @@ void HandlePlayerGhostWeaponSound(STRATEGYBLOCK *sbPtr, int weapon, int firingPr
 		case(WEAPON_PULSERIFLE):
 		{
 			LOCALASSERT(type==I_BehaviourMarinePlayer);
+
 			if(firingPrimary)
 			{
-				if(ghostData->SoundHandle == SOUND_NOACTIVEINDEX)
-				   	Sound_Play(SID_PULSE_LOOP,"elhd",&(ghostData->SoundHandle),&(sbPtr->DynPtr->Position));					
-				else
-					Sound_Update3d(ghostData->SoundHandle, &(sbPtr->DynPtr->Position));
+				if (ghostData->SoundHandle == SOUND_NOACTIVEINDEX)
+				{
+					unsigned int rand = 1;//FastRandom()%3;
+					switch(rand)
+					{
+						case (0):
+         				{
+          					Sound_Play(SID_PULSE_START,"ehpd",&ghostData->SoundHandle,(FastRandom()&255)-128, &(sbPtr->DynPtr->Position));
+          					break;
+         				}
+		    			case (1):
+			 			{
+          					Sound_Play(SID_PULSE_LOOP,"ehpd",&ghostData->SoundHandle,(FastRandom()&255)-128, &(sbPtr->DynPtr->Position));					
+          					break;
+         				}
+		       			case (2):
+			 			{
+          					Sound_Play(SID_PULSE_END,"ehpd",&ghostData->SoundHandle,(FastRandom()&255)-128, &(sbPtr->DynPtr->Position));					
+          					break;
+         				}
+			 			default:
+				 		{
+				 			break;
+				 		}
+					}
+				} 
+				else Sound_Update3d(ghostData->SoundHandle, &(sbPtr->DynPtr->Position));
+			} 
+			else if (firingSecondary) {
+				Sound_Play(SID_NADEFIRE,"ehd",&ghostData->SoundHandle,&(sbPtr->DynPtr->Position));			
 			}
 			else
 			{
-				if(ghostData->SoundHandle != SOUND_NOACTIVEINDEX) 
-				{	
-					Sound_Stop(ghostData->SoundHandle);				
-					Sound_Play(SID_PULSE_END,"hd",&(sbPtr->DynPtr->Position));					
-				}
-				if(firingSecondary)	Sound_Play(SID_NADEFIRE,"hd",&(sbPtr->DynPtr->Position));			
-			}
+				if(ghostData->SoundHandle != SOUND_NOACTIVEINDEX) Sound_Stop(ghostData->SoundHandle);			
+			}				
+
 			break;
 		}
 		case(WEAPON_TWO_PISTOLS):
@@ -2986,7 +3481,7 @@ void HandlePlayerGhostWeaponSound(STRATEGYBLOCK *sbPtr, int weapon, int firingPr
 			LOCALASSERT(type==I_BehaviourMarinePlayer);
 			/* stop sound if we've got it */
 			if(ghostData->SoundHandle != SOUND_NOACTIVEINDEX) Sound_Stop(ghostData->SoundHandle);
-			if(firingPrimary) Sound_Play(SID_SHOTGUN,"hd",&(sbPtr->DynPtr->Position));						
+			if(firingPrimary) Sound_Play(SID_MINIGUN_LOOP,"ehd",&ghostData->SoundHandle,&(sbPtr->DynPtr->Position));						
 			break;
 		}
 		case(WEAPON_SMARTGUN):
@@ -2996,7 +3491,7 @@ void HandlePlayerGhostWeaponSound(STRATEGYBLOCK *sbPtr, int weapon, int firingPr
 			{
 				if(ghostData->SoundHandle == SOUND_NOACTIVEINDEX)
 				{
-    				unsigned int rand=FastRandom() % 3;
+    				unsigned int rand= 2;//FastRandom() % 3;
     				switch (rand)
     				{
       					case(0):
@@ -3064,7 +3559,8 @@ void HandlePlayerGhostWeaponSound(STRATEGYBLOCK *sbPtr, int weapon, int firingPr
 		{
 			LOCALASSERT(type==I_BehaviourMarinePlayer);
 			/* stop sound if we've got it */
-			if(ghostData->SoundHandle != SOUND_NOACTIVEINDEX) Sound_Stop(ghostData->SoundHandle);				
+			if(ghostData->SoundHandle != SOUND_NOACTIVEINDEX) Sound_Stop(ghostData->SoundHandle);
+			if(firingPrimary) Sound_Play(SID_MINIGUN_EMPTY,"ehd",&ghostData->SoundHandle,&(sbPtr->DynPtr->Position));
 			break;
 		}
 		case(WEAPON_SADAR):
@@ -3080,27 +3576,11 @@ void HandlePlayerGhostWeaponSound(STRATEGYBLOCK *sbPtr, int weapon, int firingPr
 			LOCALASSERT(type==I_BehaviourMarinePlayer);
 			/* stop sound if we've got it */
 			if(ghostData->SoundHandle != SOUND_NOACTIVEINDEX) Sound_Stop(ghostData->SoundHandle);				
-			if(firingPrimary) Sound_Play(SID_ROCKFIRE,"hd",&(sbPtr->DynPtr->Position));						
+			if(firingPrimary) Sound_Play(SID_ROCKFIRE,"ehd",&ghostData->SoundHandle,&(sbPtr->DynPtr->Position));						
 			break;
 		}
 		case(WEAPON_MINIGUN):
 		{
-			LOCALASSERT(type==I_BehaviourMarinePlayer);
-			if(firingPrimary)
-			{
-				if(ghostData->SoundHandle == SOUND_NOACTIVEINDEX)
-				   	Sound_Play(SID_MINIGUN_LOOP,"elhd",&(ghostData->SoundHandle),&(sbPtr->DynPtr->Position));					
-				else
-					Sound_Update3d(ghostData->SoundHandle, &(sbPtr->DynPtr->Position));
-			}
-			else
-			{
-				if(ghostData->SoundHandle != SOUND_NOACTIVEINDEX) 
-				{
-					Sound_Stop(ghostData->SoundHandle);				
-					Sound_Play(SID_MINIGUN_END,"hd",&(sbPtr->DynPtr->Position));					
-				}
-			}
 			break;
 		}
 		case(WEAPON_FRISBEE_LAUNCHER):
@@ -3140,47 +3620,57 @@ void HandlePlayerGhostWeaponSound(STRATEGYBLOCK *sbPtr, int weapon, int firingPr
 			#endif
 			break;
 		}
+		case(WEAPON_SONICCANNON):
+		{
+			LOCALASSERT(type==I_BehaviourPredatorPlayer);
+			#if 0
+			/* stop sound if we've got it */
+			if(ghostData->SoundHandle != SOUND_NOACTIVEINDEX) Sound_Stop(ghostData->SoundHandle);				
+			//sound is played by spear creation
+			#else
+			/* stop sound if we've got it */
+			if(ghostData->SoundHandle != SOUND_NOACTIVEINDEX) Sound_Stop(ghostData->SoundHandle);
+			if(firingPrimary) Sound_Play(SID_STOMP,"hd",&(sbPtr->DynPtr->Position));
+			#endif
+			break;
+		}
+		case(WEAPON_BEAMCANNON):
+		{
+			LOCALASSERT(type==I_BehaviourPredatorPlayer);
+			#if 0
+			/* stop sound if we've got it */
+			if(ghostData->SoundHandle != SOUND_NOACTIVEINDEX) Sound_Stop(ghostData->SoundHandle);				
+			//sound is played by spear creation
+			#else
+			/* stop sound if we've got it */
+			if(ghostData->SoundHandle != SOUND_NOACTIVEINDEX) Sound_Stop(ghostData->SoundHandle);
+			if(firingPrimary) Sound_Play(SID_FRAG_RICOCHETS,"hd",&(sbPtr->DynPtr->Position));
+			#endif
+			break;
+		}
+		case(WEAPON_MYSTERYGUN):
+		{
+			LOCALASSERT(type==I_BehaviourPredatorPlayer);
+			#if 0
+			/* stop sound if we've got it */
+			if(ghostData->SoundHandle != SOUND_NOACTIVEINDEX) Sound_Stop(ghostData->SoundHandle);				
+			//sound is played by spear creation
+			#else
+			/* stop sound if we've got it */
+			if(ghostData->SoundHandle != SOUND_NOACTIVEINDEX) Sound_Stop(ghostData->SoundHandle);
+			if(firingPrimary) Sound_Play(SID_GRAPPLE_HIT_WALL,"hd",&(sbPtr->DynPtr->Position));
+			#endif
+			break;
+		}
 		case(WEAPON_PRED_PISTOL):
 		{
 			LOCALASSERT(type==I_BehaviourPredatorPlayer);
-			if(firingPrimary)
+			if (firingPrimary)
 			{
-				if(ghostData->SoundHandle == SOUND_NOACTIVEINDEX) {
-				   	Sound_Play(SID_PRED_PISTOL,"hd",&(sbPtr->DynPtr->Position));					
+				if(ghostData->SoundHandle == SOUND_NOACTIVEINDEX) 
+				{					
+					Sound_Play(SID_PRED_PISTOL,"hd",&(sbPtr->DynPtr->Position));									
 				}
-				//   	Sound_Play(SID_PULSE_LOOP,"elhd",&(ghostData->SoundHandle),&(sbPtr->DynPtr->Position));					
-				//else
-				//	Sound_Update3d(ghostData->SoundHandle, &(sbPtr->DynPtr->Position));
-				#if 0
-				if (sbPtr->SBdptr)
-				{
-					ProveHModel(&ghostData->HModelController,sbPtr->SBdptr);
-					//create the particles for the pistol firing
-					{
-						SECTION_DATA *muzzle;
-						VECTORCH null_vec;
-
-						muzzle=GetThisSectionData(ghostData->HModelController.section_data,"dum flash");
-						
-						null_vec.vx=0;
-						null_vec.vy=0;
-						null_vec.vz=0;
-
-						GLOBALASSERT(muzzle);
-
-//						FirePredPistolFlechettes(&muzzle->World_Offset,&null_vec,&muzzle->SecMat,0,&ghostData->timer,FALSE);
-//						CreatePPPlasmaBoltKernel(&muzzle->World_Offset,&muzzle->SecMat, 0);
-					}
-				}
-				#endif
-			}
-			else
-			{
-				//if(ghostData->SoundHandle != SOUND_NOACTIVEINDEX) 
-				//{	
-				//	Sound_Stop(ghostData->SoundHandle);				
-				//	Sound_Play(SID_PULSE_END,"hd",&(sbPtr->DynPtr->Position));									
-				//}
 			}
 			break;
 		}
@@ -3679,7 +4169,7 @@ void MaintainGhosts(void)
 					while (ghostData->EventCounter >= FLARE_PARTICLE_GENERATION_TIME)
 					{
 						ghostData->EventCounter -= FLARE_PARTICLE_GENERATION_TIME;
-						MakeFlareParticle(sbPtr->DynPtr);
+						//MakeFlareParticle(sbPtr->DynPtr);
 					}
 
 					/* add lighting effect if near */
@@ -3706,7 +4196,7 @@ void MaintainGhosts(void)
 				{
 					DYNAMICSBLOCK *dynPtr = sbPtr->DynPtr;
 					LOCALASSERT(dynPtr);
-					if (ghostData->timer<=PROX_GRENADE_LIFETIME*ONE_FIXED)
+					if (ghostData->timer<=20*ONE_FIXED)
 					{
 						{
 							int scale = ONE_FIXED-ghostData->timer/PROX_GRENADE_LIFETIME;
@@ -3714,10 +4204,11 @@ void MaintainGhosts(void)
 							scale = MUL_FIXED(scale,scale)*8;
 							ghostData->EventCounter += NormalFrameTime + MUL_FIXED(NormalFrameTime,scale);
 				   		}
+						//sbPtr->SBDamageBlock.IsOnFire=1;
 						while (ghostData->EventCounter >= PROX_GRENADE_SOUND_GENERATION_TIME)
 						{
 							ghostData->EventCounter -= PROX_GRENADE_SOUND_GENERATION_TIME;
-							Sound_Play(SID_PROX_GRENADE_ACTIVE,"d",&(dynPtr->Position));
+							//Sound_Play(SID_PROX_GRENADE_ACTIVE,"d",&(dynPtr->Position));
 						}
 
 				   		ghostData->timer -= NormalFrameTime;
@@ -3735,7 +4226,7 @@ void MaintainGhosts(void)
 						     dynPtr->Position.vy!=dynPtr->PrevPosition.vy ||
 						     dynPtr->Position.vz!=dynPtr->PrevPosition.vz))
 						{
-							ghostData->timer = PROX_GRENADE_LIFETIME*ONE_FIXED;		
+							ghostData->timer = 20*ONE_FIXED;		
 						}
 					}
 					{
@@ -3781,6 +4272,44 @@ void MaintainGhosts(void)
 					ghostData->integrity=ghostData->timer;
 					break;
 				}
+
+				// SHOULDER LAMP IN MULTI				
+				case (I_BehaviourMarinePlayer):				
+				{
+					// Create lighting effect if player is using shoulder lamp
+					if ( ghostData->IAmUsingShoulderLamp )
+					{
+						DISPLAYBLOCK *dispPtr = sbPtr->SBdptr;
+
+						if ( dispPtr )
+						{
+							// Add light to ghost as an 'object light'
+							LIGHTBLOCK	*ShoulderLamp = AddLightEffectToObjReturnReference (dispPtr, 
+																							LFX_SHOULDER_LAMP);
+							if (   ( ShoulderLamp )
+								&& ( sbPtr->DynPtr ))
+							{								
+								// Position net ghost lamp - ShoulderLampOffset is relative to DynPtr->Position
+								ShoulderLamp->LightWorld.vx = sbPtr->DynPtr->Position.vx + ghostData->ShoulderLampOffset.vx;
+								ShoulderLamp->LightWorld.vy = sbPtr->DynPtr->Position.vy + ghostData->ShoulderLampOffset.vy;
+								ShoulderLamp->LightWorld.vz = sbPtr->DynPtr->Position.vz + ghostData->ShoulderLampOffset.vz;
+							}
+
+							{
+								// Add another light... around the actual ghost's model.
+								LIGHTBLOCK *LampAura = AddLightEffectToObjReturnReference(dispPtr, LFX_SHOULDER_LAMP);
+								if ((LampAura) && (sbPtr->DynPtr)) {
+									LampAura->LightWorld.vx = sbPtr->DynPtr->Position.vx;
+									LampAura->LightWorld.vy = sbPtr->DynPtr->Position.vy;
+									LampAura->LightWorld.vz = sbPtr->DynPtr->Position.vz;
+								}
+							}
+						}
+					}
+					break;
+				}
+				// END OF SHOULDER LAMP IN MULTI
+
 				default:
 					break;				
 			}
@@ -3908,7 +4437,7 @@ void MaintainGhostCloakingStatus(STRATEGYBLOCK *sbPtr, int IsCloaked)
 	LOCALASSERT(ghostData);
 	type = ghostData->type;
 
-	if(type!=I_BehaviourPredatorPlayer) 
+	if(type!=I_BehaviourPredatorPlayer && type!=I_BehaviourAlienPlayer) 
 	{
 		ghostData->CloakingEffectiveness = 0;		
 		return;
@@ -3918,12 +4447,14 @@ void MaintainGhostCloakingStatus(STRATEGYBLOCK *sbPtr, int IsCloaked)
 	if (ghostData->CloakingEffectiveness) {
 		if (IsCloaked==0) {
 			/* Cloak turns off. */
-			Sound_Play(SID_PRED_CLOAKOFF,"hd",&(sbPtr->DynPtr->Position));
+			if (type == I_BehaviourPredatorPlayer)
+				Sound_Play(SID_PRED_CLOAKOFF,"hd",&(sbPtr->DynPtr->Position));
 		}
 	} else {
 		if (IsCloaked) {
 			/* Cloak turns on. */
-			Sound_Play(SID_PRED_CLOAKON,"hd",&(sbPtr->DynPtr->Position));
+			if (type == I_BehaviourPredatorPlayer)
+				Sound_Play(SID_PRED_CLOAKON,"hd",&(sbPtr->DynPtr->Position));
 		}
 	}
 
@@ -4120,6 +4651,7 @@ void KillGhost(STRATEGYBLOCK *sbPtr,int objectId)
 		}
 		case(I_BehaviourGrenade):
 		case(I_BehaviourRocket):
+		case(I_BehaviourThrownSpear):
 		case(I_BehaviourProximityGrenade):
 		case(I_BehaviourFragmentationGrenade):
 		case(I_BehaviourClusterGrenade):
@@ -4229,7 +4761,12 @@ extern void ApplyGhostCorpseDeathAnim(STRATEGYBLOCK *sbPtr,int deathId)
 		
 		case I_BehaviourAlienPlayer :
 		{
-			this_death=GetThisDeath_FromCode(&ghostData->HModelController,&Alien_Deaths[0],deathId);
+			// Apply another death anim for player facehuggers.
+			if (ghostData->Class == CLASS_EXF_W_SPEC) {
+				InitHModelTweening(&ghostData->HModelController,(ONE_FIXED>>3),(int)HMSQT_Hugger,(int)HSS_Dies,ONE_FIXED,0);
+				return;
+			} else
+				this_death=GetThisDeath_FromCode(&ghostData->HModelController,&Alien_Deaths[0],deathId);
 		}
 		break;
 		
@@ -4440,9 +4977,9 @@ int Deduce_PlayerMarineDeathSequence(STRATEGYBLOCK* sbPtr,DAMAGE_PROFILE* damage
 	NETCORPSEDATABLOCK *corpseDataPtr=(NETCORPSEDATABLOCK *)sbPtr->SBdataptr;
 	
 	int deathtype,gibbFactor;
-	int a;
+//	int a;
 
-	SECTION_DATA *head;
+//	SECTION_DATA *head;
 
 	/* Set GibbFactor  and death type*/
 	gibbFactor=0;
@@ -4711,7 +5248,7 @@ int Deduce_PlayerPredatorDeathSequence(STRATEGYBLOCK* sbPtr,DAMAGE_PROFILE* dama
 		HIT_FACING facing;
 		SECTION *root;
 		int burning;
-		int wounds;
+//		int wounds;
 		int crouched;
 
 		root=GetNamedHierarchyFromLibrary("hnpcpredator","Template");
@@ -4775,10 +5312,12 @@ STRATEGYBLOCK *MakeNewCorpse()
 	NETCORPSEDATABLOCK *corpseData; 
 	PLAYER_WEAPON_DATA *weaponPtr;
 	PLAYER_STATUS *playerStatusPtr = (PLAYER_STATUS *)(Player->ObStrategyBlock->SBdataptr);
+	unsigned int Class;
 
 	LOCALASSERT(playerStatusPtr);    	        
    	weaponPtr = &(playerStatusPtr->WeaponSlot[playerStatusPtr->SelectedWeaponSlot]);
 	weapon = (signed char)(weaponPtr->WeaponIDNumber);
+	Class = playerStatusPtr->Class;
 
 	/* create a strategy block - same as for a ghost */	
 	sbPtr = CreateActiveStrategyBlock();
@@ -4879,8 +5418,10 @@ STRATEGYBLOCK *MakeNewCorpse()
 				corpseData->hltable=GetThisHitLocationTable("marine with pulse rifle");
 				/* Select hierarchy from character's selected weapon. */
 				//while we're at it , also deal with creating the pickupable weapon
-			   	{
-
+				//
+				// Do NOT create a weapon pickup... -- ELDRITCH
+			   	if (0)
+				{
 			   		VECTORCH location=Player->ObStrategyBlock->DynPtr->Position;
 			   		STRATEGYBLOCK* weaponSbPtr = CreateMultiplayerWeaponPickup(&location,weapon,0);
 					if(weaponSbPtr)
@@ -4933,6 +5474,8 @@ STRATEGYBLOCK *MakeNewCorpse()
 						break;
 					}
 					case WEAPON_CUDGEL:
+					case WEAPON_AUTOSHOTGUN:
+					case WEAPON_PLASMAGUN:
 					{
 						root_section = GetNamedHierarchyFromLibrary("hnpcmarine","Cudgel");
 						break;
@@ -4946,8 +5489,18 @@ STRATEGYBLOCK *MakeNewCorpse()
 				Create_HModel(&corpseData->HModelController,root_section);
 				{
 					extern DPID AVPDPNetID;
-					ChangeGhostMarineAccoutrementSet(&corpseData->HModelController,AVPDPNetID);
+					ChangeGhostMarineAccoutrementSet(&corpseData->HModelController,AVPDPNetID,Class);
 				}
+				/* Static Model Exchange System */
+				if (Class == CLASS_RIFLEMAN)
+					ModExSys(&corpseData->HModelController,"chest","riflemanchest");
+				else if (Class == CLASS_ENGINEER)
+					ModExSys(&corpseData->HModelController,"chest","engineerchest");
+				else if (Class == CLASS_COM_TECH)
+					ModExSys(&corpseData->HModelController,"chest","comtechchest");
+				else if (Class == CLASS_MEDIC_FT)
+					ModExSys(&corpseData->HModelController,"chest","medicchest");
+
 				//choose a default sequence , the proper death anim will be set later	
 				InitHModelSequence(&corpseData->HModelController,(int)HMSQT_MarineStand,(int)MSSS_Standard,ONE_FIXED);
 				
@@ -4955,11 +5508,28 @@ STRATEGYBLOCK *MakeNewCorpse()
 			}
 			case(I_Alien):
 			{
-				corpseData->hltable=GetThisHitLocationTable("alien");
+				// Extended Multiplayer -- Eldritch
 				
+				corpseData->hltable=GetThisHitLocationTable("alien");
 				root_section = GetNamedHierarchyFromLibrary("hnpcalien","alien");
+				
+				if (Class == CLASS_EXF_SNIPER)
+				{
+					root_section=GetNamedHierarchyFromLibrary("hnpcpred_alien","TEMPLATE");
+					corpseData->hltable=GetThisHitLocationTable("predalien");
+				}
+				if (Class == CLASS_EXF_W_SPEC)
+				{
+					root_section=GetHierarchyFromLibrary("hnpchugger");
+					corpseData->hltable=GetThisHitLocationTable("alien");
+				}
+				// -- End
+
 				Create_HModel(&corpseData->HModelController,root_section);
 				
+				if (Class != CLASS_EXF_SNIPER && Class != CLASS_EXF_W_SPEC)
+					SetAlternateAlienSkin(&corpseData->HModelController,Class);
+
 				//choose a default sequence , the proper death anim will be set later	
 				InitHModelSequence(&corpseData->HModelController,(int)HMSQT_AlienStand,(int)ASSS_Standard,ONE_FIXED);
 				break;
@@ -4977,9 +5547,18 @@ STRATEGYBLOCK *MakeNewCorpse()
 					}
 					case WEAPON_PRED_RIFLE:
 					{
+						// Extended Multiplayer -- Eldritch
+						root_section = GetNamedHierarchyFromLibrary("hnpcpredator","pred with staff");
+						// -- End
+						break;
+					}
+					case WEAPON_SONICCANNON:
+					{
 						root_section = GetNamedHierarchyFromLibrary("hnpcpredator","Speargun");
 						break;
 					}
+					case WEAPON_BEAMCANNON:
+					case WEAPON_MYSTERYGUN:
 					case WEAPON_PRED_PISTOL:
 					{
 						root_section = GetNamedHierarchyFromLibrary("hnpcpredator","pred + pistol");
@@ -5003,6 +5582,17 @@ STRATEGYBLOCK *MakeNewCorpse()
 				}
 				Create_HModel(&corpseData->HModelController,root_section);
 
+				// Change Skin
+				SetAlternateCharacterSkin(&corpseData->HModelController,Class);
+
+				/* Model Exchange System */
+#if 0
+				if (Class == CLASS_PRED_HUNTER)
+				{
+					ModExSys(&corpseData->HModelController,"chest","hunterchest");
+					ModExSys(&corpseData->HModelController,"Pelvis","hunterpelvis");
+				}
+#endif
 				//choose a default sequence , the proper death anim will be set later	
 				InitHModelSequence(&corpseData->HModelController,(int)HMSQT_PredatorStand,(int)PSSS_Elevation,ONE_FIXED);
 				break;

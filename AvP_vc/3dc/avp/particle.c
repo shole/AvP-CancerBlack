@@ -62,6 +62,20 @@ int NumberOfFlaresActive;
 extern SOUND3DDATA PredPistolExplosion_SoundData;
 extern MODULE *playerPherModule;
 
+extern void AddEffectsOfForceGenerators(VECTORCH *positionPtr, VECTORCH *impulsePtr, int mass);
+extern void OutputTranslucentPolyList();
+extern void ScanHModelForDecals(DISPLAYBLOCK *objectPtr, SECTION_DATA *sectionDataPtr);
+extern void RenderLightFlare(VECTORCH *positionPtr, unsigned int colour);
+extern void RenderSmallLightFlare(VECTORCH *positionPtr, unsigned int colour);
+extern int GetLoadedShapeMSL(const char *shapename);
+extern void RenderThisDisplayblock(DISPLAYBLOCK *dbPtr);
+extern void MakeMatrixFromDirection(VECTORCH *directionPtr, MATRIXCH *matrixPtr);
+extern void RenderFlechetteParticle(PARTICLE *particlePtr);
+extern void SetSeededFastRandom(int seed);
+extern int SeededFastRandom();
+extern void RenderExplosionSurface(VOLUMETRIC_EXPLOSION *explosionPtr);
+extern void MakeLargeDecal(enum DECAL_ID decalID, VECTORCH *normalPtr, VECTORCH *positionPtr, int moduleIndex);
+
 static void InitialiseVolumetricExplosions(void);
 void DoFlareCorona(DISPLAYBLOCK *objectPtr);
 void InitialiseRainDrops(void);
@@ -323,13 +337,13 @@ PARTICLE_DESC ParticleDescription[MAX_NO_OF_PARTICLE_IDS] =
 		//int EndV;
 		127<<16,
 		//unsigned int Size;
-		1600,//200,
+		1600,
 
 		//enum TRANSLUCENCY_TYPE TranslucencyType;
 		TRANSLUCENCY_GLOWING,
 
 		//unsigned char Alpha;
-		32,
+		16,
 		//unsigned char RedScale;
 		{100,	200,	240,	120,	120,	120},
 		//unsigned char GreenScale;
@@ -497,19 +511,19 @@ PARTICLE_DESC ParticleDescription[MAX_NO_OF_PARTICLE_IDS] =
 		32,
 
 		//enum TRANSLUCENCY_TYPE TranslucencyType;
-		TRANSLUCENCY_GLOWING,
+		TRANSLUCENCY_INVCOLOUR,
 
 		//unsigned char Alpha;
-		64,
+		255,
 		//unsigned char RedScale;
-		{255,	255,	255,	255,	64},
+		{64,	64,		64,		64,		64},
 		//unsigned char GreenScale;
-		{255,	255,	255,	0,		64},
+		{64,	64,		64,		64,		64},
 		//unsigned char BlueScale;
-		{255,	255,	255,	64,		0},
+		{64,	64,		64,		64,		64},
 	
 		//unsigned char IsLit:1;
-		1,
+		0,
 		//IsDrawnInFront:1;
 		0,
 		//IsDrawnAtBack:1;
@@ -1165,10 +1179,10 @@ PARTICLE_DESC ParticleDescription[MAX_NO_OF_PARTICLE_IDS] =
 		1000,
 
 		//enum TRANSLUCENCY_TYPE TranslucencyType;
-		TRANSLUCENCY_GLOWING,
+		TRANSLUCENCY_INVCOLOUR,
 
 		//unsigned char Alpha;
-		255,
+		32,
 		//unsigned char RedScale;
 		{128,	64,		64,		64,		0},
 		//unsigned char GreenScale;
@@ -1177,7 +1191,7 @@ PARTICLE_DESC ParticleDescription[MAX_NO_OF_PARTICLE_IDS] =
 		{128,	64,		64,		64,		0},
 	
 		//unsigned char IsLit:1;
-		1,
+		0,
 		//IsDrawnInFront:1;
 		0,
 		//IsDrawnAtBack:1;
@@ -1226,19 +1240,19 @@ PARTICLE_DESC ParticleDescription[MAX_NO_OF_PARTICLE_IDS] =
 		//int EndV;
 		191<<16,
 		//unsigned int Size;
-		2000,
+		5000,
 
 		//enum TRANSLUCENCY_TYPE TranslucencyType;
 		TRANSLUCENCY_GLOWING,
 
 		//unsigned char Alpha;
-		255,
+		64,
 		//unsigned char RedScale;
-		{255,	64,		64,		64,		64,		0},
+		{255,	255,	255,	255,	255,	0},
 		//unsigned char GreenScale;
-		{255,	64,		64,		64,		64,		255},
+		{64,	64,		128,	0,		128,	128},
 		//unsigned char BlueScale;
-		{255,	64,		64,		64,		0,		0},
+		{64,	64,		128,	0,		0,		0},
 	
 		//unsigned char IsLit:1;
 		0,
@@ -1364,9 +1378,9 @@ PARTICLE_DESC ParticleDescription[MAX_NO_OF_PARTICLE_IDS] =
 		//unsigned char RedScale;
 		{255,	255,	255,	255,	255,	0},
 		//unsigned char GreenScale;
-		{128,	128,	255,	0,		255,	255},
+		{64,	64,		128,	0,		128,	128},
 		//unsigned char BlueScale;
-		{64,	64,		255,	0,		0,		0},
+		{64,	64,		128,	0,		0,		0},
 	
 		//unsigned char IsLit:1;
 		0,
@@ -1407,7 +1421,294 @@ PARTICLE_DESC ParticleDescription[MAX_NO_OF_PARTICLE_IDS] =
 		//IsDrawnAtBack:1;
 		0,
 	},
+	/* PARTICLE_DRILL */
+	{
+		//int StartU;
+		1<<16,
+		//int StartV;
+	   	1<<16,
+		//int EndU;
+		64<<16,
+		//int EndV;
+		64<<16,
+		//unsigned int Size;
+		200/8,
 
+		//enum TRANSLUCENCY_TYPE TranslucencyType;
+		TRANSLUCENCY_GLOWING,
+
+		//unsigned char Alpha;
+		64,
+		//unsigned char RedScale;
+		{255,	255,	255,	255,	255},
+		//unsigned char GreenScale;
+		{128,	128,	255,	0,		255},
+		//unsigned char BlueScale;
+		{64,	64,		255,	0,		0},
+	
+		//unsigned char IsLit:1;
+		0,
+		//IsDrawnInFront:1;
+		0,
+		//IsDrawnAtBack:1;
+		0,
+	},
+	/* PARTICLE_DRILL2 */
+	{
+		//int StartU;
+		1<<16,
+		//int StartV;
+	   	1<<16,
+		//int EndU;
+		64<<16,
+		//int EndV;
+		64<<16,
+		//unsigned int Size;
+		200/8,
+
+		//enum TRANSLUCENCY_TYPE TranslucencyType;
+		TRANSLUCENCY_GLOWING,
+
+		//unsigned char Alpha;
+		64,
+		//unsigned char RedScale;
+		{255,	255,	255,	255,	255},
+		//unsigned char GreenScale;
+		{128,	128,	255,	0,		255},
+		//unsigned char BlueScale;
+		{64,	64,		255,	0,		0},
+	
+		//unsigned char IsLit:1;
+		0,
+		//IsDrawnInFront:1;
+		0,
+		//IsDrawnAtBack:1;
+		0,
+	},
+	/* PARTICLE_FLAMETHROWER */
+	{
+		//int StartU;
+		64<<16,
+		//int StartV;
+	   	0<<16,
+		//int EndU;
+		(64+127)<<16,
+		//int EndV;
+		63<<16,
+		//unsigned int Size;
+		0,
+
+		//enum TRANSLUCENCY_TYPE TranslucencyType;
+		TRANSLUCENCY_GLOWING,
+
+		//unsigned char Alpha;
+		64,
+		//unsigned char RedScale;
+		{255,	255,	255,	128,	128,	0},
+		//unsigned char GreenScale;
+		{128,	128,	255,	64,		64,		128},
+		//unsigned char BlueScale;
+		{64,	64,		255,	255,	0,		0},
+	
+		//unsigned char IsLit:1;
+		0,
+		//IsDrawnInFront:1;
+		0,
+		//IsDrawnAtBack:1;
+		0,
+	},
+	/* PARTICLE_SHADOW */
+{
+		//int StartU;
+		0<<16,
+		//int StartV;
+		63<<16,
+		//int EndU;
+		63<<16,
+		//int EndV;
+		127<<16,
+		//unsigned int Size;
+		4,
+		   
+		//enum TRANSLUCENCY_TYPE TranslucencyType;
+		TRANSLUCENCY_NORMAL,
+
+		//unsigned char Alpha;
+		64,
+		//unsigned char RedScale;
+		{128,	128,  	128,		128,		128},
+		//unsigned char GreenScale;
+		{128,	128,	128,		128,		128},
+		//unsigned char BlueScale;
+		{128,	128,	128,		128,		128},
+
+		//unsigned char IsLit:1;
+		0,
+		//IsDrawnInFront:1;
+		0,
+		//IsDrawnAtBack:1;
+		0,
+	},
+	/* PARTICLE_RAIN */
+	{
+		//int StartU;
+		0<<16,
+		//int StartV;
+		63<<16,
+		//int EndU;
+		63<<16,
+		//int EndV;
+		127<<16,
+		//unsigned int Size;
+		40,
+		   
+		//enum TRANSLUCENCY_TYPE TranslucencyType;
+		TRANSLUCENCY_NORMAL,
+
+		//unsigned char Alpha;
+		128,
+		//unsigned char RedScale;
+		{255,		255,  	255,	255,	255},
+		//unsigned char GreenScale;
+		{255,		255,	255,	255,	255},
+		//unsigned char BlueScale;
+		{255,		255,	255,	255,	255},
+
+		//unsigned char IsLit:1;
+		0,
+		//IsDrawnInFront:1;
+		0,
+		//IsDrawnAtBack:1;
+		0,
+	},
+	/* PARTICLE_SNOW */
+	{
+		//int StartU;
+		0<<16,
+		//int StartV;
+	   	64<<16,
+		//int EndU;
+		63<<16,
+		//int EndV;
+		127<<16,
+		//unsigned int Size;
+		40,
+
+		//enum TRANSLUCENCY_TYPE TranslucencyType;
+		TRANSLUCENCY_GLOWING,
+
+		//unsigned char Alpha;
+		64,
+		//unsigned char RedScale;
+		{255,	255,	255,	255},
+		//unsigned char GreenScale;
+		{255,	255,	255,	255},
+		//unsigned char BlueScale;
+		{255,	255,	255,	255},
+	
+		//unsigned char IsLit:1;
+		0,
+		//IsDrawnInFront:1;
+		0,
+		//IsDrawnAtBack:1;
+		0,
+	},
+	/* PARTICLE_STREAM */
+	{
+		//int StartU;
+		128<<16,
+		//int StartV;
+	   	64<<16,
+		//int EndU;
+		191<<16,
+		//int EndV;
+		127<<16,
+		//unsigned int Size;
+		1000,
+
+		//enum TRANSLUCENCY_TYPE TranslucencyType;
+		TRANSLUCENCY_GLOWING,
+
+		//unsigned char Alpha;
+		32,
+		//unsigned char RedScale;
+		{128,	64,		64,		64,		0},
+		//unsigned char GreenScale;
+		{128,	64,		64,		64,		64},
+		//unsigned char BlueScale;
+		{128,	64,		64,		64,		0},
+	
+		//unsigned char IsLit:1;
+		0,
+		//IsDrawnInFront:1;
+		0,
+		//IsDrawnAtBack:1;
+		0,
+	},
+	/* PARTICLE_PHEROMONE */
+	{
+		//int StartU;
+		64<<16,
+		//int StartV;
+		64<<16,
+		//int EndU;
+		127<<16,
+		//int EndV;
+		127<<16,
+		//unsigned int Size;
+		200,
+
+		//enum TRANSLUCENCY_TYPE TranslucencyType;
+		TRANSLUCENCY_GLOWING,
+
+		//unsigned char Alpha;
+		255,
+		//unsigned char RedScale;
+		{255,	255,	255,	255,	255},
+		//unsigned char GreenScale;
+		{192,	255,	255,	0  ,	255},
+		//unsigned char BlueScale;
+		{128,	255,	255,	0  ,	0},
+	
+		//unsigned char IsLit:1;
+		0,
+		//IsDrawnInFront:1;
+		1,
+		//IsDrawnAtBack:1;
+		0,
+	},
+	/* PARTICLE_IMPACTGLOW */
+	{
+		//int StartU;
+		64<<16,
+		//int StartV;
+		64<<16,
+		//int EndU;
+		127<<16,
+		//int EndV;
+		127<<16,
+		//unsigned int Size;
+		60,
+
+		//enum TRANSLUCENCY_TYPE TranslucencyType;
+		TRANSLUCENCY_GLOWING,
+
+		//unsigned char Alpha;
+		128,
+		//unsigned char RedScale;
+		{255,	255,	255,	255,	255},
+		//unsigned char GreenScale;
+		{128,	128,	128,	128,	128},
+		//unsigned char BlueScale;
+		{0,		0,		0,		0  ,	0},
+	
+		//unsigned char IsLit:1;
+		0,
+		//IsDrawnInFront:1;
+		0,
+		//IsDrawnAtBack:1;
+		0,
+	},
 };
 
 
@@ -1549,9 +1850,28 @@ void MakeParticle(VECTORCH *positionPtr, VECTORCH *velocityPtr, enum PARTICLE_ID
 			case PARTICLE_HUMAN_BLOOD:
 			case PARTICLE_ANDROID_BLOOD:
 			{
+				particlePtr->Size = 40;
 				particlePtr->Offset = particlePtr->Position;
 				particlePtr->LifeTime = ONE_FIXED;
 				NumberOfBloodParticles++;
+				break;
+			}
+			case PARTICLE_IMPACTGLOW:
+			{
+				particlePtr->Offset = particlePtr->Position;
+				particlePtr->LifeTime = ONE_FIXED/4;
+				break;
+			}
+			case PARTICLE_RAIN:
+			case PARTICLE_SNOW:
+			case PARTICLE_SHADOW:
+			{
+				particlePtr->Offset = particlePtr->Position;
+
+				if (particlePtr->ParticleID == PARTICLE_RAIN)
+					particlePtr->Offset.vy += 20;
+
+				particlePtr->LifeTime = ONE_FIXED*4;
 				break;
 			}
 			case PARTICLE_BLACKSMOKE:
@@ -1589,13 +1909,18 @@ void MakeParticle(VECTORCH *positionPtr, VECTORCH *velocityPtr, enum PARTICLE_ID
 			}
 			case PARTICLE_GUNMUZZLE_SMOKE:
 			{
-				particlePtr->LifeTime = ONE_FIXED/2+(FastRandom()&32767);
+				particlePtr->LifeTime = ONE_FIXED/2;
 				particlePtr->Offset.vx = ((FastRandom()&1023) - 512);
 				particlePtr->Offset.vz = ((FastRandom()&1023) - 512);
 				break;
 			}
-
-			case PARTICLE_SPARK:	  
+			case PARTICLE_DRILL2:
+			{
+				particlePtr->LifeTime = ONE_FIXED/2;
+				break;
+			}
+			case PARTICLE_SPARK:
+			case PARTICLE_DRILL:
 			{
 				particlePtr->LifeTime = ONE_FIXED;
 				break;
@@ -1625,9 +1950,22 @@ void MakeParticle(VECTORCH *positionPtr, VECTORCH *velocityPtr, enum PARTICLE_ID
 				particlePtr->Offset=particlePtr->Position;
 				break;
 			}
+			case PARTICLE_FLAMETHROWER:
+			{
+				particlePtr->Offset.vx = (FastRandom()&4095);
+				particlePtr->Offset.vy = ((FastRandom()&32767) - 16384);
 
-			case PARTICLE_FLAME:
+				particlePtr->LifeTime = ONE_FIXED/4;
+				break;
+			}
 			case PARTICLE_NONCOLLIDINGFLAME:
+			{
+				particlePtr->Offset.vx = (FastRandom()&4095);
+				particlePtr->Offset.vy = ((FastRandom()&32767) - 16384);
+				particlePtr->LifeTime = ONE_FIXED/4;
+				break;
+			}
+			case PARTICLE_FLAME:
 			case PARTICLE_NONDAMAGINGFLAME:
 			case PARTICLE_PARGEN_FLAME:
 			{
@@ -1635,6 +1973,13 @@ void MakeParticle(VECTORCH *positionPtr, VECTORCH *velocityPtr, enum PARTICLE_ID
 				particlePtr->Offset.vy = ((FastRandom()&32767) - 16384);
 
 				particlePtr->LifeTime = ONE_FIXED/2;
+				break;
+			}
+			case PARTICLE_STREAM:
+			{
+				particlePtr->LifeTime = ONE_FIXED*30;
+				particlePtr->Offset.vx = (FastRandom()&4095);
+				particlePtr->Offset.vy = ((FastRandom()&16383) - 8192);
 				break;
 			}
 			case PARTICLE_FIRE:
@@ -1681,7 +2026,7 @@ void MakeParticle(VECTORCH *positionPtr, VECTORCH *velocityPtr, enum PARTICLE_ID
 			}
 			case PARTICLE_ELECTRICALPLASMASPHERE:
 			{
-				particlePtr->LifeTime = 32767;
+				particlePtr->LifeTime = ONE_FIXED*8;
 				break;
 			}
 			case PARTICLE_PREDPISTOL_FLECHETTE:
@@ -1692,8 +2037,6 @@ void MakeParticle(VECTORCH *positionPtr, VECTORCH *velocityPtr, enum PARTICLE_ID
 			}
 			case PARTICLE_TRACER:
 			{
-				particlePtr->Position = *positionPtr;
-				particlePtr->Offset = *velocityPtr;
 				particlePtr->LifeTime = 0;
 				break;
 			}
@@ -1739,11 +2082,41 @@ void HandleParticleSystem(void)
 			case PARTICLE_HUMAN_BLOOD:
 			case PARTICLE_ANDROID_BLOOD:
 			{
-				particlePtr->Size = 64-(FastRandom()&31);
+				particlePtr->Size = 40/*64*/-(FastRandom()&31);
 				particlePtr->Offset	= particlePtr->Position;
-				particlePtr->Offset.vx += particlePtr->Velocity.vx>>4;
-				particlePtr->Offset.vy += particlePtr->Velocity.vy>>4;
-				particlePtr->Offset.vz += particlePtr->Velocity.vz>>4;
+				//particlePtr->Offset.vx += particlePtr->Velocity.vx>>4;
+				//particlePtr->Offset.vy += particlePtr->Velocity.vy>>4;
+				//particlePtr->Offset.vz += particlePtr->Velocity.vz>>4;
+				break;
+			}
+			case PARTICLE_SNOW:
+			{
+				particlePtr->Offset = particlePtr->Position;
+
+				particlePtr->Position.vx += MUL_FIXED(particlePtr->Velocity.vx,NormalFrameTime);
+				particlePtr->Velocity.vx -= MUL_FIXED(particlePtr->Velocity.vx,NormalFrameTime);
+				particlePtr->Position.vy += MUL_FIXED(particlePtr->Velocity.vy,NormalFrameTime);
+				particlePtr->Velocity.vy += MUL_FIXED(1250,NormalFrameTime);
+				particlePtr->Position.vz += MUL_FIXED(particlePtr->Velocity.vz,NormalFrameTime);
+				particlePtr->Velocity.vz -= MUL_FIXED(particlePtr->Velocity.vz,NormalFrameTime);
+				break;
+			}
+			case PARTICLE_IMPACTGLOW:
+			{
+				particlePtr->Offset = particlePtr->Position;
+				break;
+			}
+			case PARTICLE_RAIN:
+			case PARTICLE_SHADOW:
+			{
+				particlePtr->Offset = particlePtr->Position;
+
+				particlePtr->Position.vx += MUL_FIXED(particlePtr->Velocity.vx,NormalFrameTime);
+				particlePtr->Velocity.vx -= MUL_FIXED(particlePtr->Velocity.vx,NormalFrameTime);
+				particlePtr->Position.vy += MUL_FIXED(particlePtr->Velocity.vy,NormalFrameTime);
+				particlePtr->Velocity.vy += MUL_FIXED(20000,NormalFrameTime);
+				particlePtr->Position.vz += MUL_FIXED(particlePtr->Velocity.vz,NormalFrameTime);
+				particlePtr->Velocity.vz -= MUL_FIXED(particlePtr->Velocity.vz,NormalFrameTime);
 				break;
 			}
 			case PARTICLE_FLARESMOKE:
@@ -1877,6 +2250,10 @@ void HandleParticleSystem(void)
 									  	particleDescPtr->BlueScale[CurrentVisionMode],
 										(particlePtr->LifeTime>>14)+17
 									  );
+
+				if (CurrentVisionMode == VISION_MODE_ALIEN_SENSE)
+					particlePtr->Colour = RGBALIGHT_MAKE(0,0,64,255);
+
 				break;
 			}
 
@@ -1941,6 +2318,9 @@ void HandleParticleSystem(void)
 				{
 					int colour = particlePtr->LifeTime>>11;
 		  			particlePtr->Colour = RGBALIGHT_MAKE(colour,colour,colour,255);
+
+					if (CurrentVisionMode == VISION_MODE_ALIEN_SENSE)
+						particlePtr->Colour = RGBALIGHT_MAKE(0,0,64,255);
 				}												
 				
 				break;
@@ -1979,42 +2359,104 @@ void HandleParticleSystem(void)
 				#endif
 				
 				particlePtr->Position.vx += MUL_FIXED
-											(
-												particlePtr->Velocity.vx+
-												MUL_FIXED
-												(
-													-GetSin(((particlePtr->Position.vz+particlePtr->Position.vy)*16)&4095)/4,
-													particlePtr->Offset.vx
-												),
-												NormalFrameTime
-											
-											);
+				(
+					particlePtr->Velocity.vx+
+					MUL_FIXED
+					(
+						-GetSin(((particlePtr->Position.vz+particlePtr->Position.vy)*16)&4095)/4,
+						particlePtr->Offset.vx
+					),
+					NormalFrameTime				
+				);
 
 				particlePtr->Position.vz += MUL_FIXED
-											(
-												particlePtr->Velocity.vz+
-												MUL_FIXED
-												(
-													GetCos(((particlePtr->Position.vx+particlePtr->Position.vy)*16)&4095)/4,
-													particlePtr->Offset.vz
-												),
-												NormalFrameTime
-											
-											);
+				(
+					particlePtr->Velocity.vz+
+					MUL_FIXED
+					(
+						GetCos(((particlePtr->Position.vx+particlePtr->Position.vy)*16)&4095)/4,
+						particlePtr->Offset.vz
+					),
+					NormalFrameTime						
+				);
 
-				particlePtr->Size = MUL_FIXED(ONE_FIXED-particlePtr->LifeTime,48);
+				particlePtr->Size = 5+(ONE_FIXED/2-particlePtr->LifeTime)/64;
 				{
 					int colour = particlePtr->LifeTime>>11;
-		  			particlePtr->Colour = RGBALIGHT_MAKE(32,32,32,colour);
-				}												
+					int Red=64, Green=64, Blue=64;
+
+					if (CurrentVisionMode == VISION_MODE_ALIEN_SENSE)
+					{
+						Red = 0;
+						Green = 0;
+						Blue = 64;
+					}
+		  			particlePtr->Colour = RGBALIGHT_MAKE(Red,Green,Blue,colour);
+				}
+				if (CurrentVisionMode == VISION_MODE_PRED_THERMAL)
+					particlePtr->Colour = RGBALIGHT_MAKE(128,0,0,255);
+
+				if (CurrentVisionMode == VISION_MODE_IMAGEINTENSIFIER)
+					particlePtr->Colour = RGBALIGHT_MAKE(128,128,128,255);
 				
+				break;
+			}
+			case PARTICLE_FLAMETHROWER:
+			{
+				particlePtr->Size = 50;
+	
+				if (particlePtr->LifeTime==ONE_FIXED/4)
+				{
+					switch (CurrentVisionMode)
+					{
+						default:
+						case VISION_MODE_NORMAL:
+						{
+							particlePtr->Colour = RGBALIGHT_MAKE(16,16,128,(particlePtr->LifeTime>>8)|9);
+							break;
+						}
+						case VISION_MODE_IMAGEINTENSIFIER:
+						{
+							particlePtr->Colour = RGBALIGHT_MAKE(255,255,255,(particlePtr->LifeTime>>8)|9);
+							break;
+						}
+						case VISION_MODE_PRED_THERMAL:
+						{
+							particlePtr->Colour = RGBALIGHT_MAKE(255,0,0,(particlePtr->LifeTime>>8)|9);
+						  	break;
+						}
+						case VISION_MODE_PRED_SEEALIENS:
+						case VISION_MODE_PRED_SEEPREDTECH:
+						{
+							particlePtr->Colour = RGBALIGHT_MAKE(192,128,32,(particlePtr->LifeTime>>8)|9);
+						  	break;
+						}
+					}
+					particlePtr->LifeTime = 0;
+				}
+				else
+				{
+					particlePtr->Colour = RGBALIGHT_MAKE
+										  (
+										  	particleDescPtr->RedScale[CurrentVisionMode],
+										  	particleDescPtr->GreenScale[CurrentVisionMode],
+										  	particleDescPtr->BlueScale[CurrentVisionMode],
+											(particlePtr->LifeTime>>8)|9
+										  );
+				}
 				break;
 			}
 			case PARTICLE_FLAME:
 			case PARTICLE_NONDAMAGINGFLAME:
 			case PARTICLE_PARGEN_FLAME:
 			{
-				particlePtr->Size = 20+(ONE_FIXED/2-particlePtr->LifeTime)/64;	 
+				if (particlePtr->LifeTime == ONE_FIXED/4) {
+					particlePtr->Size = 500+(ONE_FIXED/2)/64;
+				} else if (particlePtr->LifeTime == ONE_FIXED/2) {
+					particlePtr->Size = 100+(ONE_FIXED/2-particlePtr->LifeTime)/64;
+				} else {
+					particlePtr->Size = 150+(ONE_FIXED/2-particlePtr->LifeTime)/64;
+				}
 				if (particlePtr->LifeTime==ONE_FIXED/2)
 				{
 					switch (CurrentVisionMode)
@@ -2027,12 +2469,12 @@ void HandleParticleSystem(void)
 						}
 						case VISION_MODE_IMAGEINTENSIFIER:
 						{
-							particlePtr->Colour = RGBALIGHT_MAKE(0,32,0,(particlePtr->LifeTime>>8)|9);
+							particlePtr->Colour = RGBALIGHT_MAKE(255,255,255,(particlePtr->LifeTime>>8)|9);
 							break;
 						}
 						case VISION_MODE_PRED_THERMAL:
 						{
-							particlePtr->Colour = RGBALIGHT_MAKE(0,0,128,(particlePtr->LifeTime>>8)|9);
+							particlePtr->Colour = RGBALIGHT_MAKE(255,0,0,(particlePtr->LifeTime>>8)|9);
 						  	break;
 						}
 						case VISION_MODE_PRED_SEEALIENS:
@@ -2057,21 +2499,96 @@ void HandleParticleSystem(void)
 				
 				break;
 			}
+			case PARTICLE_STREAM:
+			{
+				if (particlePtr->LifeTime<ONE_FIXED*8)
+				{
+					int colour = (particlePtr->LifeTime/(8*256));
+					switch (CurrentVisionMode)
+					{
+					case VISION_MODE_NORMAL:
+			  			particlePtr->Colour = RGBALIGHT_MAKE(255,255,255,colour);
+						break;
+					case VISION_MODE_ALIEN_SENSE:
+						particlePtr->Colour = RGBALIGHT_MAKE(0,0,255,colour);
+						break;
+					case VISION_MODE_IMAGEINTENSIFIER:
+						particlePtr->Colour = RGBALIGHT_MAKE(255,255,255,colour);
+						break;
+					case VISION_MODE_PRED_THERMAL:
+						particlePtr->Colour = RGBALIGHT_MAKE(255,0,0,colour);
+						break;
+					case VISION_MODE_PRED_SEEALIENS:
+						particlePtr->Colour = RGBALIGHT_MAKE(0,0,0,0);
+						break;
+					case VISION_MODE_PRED_SEEPREDTECH:
+						particlePtr->Colour = RGBALIGHT_MAKE(255,255,255,(colour/2));
+						break;
+					}
+				}
+				else
+				{
+		  			switch (CurrentVisionMode)
+					{
+					case VISION_MODE_NORMAL:
+			  			particlePtr->Colour = RGBALIGHT_MAKE(255,255,255,255);
+						break;
+					case VISION_MODE_ALIEN_SENSE:
+						particlePtr->Colour = RGBALIGHT_MAKE(0,0,255,255);
+						break;
+					case VISION_MODE_IMAGEINTENSIFIER:
+						particlePtr->Colour = RGBALIGHT_MAKE(255,255,255,255);
+						break;
+					case VISION_MODE_PRED_THERMAL:
+						particlePtr->Colour = RGBALIGHT_MAKE(255,0,0,255);
+						break;
+					case VISION_MODE_PRED_SEEALIENS:
+						particlePtr->Colour = RGBALIGHT_MAKE(0,0,0,0);
+						break;
+					case VISION_MODE_PRED_SEEPREDTECH:
+						particlePtr->Colour = RGBALIGHT_MAKE(255,255,255,64);
+						break;
+					}
+				}
+				particlePtr->Size = 6000+500-(particlePtr->LifeTime>>10);
+				
+				AddEffectsOfForceGenerators(&particlePtr->Position,&particlePtr->Velocity,32*64);
+				
+				break;
+			}
+
 			case PARTICLE_FIRE:
 			{
-				particlePtr->Size = 300-(FastRandom()&127);
+				particlePtr->Size = 200-(FastRandom()&127);
+
+				if (CurrentVisionMode == VISION_MODE_PRED_THERMAL)
+					particlePtr->Colour = RGBALIGHT_MAKE(255,0,0,255);
+
+				if (CurrentVisionMode == VISION_MODE_IMAGEINTENSIFIER)
+					particlePtr->Colour = RGBALIGHT_MAKE(255,255,255,255);
+
 				break;
 			}
 			case PARTICLE_EXPLOSIONFIRE:
 			{
 				VECTORCH obstacleNormal;
-				int moduleIndex;
+				int moduleIndex, i;
 
-				if(ParticleDynamics(particlePtr,&obstacleNormal,&moduleIndex) && !(FastRandom()&15))
+				if(ParticleDynamics(particlePtr,&obstacleNormal,&moduleIndex))
 				{
-					MakeDecal(DECAL_SCORCHED,&obstacleNormal,&(particlePtr->Position),moduleIndex);
+					if (LocalDetailLevels.ExplosionFX == 3)
+					{
+						for (i=0; i<1; i++) {
+							MakeLargeDecal(DECAL_SCORCHED,&obstacleNormal,&(particlePtr->Position),moduleIndex);
+						}
+					}
 					particlePtr->LifeTime=0;
 				}
+				if (CurrentVisionMode == VISION_MODE_PRED_THERMAL)
+					particlePtr->Colour = RGBALIGHT_MAKE(255,0,0,255);
+
+				if (CurrentVisionMode == VISION_MODE_IMAGEINTENSIFIER)
+					particlePtr->Colour = RGBALIGHT_MAKE(255,255,255,255);
 				break;
 			}
 			case PARTICLE_MOLOTOVFLAME:
@@ -2098,13 +2615,27 @@ void HandleParticleSystem(void)
 					#endif
 				}
 				particlePtr->Size = 800-(FastRandom()&255);
+
+				if (CurrentVisionMode == VISION_MODE_PRED_THERMAL)
+					particlePtr->Colour = RGBALIGHT_MAKE(128,0,0,255);
+
+				if (CurrentVisionMode == VISION_MODE_IMAGEINTENSIFIER)
+					particlePtr->Colour = RGBALIGHT_MAKE(128,128,128,255);
+
 				break;
 			}
 
 
 			case PARTICLE_NONCOLLIDINGFLAME:
 			{				
-				particlePtr->Size = 20+(ONE_FIXED/2-particlePtr->LifeTime)/64;	 
+				particlePtr->Size = 150;//+(ONE_FIXED/2-particlePtr->LifeTime)/64;
+				
+				if (CurrentVisionMode == VISION_MODE_PRED_THERMAL)
+					particlePtr->Colour = RGBALIGHT_MAKE(128,0,0,255);
+
+				if (CurrentVisionMode == VISION_MODE_IMAGEINTENSIFIER)
+					particlePtr->Colour = RGBALIGHT_MAKE(128,128,128,255);
+
 				break;
 			}
 			case PARTICLE_ORANGE_SPARK:
@@ -2171,7 +2702,6 @@ void HandleParticleSystem(void)
 						}
 					}
 				}
-
 				break;
 			}
 			case PARTICLE_ORANGE_PLASMA:
@@ -2317,7 +2847,162 @@ void HandleParticleSystem(void)
 
 				break;
 			}
+			case PARTICLE_DRILL:
+			{
+				if (particlePtr->LifeTime == ONE_FIXED) {
+					particlePtr->Size = 400;
+				} else {
+					particlePtr->Size = particlePtr->LifeTime/200;
+				}
+				particlePtr->Offset = particlePtr->Position;
+				particlePtr->Position.vx += MUL_FIXED(particlePtr->Velocity.vx,NormalFrameTime);
+				particlePtr->Velocity.vx -= MUL_FIXED(particlePtr->Velocity.vx,NormalFrameTime);
+				particlePtr->Position.vy += MUL_FIXED(particlePtr->Velocity.vy,NormalFrameTime);
+				particlePtr->Velocity.vy -= MUL_FIXED(particlePtr->Velocity.vy,NormalFrameTime);
+				particlePtr->Position.vz += MUL_FIXED(particlePtr->Velocity.vz,NormalFrameTime);
+				particlePtr->Velocity.vz -= MUL_FIXED(particlePtr->Velocity.vz,NormalFrameTime);
 
+				{
+					int l = particlePtr->LifeTime*2;
+					l = MUL_FIXED(255,l);
+
+					if (l>255)
+					{
+						switch(CurrentVisionMode)
+						{
+							default:
+							case VISION_MODE_NORMAL:
+							{
+								particlePtr->Colour = RGBALIGHT_MAKE(l/2,l/2,255,255);
+								break;
+							}
+							case VISION_MODE_IMAGEINTENSIFIER:
+							{
+			  					particlePtr->Colour = RGBALIGHT_MAKE(l/2,l/2,l/2,255);
+								break;
+							}
+							case VISION_MODE_PRED_THERMAL:
+							{
+			  					particlePtr->Colour = RGBALIGHT_MAKE(l-255,255,255,255);
+							  	break;
+							}
+							case VISION_MODE_PRED_SEEALIENS:
+							case VISION_MODE_PRED_SEEPREDTECH:
+							{
+			  					particlePtr->Colour = RGBALIGHT_MAKE(255,255,l-255,255);
+							  	break;
+							}
+						}
+					}
+					else
+					{
+						switch (CurrentVisionMode)
+						{
+							default:
+							case VISION_MODE_NORMAL:
+							{
+			  					particlePtr->Colour = RGBALIGHT_MAKE(l/2,l/2,l,l);
+								break;
+							}
+							case VISION_MODE_IMAGEINTENSIFIER:
+							{
+			  					particlePtr->Colour = RGBALIGHT_MAKE(l/2,l/2,128,l);
+								break;
+							}
+							case VISION_MODE_PRED_THERMAL:
+							{
+			  					particlePtr->Colour = RGBALIGHT_MAKE(0,l,l,l);
+							  	break;
+							}
+							case VISION_MODE_PRED_SEEALIENS:
+							case VISION_MODE_PRED_SEEPREDTECH:
+							{
+			  					particlePtr->Colour = RGBALIGHT_MAKE(l,l,0,l);
+							  	break;
+							}
+						}
+					}
+				}
+				break;
+			}
+			case PARTICLE_DRILL2:
+			{
+				if (particlePtr->LifeTime == ONE_FIXED/2) {
+					particlePtr->Size = 40;
+				} else {
+					particlePtr->Size = particlePtr->LifeTime/2000;
+				}
+				particlePtr->Offset = particlePtr->Position;
+				particlePtr->Position.vx += MUL_FIXED(particlePtr->Velocity.vx,NormalFrameTime);
+				particlePtr->Velocity.vx -= MUL_FIXED(particlePtr->Velocity.vx,NormalFrameTime);
+				particlePtr->Position.vy += MUL_FIXED(particlePtr->Velocity.vy,NormalFrameTime);
+				particlePtr->Velocity.vy -= MUL_FIXED(particlePtr->Velocity.vy,NormalFrameTime);
+				particlePtr->Position.vz += MUL_FIXED(particlePtr->Velocity.vz,NormalFrameTime);
+				particlePtr->Velocity.vz -= MUL_FIXED(particlePtr->Velocity.vz,NormalFrameTime);
+
+				{
+					int l = particlePtr->LifeTime*2;
+					l = MUL_FIXED(255,l);
+
+					if (l>255)
+					{
+						switch(CurrentVisionMode)
+						{
+							default:
+							case VISION_MODE_NORMAL:
+							{
+								particlePtr->Colour = RGBALIGHT_MAKE(l/2,l/2,255,255);
+								break;
+							}
+							case VISION_MODE_IMAGEINTENSIFIER:
+							{
+			  					particlePtr->Colour = RGBALIGHT_MAKE(l/2,l/2,l/2,255);
+								break;
+							}
+							case VISION_MODE_PRED_THERMAL:
+							{
+			  					particlePtr->Colour = RGBALIGHT_MAKE(l-255,255,255,255);
+							  	break;
+							}
+							case VISION_MODE_PRED_SEEALIENS:
+							case VISION_MODE_PRED_SEEPREDTECH:
+							{
+			  					particlePtr->Colour = RGBALIGHT_MAKE(255,255,l-255,255);
+							  	break;
+							}
+						}
+					}
+					else
+					{
+						switch (CurrentVisionMode)
+						{
+							default:
+							case VISION_MODE_NORMAL:
+							{
+			  					particlePtr->Colour = RGBALIGHT_MAKE(l/2,l/2,l,l);
+								break;
+							}
+							case VISION_MODE_IMAGEINTENSIFIER:
+							{
+			  					particlePtr->Colour = RGBALIGHT_MAKE(l/2,l/2,128,l);
+								break;
+							}
+							case VISION_MODE_PRED_THERMAL:
+							{
+			  					particlePtr->Colour = RGBALIGHT_MAKE(0,l,l,l);
+							  	break;
+							}
+							case VISION_MODE_PRED_SEEALIENS:
+							case VISION_MODE_PRED_SEEPREDTECH:
+							{
+			  					particlePtr->Colour = RGBALIGHT_MAKE(l,l,0,l);
+							  	break;
+							}
+						}
+					}
+				}
+				break;
+			}
 			case PARTICLE_SPARK:
 			{
 				particlePtr->Offset = particlePtr->Position;
@@ -2544,7 +3229,6 @@ void HandleParticleSystem(void)
 			}
 			case PARTICLE_WATERFALLSPRAY:
 			{
-				extern int WaterFallBase;
 				int y = particlePtr->Position.vy;
 				particlePtr->Colour = RGBALIGHT_MAKE
 									  (
@@ -2560,38 +3244,9 @@ void HandleParticleSystem(void)
 				
 				particlePtr->Velocity.vy += MUL_FIXED(10000+(FastRandom()&511),NormalFrameTime);
 				
-				if(particlePtr->Position.vz < 54885 && particlePtr->Position.vx < 179427)
-				{
-					if (y<4742 && particlePtr->Position.vy>4742)
-					{
-						particlePtr->Position.vy=4742;
-						particlePtr->Velocity.vy=-MUL_FIXED(particlePtr->Velocity.vy,ONE_FIXED/2-(FastRandom()&16384));						
-					}
-				}
-				else if (particlePtr->Position.vz < 58600)
-				{
-					int l = DIV_FIXED(particlePtr->Position.vz - 54885,58600-54885);
-
-					if (particlePtr->Position.vx < 179427 - MUL_FIXED(l,179427-175545))
-					{
-						int yThreshold = 4742 + MUL_FIXED(l,8635-4742);
-						if (y<yThreshold && particlePtr->Position.vy>yThreshold)
-						{
-							particlePtr->Position.vy=yThreshold;
-							particlePtr->Velocity.vy=-MUL_FIXED(particlePtr->Velocity.vy,ONE_FIXED/2-(FastRandom()&16384));						
-						}
-					}
-				}
-
 				particlePtr->Offset.vx = particlePtr->Position.vx - particlePtr->Velocity.vx/4;
 				particlePtr->Offset.vy = particlePtr->Position.vy - particlePtr->Velocity.vy/4;
 				particlePtr->Offset.vz = particlePtr->Position.vz - particlePtr->Velocity.vz/4;
-
-				if (particlePtr->Position.vy>WaterFallBase)
-				{
-					particlePtr->LifeTime = 0;
-				}
-
 				break;
 			}
 			case PARTICLE_FLECHETTE:
@@ -2680,14 +3335,14 @@ void HandleParticleSystem(void)
 			{
 				if (particlePtr->LifeTime<ONE_FIXED*8)
 				{
-					int colour = (particlePtr->LifeTime/(8*256*4));
+					int colour = (particlePtr->LifeTime/(8*256));
 		  			particlePtr->Colour = RGBALIGHT_MAKE(255,255,255,colour);
 				}
 				else
 				{
-		  			particlePtr->Colour = RGBALIGHT_MAKE(255,255,255,64);
+		  			particlePtr->Colour = RGBALIGHT_MAKE(255,255,255,255);
 				}
-				particlePtr->Size = 1000+500-(particlePtr->LifeTime>>10);
+				particlePtr->Size = 3000+500-(particlePtr->LifeTime>>10);
 				
 				AddEffectsOfForceGenerators(&particlePtr->Position,&particlePtr->Velocity,32*64);
 				
@@ -2695,14 +3350,28 @@ void HandleParticleSystem(void)
 			}
 			case PARTICLE_BLUEPLASMASPHERE:
 			{
+				{
+					VECTORCH obstacleNormal;
+					int moduleIndex, i;
+
+					if(ParticleDynamics(particlePtr,&obstacleNormal,&moduleIndex))
+					{
+						if (LocalDetailLevels.ExplosionFX == 3)
+						{
+							for (i=0; i < 3; i++)
+								MakeLargeDecal(DECAL_SCORCHED,&obstacleNormal,&(particlePtr->Position),moduleIndex);
+						}
+					}
+					particlePtr->LifeTime=0;
+				}
 				break;
 			}
 			case PARTICLE_ELECTRICALPLASMASPHERE:
 			{
 				{
-					int colour = (particlePtr->LifeTime/128);
-					particlePtr->Size = 200+(ONE_FIXED-particlePtr->LifeTime)/16;
-		  			particlePtr->Colour = RGBALIGHT_MAKE(255,255,255,colour);
+					int Alpha=(particlePtr->LifeTime/ONE_FIXED)*25;
+					particlePtr->Size = 8000;
+		  			particlePtr->Colour = RGBALIGHT_MAKE(255,255,255,Alpha);
 				}
 				break;
 			}
@@ -2908,10 +3577,14 @@ void HandleParticleSystem(void)
 									}
 									case VISION_MODE_IMAGEINTENSIFIER:
 									{
-										colour = 0xffffffff;
+										colour = 0xffcccccc;
 										break;
 									}
 									case VISION_MODE_PRED_THERMAL:
+									{
+										colour = 0xffff0000;
+										break;
+									}
 									case VISION_MODE_PRED_SEEALIENS:
 									case VISION_MODE_PRED_SEEPREDTECH:
 									{
@@ -2965,7 +3638,7 @@ void HandleParticleSystem(void)
 										}
 										case VISION_MODE_IMAGEINTENSIFIER:
 										{
-											colour = 0x40ffffff;
+											colour = 0x4000ff00;
 											break;
 										}
 										case VISION_MODE_PRED_THERMAL:
@@ -2978,6 +3651,18 @@ void HandleParticleSystem(void)
 									}
 									RenderLightFlare(&(sbPtr->DynPtr->Position),colour);
 								}
+							}
+						}
+						break;
+					}
+					case I_BehaviourProximityGrenade:
+					{
+						if (sbPtr->DynPtr)
+						{
+							if (CameraCanSeeThisPosition_WithIgnore(objectPtr,&(sbPtr->DynPtr->Position)))
+							{
+								if ((FastRandom()%2)==0)
+									RenderSmallLightFlare(&(sbPtr->DynPtr->Position),0xffff0000);
 							}
 						}
 						break;
@@ -3000,7 +3685,7 @@ void HandleParticleSystem(void)
 									}
 									case VISION_MODE_IMAGEINTENSIFIER:
 									{
-										colour = 0x40ffffff;
+										colour = 0x40ff0000;
 										break;
 									}
 									case VISION_MODE_PRED_THERMAL:
@@ -3108,7 +3793,7 @@ void HandleParticleSystem(void)
 							displayblock.ObWorld.vy=bbPtr->Position.vy+sbPtr->DynPtr->Position.vy;
 							displayblock.ObWorld.vz=bbPtr->Position.vz+sbPtr->DynPtr->Position.vz;
 							displayblock.ObMat=bbPtr->Orient;
-							displayblock.ObShape=GetLoadedShapeMSL("spear");
+							displayblock.ObShape=GetLoadedShapeMSL("prong");
 							displayblock.ObShapeData=GetShapeData(displayblock.ObShape);
 
 							displayblock.name=NULL;
@@ -3209,7 +3894,8 @@ void RenderAllParticlesFurtherAwayThan(int zThreshold)
 										MakeParticle(&(particlePtr->Position),&(velocity),PARTICLE_IMPACTSMOKE);
 									}
 									#endif
-						 			MakeDecal(DECAL_SCORCHED,&obstacleNormal,&(particlePtr->Position),moduleIndex);
+									MakeDecal(DECAL_ALIEN_BLOOD,&obstacleNormal,&(particlePtr->Position),moduleIndex);
+									MakeDecal(DECAL_SCORCHED,&obstacleNormal,&(particlePtr->Position),moduleIndex);
 								}
 								particlePtr->LifeTime = 0;
 							}
@@ -3304,16 +3990,41 @@ void RenderAllParticlesFurtherAwayThan(int zThreshold)
 					case PARTICLE_PARGEN_FLAME:
 					{
 					   	RenderParticle(particlePtr);
+
+						if (LocalDetailLevels.MuzzleSmoke)
+						{
+							if ((FastRandom()%10) == 1)
+							{
+								VECTORCH velocity;
+								velocity.vy = (-(FastRandom()%1023)-512)*2;
+								velocity.vx = ((FastRandom()&1023)-512)*2;
+								velocity.vz = ((FastRandom()&1023)-512)*2;
+								MakeParticle(&(particlePtr->Position), &velocity, PARTICLE_BLACKSMOKE);
+							}
+						}
+
 						{
 							VECTORCH obstacleNormal;
 							int moduleIndex;
 
 							if(ParticleDynamics(particlePtr,&obstacleNormal,&moduleIndex) && !(FastRandom()&15))
 							{
-								if (particlePtr->ParticleID!=PARTICLE_NONDAMAGINGFLAME) {
+								if ((particlePtr->ParticleID!=PARTICLE_NONDAMAGINGFLAME)
+								&& (LocalDetailLevels.GhostFlameThrowerCollisions))
+								{
 									if(moduleIndex!=-1)
 									{
 										MakeDecal(DECAL_SCORCHED,&obstacleNormal,&(particlePtr->Position),moduleIndex);
+										// Make napalm burn on walls...
+										{
+											int i;
+											VECTORCH velocity;
+											velocity.vy = 0;
+											velocity.vx = 0;
+											velocity.vz = 0;
+											for(i=0; i < 5; i++)
+												MakeParticle(&(particlePtr->Position),&velocity,PARTICLE_FIRE);
+										}
 									}
 								}
 							}
@@ -3324,7 +4035,18 @@ void RenderAllParticlesFurtherAwayThan(int zThreshold)
 					case PARTICLE_FIRE:
 					{
 						RenderParticle(particlePtr);
+						{
+							VECTORCH obstacleNormal;
+							int moduleIndex;
 
+							if (ParticleDynamics(particlePtr,&obstacleNormal,&moduleIndex) && !(FastRandom()&15))
+							{
+								if (moduleIndex!=-1)
+								{
+									MakeDecal(DECAL_SCORCHED,&obstacleNormal,&(particlePtr->Position),moduleIndex);
+								}
+							}
+						}
 						particlePtr->Position.vx += MUL_FIXED(particlePtr->Velocity.vx,NormalFrameTime);
 						particlePtr->Position.vy += MUL_FIXED(particlePtr->Velocity.vy,NormalFrameTime);
 						particlePtr->Position.vz += MUL_FIXED(particlePtr->Velocity.vz,NormalFrameTime);
@@ -3335,17 +4057,75 @@ void RenderAllParticlesFurtherAwayThan(int zThreshold)
 					case PARTICLE_NONCOLLIDINGFLAME:
 					{				
 					   	RenderParticle(particlePtr);
-						
+						{
+							VECTORCH obstacleNormal;
+							int moduleIndex;
+
+							if (ParticleDynamics(particlePtr,&obstacleNormal,&moduleIndex) && !(FastRandom()&15))
+							{
+								if (moduleIndex!=-1)
+								{
+									MakeDecal(DECAL_SCORCHED,&obstacleNormal,&(particlePtr->Position),moduleIndex);
+								}
+							}
+						}
 						particlePtr->Position.vx += MUL_FIXED(particlePtr->Velocity.vx,NormalFrameTime);
 						particlePtr->Position.vy += MUL_FIXED(particlePtr->Velocity.vy,NormalFrameTime);
 						particlePtr->Position.vz += MUL_FIXED(particlePtr->Velocity.vz,NormalFrameTime);
-						particlePtr->Velocity.vy -= MUL_FIXED(8000,NormalFrameTime);
+						particlePtr->Velocity.vy -= MUL_FIXED(10,NormalFrameTime);
 						break;
 					}
 					case PARTICLE_FLECHETTE:
 					case PARTICLE_FLECHETTE_NONDAMAGING:
 					{
 						RenderFlechetteParticle(particlePtr);
+						break;
+					}
+					case PARTICLE_SNOW:
+					{
+						RenderParticle(particlePtr);
+						{
+							VECTORCH obstacleNormal;
+							int moduleIndex;
+
+							if (ParticleDynamics(particlePtr,&obstacleNormal,&moduleIndex))
+							{
+								particlePtr->LifeTime = 0;
+							}
+						}
+						particlePtr->Velocity.vy += MUL_FIXED(1250,NormalFrameTime);
+						break;
+					}
+					case PARTICLE_RAIN:
+					{
+						RenderParticle(particlePtr);
+						{
+							VECTORCH obstacleNormal;
+							int moduleIndex;
+
+							if (ParticleDynamics(particlePtr,&obstacleNormal,&moduleIndex))
+							{
+								VECTORCH velocity;
+
+								velocity.vy = (-(FastRandom()%1023)-512)*2;
+								velocity.vx = ((FastRandom()&1023)-512)*2;
+								velocity.vz = ((FastRandom()&1023)-512)*2;
+								MakeParticle(&particlePtr->Position,&velocity,PARTICLE_WATERSPRAY);	
+								velocity.vy = (-(FastRandom()%1023)-512)*2;
+								velocity.vx = ((FastRandom()&1023)-512)*2;
+								velocity.vz = ((FastRandom()&1023)-512)*2;
+								MakeParticle(&particlePtr->Position,&velocity,PARTICLE_WATERSPRAY);
+
+								particlePtr->LifeTime = 0;
+							}
+						}
+						particlePtr->Velocity.vy += MUL_FIXED(20000,NormalFrameTime);
+						break;
+					}
+					case PARTICLE_SHADOW:
+					{
+						RenderParticle(particlePtr);
+						particlePtr->Velocity.vy += MUL_FIXED(10000,NormalFrameTime);
 						break;
 					}
 					case PARTICLE_STEAM:
@@ -3358,6 +4138,8 @@ void RenderAllParticlesFurtherAwayThan(int zThreshold)
 					case PARTICLE_ORANGE_PLASMA:
 					case PARTICLE_RICOCHET_SPARK:
 					case PARTICLE_SPARK:
+					case PARTICLE_DRILL:
+					case PARTICLE_DRILL2:
 					case PARTICLE_PLASMATRAIL:
 					case PARTICLE_DEWLINE:
 					case PARTICLE_WATERSPRAY:
@@ -3368,6 +4150,9 @@ void RenderAllParticlesFurtherAwayThan(int zThreshold)
 					case PARTICLE_PREDPISTOL_FLECHETTE:
 					case PARTICLE_PREDPISTOL_FLECHETTE_NONDAMAGING:
 					case PARTICLE_TRACER:
+					case PARTICLE_FLAMETHROWER:
+					case PARTICLE_STREAM:
+					case PARTICLE_IMPACTGLOW:
 					{
 						RenderParticle(particlePtr);
 						break;
@@ -3406,10 +4191,14 @@ void DoFlareCorona(DISPLAYBLOCK *objectPtr)
 			}
 			case VISION_MODE_IMAGEINTENSIFIER:
 			{
-				colour = 0xffffffff;
+				colour = 0xff00ff00;
 				break;
 			}
 			case VISION_MODE_PRED_THERMAL:
+			{
+				colour = 0xffff0000;
+				break;
+			}
 			case VISION_MODE_PRED_SEEALIENS:
 			case VISION_MODE_PRED_SEEPREDTECH:
 			{
@@ -4358,8 +5147,8 @@ void MakeImpactSparks(VECTORCH *incidentPtr, VECTORCH *normalPtr, VECTORCH *posi
 	VECTORCH velocity;
 	int d = -2*DotProduct(incidentPtr,normalPtr);
 	velocity.vx = (incidentPtr->vx + MUL_FIXED(d,normalPtr->vx))>>3;
-	velocity.vy = (incidentPtr->vy + MUL_FIXED(d,normalPtr->vy))>>3;
-	velocity.vz = (incidentPtr->vz + MUL_FIXED(d,normalPtr->vz))>>3;
+	velocity.vy = 0;//(incidentPtr->vy + MUL_FIXED(d,normalPtr->vy))>>3;
+	velocity.vz = 0;//(incidentPtr->vz + MUL_FIXED(d,normalPtr->vz))>>3;
 
 	do
 	{
@@ -4392,7 +5181,25 @@ void MakeSprayOfSparks(MATRIXCH *orientationPtr, VECTORCH *positionPtr)
 	MakeLightElement(positionPtr,LIGHTELEMENT_ELECTRICAL_SPARKS);
 }
 
-void MakeVolumetricExplosionAt(VECTORCH *positionPtr, enum EXPLOSION_ID explosionID)
+void MakeSprayOfRedSparks(MATRIXCH *orientationPtr, VECTORCH *positionPtr)
+{
+	int noOfSparks = 15;
+	do
+	{
+		
+		VECTORCH velocity;
+		velocity.vx = (FastRandom()&2047)-1024;
+		velocity.vy = (FastRandom()&2047);
+		velocity.vz = -(FastRandom()&2047)-1024;
+		RotateVector(&velocity,orientationPtr);
+		MakeParticle(positionPtr,&velocity,PARTICLE_ORANGE_PLASMA);	
+	}
+	while(--noOfSparks);
+
+	MakeLightElement(positionPtr,LIGHTELEMENT_PARGEN_FLAME);
+}
+
+void MakeNewVolumetricExplosionAt(VECTORCH *positionPtr, enum EXPLOSION_ID explosionID)
 {
 	switch (explosionID)
 	{
@@ -4446,7 +5253,7 @@ void MakeVolumetricExplosionAt(VECTORCH *positionPtr, enum EXPLOSION_ID explosio
 			}
 
 			#if 1
-			for (i=0; i<LocalDetailLevels.NumberOfSmokeParticlesFromLargeExplosion; i++)
+			for (i=0; i<2; i++)
 			{
 				VECTORCH position = *positionPtr;
 				position.vx += (FastRandom()&2047)-1024;
@@ -4693,7 +5500,9 @@ static void HandleVolumetricExplosion(VOLUMETRIC_EXPLOSION *expPtr)
 
 			particle.Position = expPtr->Position[i];
 		
-			if(LocalDetailLevels.ExplosionsDeformToEnvironment && expPtr->UseCollisions)
+			// LocalDetailLevels.ExplosionsDeformToEnvironment is being used by
+			// something else, namely Advanced Waveforms.. -- Eld
+			if(/*LocalDetailLevels.ExplosionsDeformToEnvironment &&*/ expPtr->UseCollisions)
 			{
 				if(ParticleDynamics(&particle,&obstacleNormal,&moduleIndex))
 				{
@@ -4728,33 +5537,127 @@ static void HandleVolumetricExplosion(VOLUMETRIC_EXPLOSION *expPtr)
 	}
 }
 
-void MakeOldVolumetricExplosionAt(VECTORCH *positionPtr)
+void MakeVolumetricExplosionAt(VECTORCH *positionPtr, enum EXPLOSION_ID explosionID)
 {
-	int noRequired = 32;//MUL_FIXED(2500,NormalFrameTime);
+	int noRequired;
 	int i;
-//	VECTORCH zero={0,0,0};
-	for (i=0; i<noRequired; i++)
+
+	switch(explosionID)
 	{
-		VECTORCH velocity;
-		int phi = FastRandom()&4095;
-		int speed = 6000*4+(FastRandom()&4095);
-
-		velocity.vz = (FastRandom()&131071) - ONE_FIXED;
+		case EXPLOSION_PULSEGRENADE:
+		case EXPLOSION_SMALL_NOCOLLISIONS:
 		{
-			float z = ((float)velocity.vz)/65536.0;
-			z = sqrt(1-z*z);
+			if (LocalDetailLevels.ExplosionFX == 0)
+				noRequired = 4;
+			else if (LocalDetailLevels.ExplosionFX == 1)
+				noRequired = 8;
+			else if (LocalDetailLevels.ExplosionFX == 2)
+				noRequired = 12;
+			else
+				noRequired = 16;
+			
+			for (i=0; i<noRequired; i++)
+			{
+				VECTORCH velocity;
+				int phi = FastRandom()&4095;
+				int speed = 6000*4+(FastRandom()&4095);
 
-			f2i(velocity.vx,(float)GetCos(phi)*z);
-			f2i(velocity.vy,(float)GetSin(phi)*z);
+				velocity.vz = (FastRandom()&131071) - ONE_FIXED;
+				{
+					float z = ((float)velocity.vz)/65536.0;
+					z = sqrt(1-z*z);
+
+					f2i(velocity.vx,(float)GetCos(phi)*z);
+					f2i(velocity.vy,(float)GetSin(phi)*z);
+				}
+				velocity.vx = MUL_FIXED(velocity.vx,speed);
+				velocity.vy = MUL_FIXED(velocity.vy,speed);
+				velocity.vz = MUL_FIXED(velocity.vz,speed);
+
+				MakeParticle(positionPtr, &velocity, PARTICLE_EXPLOSIONFIRE);
+			}
+			if (LocalDetailLevels.ExplosionFX)
+			{
+				VECTORCH position = *positionPtr;
+				position.vx += (FastRandom()&1023)-512;
+				position.vy += (FastRandom()&1023)-512;
+				position.vz += (FastRandom()&1023)-512;
+				MakeParticle(&position, positionPtr, PARTICLE_SMOKECLOUD);
+			}
+			break;
 		}
-		
-		velocity.vx = MUL_FIXED(velocity.vx,speed);
-		velocity.vy = MUL_FIXED(velocity.vy,speed);
-		velocity.vz = MUL_FIXED(velocity.vz,speed);
+		case EXPLOSION_MOLOTOV:
+		{
+			MakeMolotovExplosionAt(positionPtr, 0);
+			break;
+		}
+		case EXPLOSION_PREDATORPISTOL:
+		{
+			MakeElectricalExplosion(positionPtr);
+			break;
+		}
+		default:
+		{
+			if (LocalDetailLevels.ExplosionFX == 0)
+				noRequired = 8;
+			else if (LocalDetailLevels.ExplosionFX == 1)
+				noRequired = 16;
+			else if (LocalDetailLevels.ExplosionFX == 2)
+				noRequired = 24;
+			else
+				noRequired = 32;
 
-		MakeParticle(positionPtr, &velocity, PARTICLE_EXPLOSIONFIRE);
+			for (i=0; i<noRequired; i++)
+			{
+				VECTORCH velocity;
+				int phi = FastRandom()&4095;
+				int speed = 6000*4+(FastRandom()&4095);
+
+				velocity.vz = (FastRandom()&131071) - ONE_FIXED;
+				{
+					float z = ((float)velocity.vz)/65536.0;
+					z = sqrt(1-z*z);
+
+					f2i(velocity.vx,(float)GetCos(phi)*z);
+					f2i(velocity.vy,(float)GetSin(phi)*z);
+				}
+				velocity.vx = MUL_FIXED(velocity.vx,speed);
+				velocity.vy = MUL_FIXED(velocity.vy,speed);
+				velocity.vz = MUL_FIXED(velocity.vz,speed);
+
+				MakeParticle(positionPtr, &velocity, PARTICLE_EXPLOSIONFIRE);
+			}
+			for (i=0; i<10; i++)
+			{
+				VECTORCH velocity;
+				int phi = FastRandom()&4095;
+				int speed = 6000*4+(FastRandom()&4095);
+
+				velocity.vz = (FastRandom()&131071) - ONE_FIXED;
+				{
+					float z = ((float)velocity.vz)/65536.0;
+					z =	sqrt(1-z*z);
+
+					f2i(velocity.vx,(float)GetCos(phi)*z);
+					f2i(velocity.vy,(float)GetSin(phi)*z);
+				}
+				velocity.vx = MUL_FIXED(velocity.vx,speed);
+				velocity.vy = MUL_FIXED(velocity.vy,speed);
+				velocity.vz = MUL_FIXED(velocity.vz,speed);
+
+				CreateFlamingDebris(positionPtr, &velocity);
+			}
+			if (LocalDetailLevels.ExplosionFX)
+			{
+				VECTORCH position = *positionPtr;
+				position.vx += (FastRandom()&1023)-512;
+				position.vy += (FastRandom()&1023)-512;
+				position.vz += (FastRandom()&1023)-512;
+				MakeParticle(&position, positionPtr, PARTICLE_SMOKECLOUD);
+			}
+			break;
+		}
 	}
-
 	MakeLightElement(positionPtr, LIGHTELEMENT_EXPLOSION);
 }
 
@@ -4784,6 +5687,7 @@ extern void MakePlasmaExplosion(VECTORCH *positionPtr, VECTORCH *fromPositionPtr
 }
 extern void MakeElectricalExplosion(VECTORCH *positionPtr)
 {
+	if (0)
 	{
 		PredPistolExplosion_SoundData.position=*positionPtr;
 		Sound_Play(SID_WIL_PRED_PISTOL_EXPLOSION,"n",&PredPistolExplosion_SoundData);
@@ -4844,6 +5748,54 @@ void MakeBloodExplosion(VECTORCH *originPtr, int creationRadius, VECTORCH *blast
 	}
 }
 
+void MakeSmallBloodExplosion(VECTORCH *originPtr, int creationRadius, VECTORCH *blastPositionPtr, int noOfParticles, enum PARTICLE_ID particleID)
+{
+	VECTORCH blastDir;
+	int i;
+	
+	/* Dividing by zero can be bad for your health */
+	LOCALASSERT(creationRadius!=0);
+
+	blastDir.vx = originPtr->vx - blastPositionPtr->vx;
+	blastDir.vy = originPtr->vy - blastPositionPtr->vy;
+	blastDir.vz = originPtr->vz - blastPositionPtr->vz;
+
+	for (i=0; i<noOfParticles; i++)
+	{
+		VECTORCH velocity;
+		VECTORCH position;
+		int phi = FastRandom()&4095;
+		int speed = 600+(FastRandom()&2048);
+		int r;
+
+		velocity.vz = (FastRandom()&16384) - 8192;
+		{
+			float z = ((float)velocity.vz)/65536.0;
+			z = sqrt(1-z*z);
+
+			f2i(velocity.vx,(float)GetCos(phi)*z);
+			f2i(velocity.vy,(float)GetSin(phi)*z);
+		}
+		
+		if (DotProduct(&velocity,&blastDir)<0)
+		{
+			velocity.vx = -velocity.vx; 
+			velocity.vy = -velocity.vy;
+			velocity.vz = -velocity.vz; 
+		}
+
+		r = FastRandom()%creationRadius;
+		position.vx = originPtr->vx + MUL_FIXED(velocity.vx,r);
+		position.vy = originPtr->vy + MUL_FIXED(velocity.vy,r);
+		position.vz = originPtr->vz + MUL_FIXED(velocity.vz,r);
+		
+		velocity.vx = MUL_FIXED(velocity.vx,speed);
+		velocity.vy = MUL_FIXED(velocity.vy,speed);
+		velocity.vz = MUL_FIXED(velocity.vz,speed);
+
+		MakeParticle(&position, &velocity, particleID);
+	}
+}
 	
 void MakeFocusedExplosion(VECTORCH *originPtr, VECTORCH *blastPositionPtr, int noOfParticles, enum PARTICLE_ID particleID)
 {
@@ -5416,6 +6368,7 @@ void TimeScaleThingy()
 
 				case I_BehaviourGrenade :
 				case I_BehaviourRocket :
+				case I_BehaviourThrownSpear:
 				case I_BehaviourFrisbee:
 				case I_BehaviourPulseGrenade :
 				case I_BehaviourMolotov :

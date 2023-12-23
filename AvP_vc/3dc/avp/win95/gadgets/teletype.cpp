@@ -317,7 +317,7 @@ TeletypeDaemon :: TeletypeDaemon
 
 	FixP_PixelsCovered = 0;
 
-    #if SupportTeletypeSound
+    #if 0 //SupportTeletypeSound
     // Try to start looping teletype sound:
     Sound_Play
     (

@@ -26,6 +26,9 @@ typedef struct loaded_sound
 void LoseSound (LOADED_SOUND const * ls);
 LOADED_SOUND const * GetSound (char const * fname);
 
+/* AMP's radio messages */
+LOADED_SOUND const *GetAMPSound(int soundNum, char const *fname);
+
 #ifdef __cplusplus
 
 	}; // end of extern "c"

@@ -61,9 +61,9 @@ int LoadGameRequest = SAVELOAD_REQUEST_NONE; //slot number of game to be loaded
 int SaveGameRequest = SAVELOAD_REQUEST_NONE; //slot number of game to be saved
 
 
-#define NUM_SAVES_FOR_EASY_MODE 8
-#define NUM_SAVES_FOR_MEDIUM_MODE 4
-#define NUM_SAVES_FOR_HARD_MODE 2
+#define NUM_SAVES_FOR_EASY_MODE 6
+#define NUM_SAVES_FOR_MEDIUM_MODE 3
+#define NUM_SAVES_FOR_HARD_MODE 0
 
 int NumberOfSavesLeft;
 
@@ -252,6 +252,12 @@ extern void SaveStrategy_FrisbeeEnergyBolt(STRATEGYBLOCK* sbPtr);
 
 extern int DebuggingCommandsActive;
 
+extern void NewOnScreenMessage(unsigned char *messagePtr);
+extern void GetFilenameForSaveSlot(int i, unsigned char *filenamePtr);
+extern void ScanSaveSlots();
+extern void RestartLevel();
+extern void AllNewModuleHandler();
+
 /*-----------------------------------------------------**
 ** end of externs for all the load and save functions  **
 **-----------------------------------------------------*/
@@ -348,7 +354,9 @@ static BOOL SaveGameAllowed()
 
 	//player must be alive , and not face hugged
 	if(!playerStatusPtr->IsAlive) return FALSE;
-	if(playerStatusPtr->MyFaceHugger) return FALSE;
+
+	/* On the contrary, facehuggers do not kill immediately now */
+	//if(playerStatusPtr->MyFaceHugger) return FALSE;
 
 	//cheating?
 	if(DebuggingCommandsActive || CheatMode_Active!=CHEATMODE_NONACTIVE)
@@ -359,7 +367,7 @@ static BOOL SaveGameAllowed()
 
 	//now check the number of saves left
 	//first some validation
-	
+
 	if(NumberOfSavesLeft<0) NumberOfSavesLeft =0;
 	switch(AvP.Difficulty)
 	{
@@ -378,8 +386,6 @@ static BOOL SaveGameAllowed()
 			break;
 
 	}
-
-
 	if(!NumberOfSavesLeft)
 	{
 		NewOnScreenMessage(GetTextString(TEXTSTRING_SAVEGAME_NOSAVESLEFT));
@@ -387,7 +393,6 @@ static BOOL SaveGameAllowed()
 	}
 	
 	NumberOfSavesLeft--;
-
 
 	//saving is allowed then
 	return TRUE;
@@ -1033,6 +1038,10 @@ static void SaveStrategies()
 				SaveStrategy_SpearBolt(sbPtr);
 				break;
 
+			case I_BehaviourThrownSpear:
+				SaveStrategy_ThrownSpear(sbPtr);
+				break;
+
 			case I_BehaviourGrapplingHook :
 				SaveStrategy_Grapple(sbPtr);
 				break;
@@ -1222,6 +1231,10 @@ static void LoadStrategy(SAVE_BLOCK_STRATEGY_HEADER* header)
 			LoadStrategy_SpearBolt(header);
 			break;
 
+		case I_BehaviourThrownSpear:
+			LoadStrategy_ThrownSpear(header);
+			break;
+
 		case I_BehaviourGrapplingHook :
 			LoadStrategy_Grapple(header);
 			break;
@@ -1346,9 +1359,7 @@ static void SaveMiscGlobalStuff()
 extern void DisplaySavesLeft()
 {
 	char text [100];
-
-	sprintf(text, "%s: %d",GetTextString(TEXTSTRING_SAVEGAME_SAVESLEFT),NumberOfSavesLeft);
-
+	sprintf(text, "%d saves remaining.", NumberOfSavesLeft);
 	NewOnScreenMessage(text);
 }
 

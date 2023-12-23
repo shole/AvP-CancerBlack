@@ -41,6 +41,7 @@ extern char *ModuleCurrVisArray;
 extern int NormalFrameTime;
 extern SECTION_DATA* LOS_HModel_Section;        /* Section of HModel hit */
 extern void HandleWeaponImpact(VECTORCH *positionPtr, STRATEGYBLOCK *sbPtr, enum AMMO_ID AmmoID, VECTORCH *directionPtr, int multiple, SECTION_DATA *section_pointer); 
+extern void HandleSpearImpact(VECTORCH *positionPtr, STRATEGYBLOCK *sbPtr, enum AMMO_ID AmmoID, VECTORCH *directionPtr, int multiple, SECTION_DATA *this_section_data);
 extern SECTION * GetNamedHierarchyFromLibrary(const char * rif_name, const char * hier_name);
 extern int GlobalFrameCounter;
 extern int RouteFinder_CallsThisFrame;
@@ -245,13 +246,13 @@ void NPC_IsObstructed(STRATEGYBLOCK *sbPtr, NPC_MOVEMENTDATA *moveData, NPC_OBST
                 
                 if(nextReport->ObstacleSBPtr)
                 {
-                        if(nextReport->ObstacleSBPtr==Player->ObStrategyBlock) IsCharacterOrPlayer = 1;
-                        if(nextReport->ObstacleSBPtr->I_SBtype==myType)
-                        {
-                                IsCharacterOrPlayer = 1;
-                                details->otherCharacter = 1;
-                                details->anySingleObstruction = 1;
-                        } 
+                    if(nextReport->ObstacleSBPtr==Player->ObStrategyBlock) IsCharacterOrPlayer = 1;
+                    if(nextReport->ObstacleSBPtr->I_SBtype==myType)
+                    {
+                       IsCharacterOrPlayer = 1;
+                       details->otherCharacter = 1;
+                       details->anySingleObstruction = 1;
+                    } 
                 }
 
                 {
@@ -535,6 +536,7 @@ void CastLOSProjectile(STRATEGYBLOCK *sbPtr, VECTORCH *muzzlepos, VECTORCH *in_s
         
         VECTORCH shotVector;
         DISPLAYBLOCK *self;
+		int Mult=65536;
 
         shotVector=*in_shotvector;
 
@@ -590,8 +592,23 @@ void CastLOSProjectile(STRATEGYBLOCK *sbPtr, VECTORCH *muzzlepos, VECTORCH *in_s
                                 }
                         }
                 }
+				/* Adaptive degradation of Shotgun ammunition based on range to target */
+				if (AmmoID == AMMO_GRENADE)
+				{
+					/* 10m equals maximum range */
+					if (LOS_Lambda > 10000)
+						Mult = 0;
+					else if (LOS_Lambda > 8000)
+						Mult = 13107;
+					else if (LOS_Lambda > 6000)
+						Mult = 26214;
+					else if (LOS_Lambda > 4000)
+						Mult = 39321;
+					else if (LOS_Lambda > 2000)
+						Mult = 52428;
+				}
                 /* this fn needs updating to take amount of damage into account etc. */
-                HandleWeaponImpact(&LOS_Point,LOS_ObjectHitPtr->ObStrategyBlock,AmmoID,&shotVector, multiple*ONE_FIXED, LOS_HModel_Section);
+                HandleWeaponImpact(&LOS_Point,LOS_ObjectHitPtr->ObStrategyBlock,AmmoID,&shotVector, multiple*Mult, LOS_HModel_Section);
         }
 
 }
@@ -1013,6 +1030,130 @@ int NPCOrientateToVector(STRATEGYBLOCK *sbPtr, VECTORCH *zAxisVector,int turnspe
         return orientatedOk;
 }
 
+int NPCOrientateToVector_Horizontal(STRATEGYBLOCK *sbPtr, VECTORCH *zAxisVector,int turnspeed, VECTORCH *offset)
+{
+        extern int cosine[], sine[];
+
+        int maxTurnThisFrame;
+        int turnThisFrame;
+        VECTORCH localZAxisVector;
+        int localZVecEulerY;
+        MATRIXCH toLocal;
+        int orientatedOk = 0;
+
+        LOCALASSERT(sbPtr);
+        LOCALASSERT(sbPtr->DynPtr);
+        LOCALASSERT(zAxisVector);
+
+        localZAxisVector = *zAxisVector;
+
+        /* zero vector: nothing to do */
+        if((localZAxisVector.vx==0)&&(localZAxisVector.vy==0)&&(localZAxisVector.vz==0)) return 1;
+
+        /* rotate world zAxisVector into local space */
+        toLocal = sbPtr->DynPtr->OrientMat;
+
+        TransposeMatrixCH(&toLocal);
+        RotateVector(&localZAxisVector, &toLocal);      
+        Normalise(&localZAxisVector);
+
+//      maxTurnThisFrame = WideMulNarrowDiv(NormalFrameTime,4096,NPC_TURNRATE);
+        maxTurnThisFrame = MUL_FIXED(NormalFrameTime,turnspeed);
+        localZVecEulerY = ArcTan(localZAxisVector.vy, localZAxisVector.vz);
+        LOCALASSERT((localZVecEulerY>=0)&&(localZVecEulerY<=4096));
+
+        if(localZVecEulerY==0||localZVecEulerY==4096) 
+        {               
+                /* if euler-y is 0 we are already aligned: nothing to do */
+                return 1; 
+        }
+
+        if(localZVecEulerY>2048)
+        {
+                if(localZVecEulerY>(4096-maxTurnThisFrame))
+                {
+                        turnThisFrame = localZVecEulerY;
+                        orientatedOk = 1;
+                }
+                else
+                {
+                        turnThisFrame = (4096-maxTurnThisFrame);
+                        orientatedOk = 0;
+                }       
+        }
+        else
+        {
+                if(localZVecEulerY>maxTurnThisFrame)
+                {
+                        turnThisFrame = maxTurnThisFrame;
+                        orientatedOk = 0;
+                }
+                else
+                {
+                        turnThisFrame = localZVecEulerY;
+                        orientatedOk = 1;
+                }
+        }
+
+        /* now convert into a matrix & multiply existing orientation by it ...  */
+        {
+                MATRIXCH mat;           
+                int cos = GetCos(turnThisFrame);
+                int sin = GetSin(turnThisFrame);
+                mat.mat11 = cos;                 
+                mat.mat12 = 0;
+                mat.mat13 = -sin;
+                mat.mat21 = 0;          
+                mat.mat22 = 65536;              
+                mat.mat23 = 0;          
+                mat.mat31 = sin;                
+                mat.mat32 = 0;          
+                mat.mat33 = cos;                
+                        
+                // NOTE : It seems like OrientMat is not being set per frame which
+                // leads to inaccuracy build-up from the matrix multiplies. When this
+                // is fixed, the following PSXAccurateMatrixMultiply can be removed
+
+                if (offset) {
+                        VECTORCH new_offset,delta_offset;
+                        //MATRIXCH reverse;
+
+                        /* Code to attempt spinning on one foot. */
+                        
+                        RotateAndCopyVector(offset,&new_offset,&mat);
+                        
+                        //reverse=mat;
+                        //TransposeMatrixCH(&reverse);
+                        //
+                        //RotateAndCopyVector(offset,&new_offset,&reverse);
+
+                        delta_offset.vx=(offset->vx-new_offset.vx);
+                        delta_offset.vy=(offset->vy-new_offset.vy);
+                        delta_offset.vz=(offset->vz-new_offset.vz);
+                        /* delta_offset is in local space? */
+
+                        //RotateVector(&delta_offset,&sbPtr->DynPtr->OrientMat);
+
+                        /* Now change position.  Bear in mind that many calls overwrite this change. */
+
+                        sbPtr->DynPtr->Displacement.vx=delta_offset.vx;
+                        sbPtr->DynPtr->Displacement.vy=delta_offset.vy;
+                        sbPtr->DynPtr->Displacement.vz=delta_offset.vz;
+                        sbPtr->DynPtr->UseDisplacement=1;
+
+                }               
+
+                #if PSX
+                PSXAccurateMatrixMultiply(&sbPtr->DynPtr->OrientMat,&mat,&sbPtr->DynPtr->OrientMat);
+                #else
+                MatrixMultiply(&sbPtr->DynPtr->OrientMat,&mat,&sbPtr->DynPtr->OrientMat);
+                #endif
+                MatrixToEuler(&sbPtr->DynPtr->OrientMat, &sbPtr->DynPtr->OrientEuler);
+        }
+
+        return orientatedOk;
+}
+
 /*------------------------Patrick 1/2/97-----------------------------
   Tries to find an ep in an adjacent module which can be used as a 
   movement target for NPC. 
@@ -1251,10 +1392,10 @@ void NPCGetMovementDirection(STRATEGYBLOCK *sbPtr, VECTORCH *velocityDirection, 
         }
 
         /* test */
-        if(sbPtr == Player->ObStrategyBlock)
-        {
-                textprint("player poly %d \n",ourPolyThisFrame);
-        }
+//        if(sbPtr == Player->ObStrategyBlock)
+//        {
+//                textprint("player poly %d \n",ourPolyThisFrame);
+//        }
                                 
         /* Now get all the data we need:
         1. World space coords of poly edge mid points
@@ -3226,7 +3367,7 @@ int New_NPC_IsObstructed(STRATEGYBLOCK *sbPtr, NPC_AVOIDANCEMANAGER *manager)
 								/* Consider explosive objects as obstructions to most things. */
 								if ((objectstatusptr->explosionType==0)||(manager->ClearanceDamage!=AMMO_NPC_OBSTACLE_CLEAR)) {
 		                            /* aha: an object which the npc can destroy... damage it, and return zero. */
-		                            CauseDamageToObject(nextReport->ObstacleSBPtr,&TemplateAmmo[manager->ClearanceDamage].MaxDamage, ONE_FIXED,NULL);
+		                            CauseDamageToObject(nextReport->ObstacleSBPtr,&TemplateAmmo[manager->ClearanceDamage].MaxDamage[AvP.PlayerType], ONE_FIXED,NULL);
 		                            return(0);
 		                            /* After a few frames of that, there'll just be real obstructions. */
 								}

@@ -1,6 +1,13 @@
 /* Bink! player, KJL 99/4/30 */
-#include "bink.h"
 
+// RXP - now use ALLOW_BINK_SMACKER compiler switch ro remove
+// all use of bink/smacker
+
+// **********************
+#ifdef ALLOW_BINK_SMACKER	// Covers entire module
+// **********************
+
+#include "bink.h"
 #include "3dc.h"
 #include "d3_func.h"
 
@@ -174,8 +181,7 @@ BINK *MenuBackground = 0;
 
 extern void StartMenuBackgroundBink(void)
 {
-	char *filenamePtr = "fmvs/menubackground.bik";//newer.bik";
-
+	char *filenamePtr = "fmvs/menubackground.bik";//newer.bik";	
 	/* open smacker file */
 	MenuBackground = BinkOpen(filenamePtr,0);
 	BinkSurfaceType = GetBinkPixelFormat();
@@ -206,3 +212,31 @@ extern void EndMenuBackgroundBink(void)
 	MenuBackground = 0;
 }
 
+#else	// #ifdef ALLOW_BINK_SMACKER
+
+// If we are not using bink/smacker then provide stub functions instead.
+// If this wasn't done we'd have to go round the source removing all
+// references to them...it's crap, but it will work :)
+
+void PlayBinkedFMV(char *filenamePtr)
+{
+	return;
+}
+
+extern void StartMenuBackgroundBink(void)
+{	
+	return;
+}
+
+extern int PlayMenuBackgroundBink(void)
+{	
+	// Return 0 which means error
+	return 0;
+}
+
+extern void EndMenuBackgroundBink(void)
+{
+	return;
+}
+
+#endif	// #ifdef ALLOW_BINK_SMACKER

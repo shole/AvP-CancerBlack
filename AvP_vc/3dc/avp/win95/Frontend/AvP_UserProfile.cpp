@@ -35,7 +35,8 @@ extern int MoviesAreActive;
 extern int IntroOutroMoviesAreActive;
 extern char MP_PlayerName[];
 extern int AutoWeaponChangeOn;
-
+extern int RunMode;
+extern int CrouchIsToggleKey;
 
 List<AVP_USER_PROFILE *> UserProfilesList;
 static AVP_USER_PROFILE DefaultUserProfile = 
@@ -306,7 +307,8 @@ static void SetDefaultProfileOptions(AVP_USER_PROFILE *profilePtr)
 	MoviesAreActive = 1;
 	IntroOutroMoviesAreActive = 1; 
 	AutoWeaponChangeOn = TRUE;
-	
+	RunMode = 1; // P&H Mode
+	CrouchIsToggleKey = 1; // P&H Mode
  
  	// Edmond to add in network name
  	srand(time(NULL));
@@ -386,6 +388,9 @@ extern void GetSettingsFromUserProfile(void)
 	MoviesAreActive =				UserProfilePtr->MoviesAreActive;
 	IntroOutroMoviesAreActive =		UserProfilePtr->IntroOutroMoviesAreActive;
 	AutoWeaponChangeOn = 			!UserProfilePtr->AutoWeaponChangeDisabled;
+	RunMode =						!UserProfilePtr->RunMode;
+	CrouchIsToggleKey =				!UserProfilePtr->CrouchMode;
+
    	strncpy(MP_PlayerName,UserProfilePtr->MultiplayerCallsign,15);
 
 	SetDetailLevelsFromMenu();
@@ -410,7 +415,9 @@ extern void SaveSettingsToUserProfile(AVP_USER_PROFILE *profilePtr)
 	profilePtr->CDPlayerVolume = 				CDPlayerVolume;
 	profilePtr->MoviesAreActive =				MoviesAreActive;
 	profilePtr->IntroOutroMoviesAreActive =		IntroOutroMoviesAreActive;
-	profilePtr->AutoWeaponChangeDisabled=   !AutoWeaponChangeOn;
+	profilePtr->AutoWeaponChangeDisabled=		!AutoWeaponChangeOn;
+	profilePtr->RunMode=						!RunMode;
+	profilePtr->CrouchMode=						!CrouchIsToggleKey;
    	strncpy(profilePtr->MultiplayerCallsign,MP_PlayerName,15);
 }
 

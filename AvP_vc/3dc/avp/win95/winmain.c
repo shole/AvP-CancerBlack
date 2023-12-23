@@ -80,7 +80,31 @@ extern SCREENDESCRIPTORBLOCK ScreenDescriptorBlock;
 extern void (*SetVideoMode[]) (void);
 extern int FrameRate;
 
+extern int EnumerateCardsAndVideoModes();
+extern void CDDA_Start();
+extern void CDDA_Stop();
+extern void CDDA_End();
+extern void InitCentreMouseThread();
+extern void FinishCentreMouseThread();
+extern void GetCorrectDirectDrawObject();
+extern void ScanImagesForFMVs();
+extern void Game_Has_Loaded();
+extern void MinimalNetCollectMessages();
+extern int InGameMenusAreRunning();
+extern void DoCompletedLevelStatisticsScreen();
+extern void InGameFlipBuffers();
+extern void FixCheatModesInUserProfile(AVP_USER_PROFILE *profilePtr);
+extern void RestartLevel();
+extern void TimeStampedMessage(char *stringPtr);
+extern void ReleaseAllFMVTextures();
+extern void ResetEaxEnvironment();
 extern int WindowRequestMode;
+
+/* Eld: 3rd-person test */
+
+extern void Deallocate3rdPersonPlayer();
+
+/* Eld: 3rd-person test */
 
 extern int NumActiveBlocks;
 int HWAccel = 0;
@@ -284,13 +308,22 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
 	if(strstr(command_line,"-server"))
 	{
+		//if ((DPlayCreateSession(name_buffer,8,100,(gamestyle<<8)|100)) != DP_OK)
+		/*if (!DirectPlay_HostGame(NULL,"Boo!",NULL,1,0))
+		{
+			MessageBox(NULL, "Failed to start Dedicated Server.", "Error", MB_OK);
+			exit(0x6364);
+		}*/
+
+		#if 1
 		extern int DirectPlay_InitLobbiedGame();
 		//game has been launched by mplayer , we best humour it
 		LobbiedGame=LobbiedGame_Server;	
 		if(!DirectPlay_InitLobbiedGame())
 		{
 			exit(0x6364);
-		}		
+		}
+		#endif
 	}
 	else if(strstr(command_line,"-client"))
 	{
@@ -352,7 +385,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 	/****** Put in by John to sort out easy sub window mode ******/
 	/****** REMOVE FOR GAME!!!!! ******/
 
-	#if debug && 1//!PREDATOR_DEMO
 	if(strstr(command_line, "-w"))
 	{
 		WindowRequestMode = WindowModeSubWindow;
@@ -361,8 +393,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 	}
 	if(instr = strstr(command_line, "-s"))
 		sscanf(instr, "-s%d", &level_to_load);
-	
-	#endif
 
 	Env_List[0] = &(ELOLevelToLoad);
 	level_to_load = 0;
@@ -569,7 +599,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 								TEMPLATE_WEAPON_DATA *twPtr = &TemplateWeapon[weaponPtr->WeaponIDNumber];
 								if (ShowDebuggingText.GunPos)
 								{
-									PrintDebuggingText("Gun Position x:%d,y:%d,z:%d\n",twPtr->RestPosition.vx,twPtr->RestPosition.vy,twPtr->RestPosition.vz);
+//									PrintDebuggingText("Gun Position x:%d,y:%d,z:%d\n",twPtr->RestPosition.vx,twPtr->RestPosition.vy,twPtr->RestPosition.vz);
 								}
 							}
 						}
@@ -733,6 +763,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
 		DeallocatePlayersMirrorImage();
 		TimeStampedMessage("After DeallocatePlayersMirrorImage");
+
+		Deallocate3rdPersonPlayer();
+		TimeStampedMessage("After Deallocate3rdPersonPlayer");
 				
 		/* KJL 15:26:43 03/12/97 - clear data */
 		KillHUD();

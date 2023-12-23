@@ -33,4 +33,4 @@ typedef struct player_starting_equipment
 
 extern PLAYER_STARTING_EQUIPMENT StartingEquipment;
 
-#define PISTOL_INFINITE_AMMO	(netGameData.pistolInfiniteAmmo)
+#define PISTOL_INFINITE_AMMO	0//(netGameData.pistolInfiniteAmmo)

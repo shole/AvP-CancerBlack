@@ -50,7 +50,7 @@ extern void MakeCorpseNear(STRATEGYBLOCK *sbPtr);
 extern void MakeCorpseFar(STRATEGYBLOCK *sbPtr);
 extern void CorpseIsDamaged(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int multiple, int wounds,SECTION_DATA *Section,VECTORCH *incoming);
 
-#define CORPSE_EXPIRY_TIME		(ONE_FIXED*10)
+#define CORPSE_EXPIRY_TIME		(ONE_FIXED*20)
 #define CORPSE_VALIDITY_TIME	(ONE_FIXED>>2)
 #define ALIEN_DYINGTIME			(ONE_FIXED*8)
 #define PRED_DIETIME			(ONE_FIXED*16)

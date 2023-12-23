@@ -22,6 +22,7 @@ extern "C" {
   of these corresponds to a data slot in the GameSounds[] array, and to the Id
   number specified for each sound in the sound data file 
   ----------------------------------------------------------------------------*/
+
 typedef enum soundindex
 {
 	SID_PRED_LAUNCHER, // 0  //Used, plasmacaster fire
@@ -355,6 +356,40 @@ typedef enum soundindex
 	SID_NOSOUND	 /* SPECIAL: used to specify a null sound */ 		
 }SOUNDINDEX;
 
+#define SID_MENU_MUSIC	799	// Menu Music
+#define SID_MUSIC		798	// Ingame Music
+
+// Radio Commands
+#define SID_ATTACK_ASSAULT    797
+#define SID_ATTACK_ENGAGE     796
+#define SID_ATTENTION_FROSTY  795
+#define SID_ATTENTION_SHARP   794
+#define SID_CONVERGE_STICK    793
+#define SID_CONVERGE_TIGHT    792
+#define SID_DEFEND_FORMATION  791
+#define SID_DEFEND_POSITIONS  790
+#define SID_DISPERSE_DISPERSE 789
+#define SID_DISPERSE_SPREAD   788
+#define SID_ENGAGE_COVER      787
+#define SID_ENGAGE_SPOTTED    786
+#define SID_HELP_ASSISTANCE   785
+#define SID_HELP_HELP         784
+#define SID_KILL_DOWN         783
+#define SID_KILL_SECURED      782
+#define SID_NO_NEGATIVE       781
+#define SID_NO_NOWAY          780
+#define SID_REQUEST_BYPASS    779
+#define SID_REQUEST_GRENADES  778
+#define SID_REQUEST_TRACKERS  777
+#define SID_TRACKER_MOVEMENT  776
+#define SID_TRACKER_MOVING    775
+#define SID_YES_AFFIRMATIVE   774
+#define SID_YES_ROGER         773
+#define SID_SPEC_FIREHOLE	  772
+#define SID_SPEC_MEDIC		  771
+#define SID_TAUNT_BADASS	  770
+#define SID_TAUNT_ROCK		  769
+
 /* Patrick 5/6/97 -------------------------------------------------------------
   Project level sound function prototypes
   ----------------------------------------------------------------------------*/
@@ -381,6 +416,9 @@ extern void LoadSounds(char *soundDirectory);
 
 //loads wav file locally or from network or from fast file as appropriate
 extern int FindAndLoadWavFile(int soundNum,char* wavFileName);
+
+/* AMP's radio messages */
+extern int AMPLoadSounds(int soundNum, char *wavFileName);
 
 /* Patrick 10/6/97 -------------------------------------------------------------
   Enumeration of CDDA tracks 

@@ -229,13 +229,13 @@ void SCString :: ProcessAnyCheatCodes(void)
 			STRUTIL_SC_Strequal
 			(
 				pProjCh_Val,
-				"GOD" //ProjChar* pProjCh_2
+				"GUD" //ProjChar* pProjCh_2
 			)
 			#else // allow case insensitive
 			STRUTIL_SC_Strequal_Insensitive
 			(
 				pProjCh_Val,
-				"GOD" //ProjChar* pProjCh_2
+				"GUD" //ProjChar* pProjCh_2
 			)
 			#endif
 		)

@@ -42,10 +42,29 @@ extern "C"
 #include "smacker.h"
 #include "detaillevels.h"
 #include "savegame.h"
+#include "scream.h"
 
+#include "load_shp.h"
+#include "bh_alien.h"
 
 int DebuggingCommandsActive=0;
+int RamAttackInProgress;
+int GrabAttackInProgress;
+int DisplayRadioMenu;
+int DisplayClasses;
+int InfLamp = 0;
+STRATEGYBLOCK *DropWeapon(VECTORCH *location, int type, char *name);
+
 extern void GimmeCharge(void);
+extern void Display_Inventory(void);
+extern void OverLoadDrill(void);
+extern void PCSelfDestruct(void);
+extern void NewOnScreenMessage(unsigned char *messagePtr);
+extern void ToggleShoulderLamp();
+extern void GADGET_NewOnScreenMessage( ProjChar* messagePtr );
+extern DPID GrabPlayer;
+extern HMODELCONTROLLER PlayersWeaponHModelController;
+extern int ThirdPersonActive;
 
 // just change these to prototypes etc.
 extern void QuickLoad()
@@ -74,9 +93,312 @@ void ConsoleCommandSave(int slot)
 		SaveGameRequest = slot-1;
 	}
 }
+
+void ToggleAPC(void)
+{
+	PLAYER_STATUS *playerStatusPtr= (PLAYER_STATUS *) (Player->ObStrategyBlock->SBdataptr);
+	DYNAMICSBLOCK *dynPtr = Player->ObStrategyBlock->DynPtr;
+	LOCALASSERT(playerStatusPtr);
+
+	if(AvP.PlayerType!=I_Marine) return;
+
+	if (playerStatusPtr->Honor) {
+		playerStatusPtr->Honor = 0;
+		playerStatusPtr->IAmUsingShoulderLamp=0;
+		ThirdPersonActive = 0;
+	} else {
+		playerStatusPtr->Honor = 1;
+		playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Faster = 0;
+		playerStatusPtr->ViewPanX = 0;
+		playerStatusPtr->IAmUsingShoulderLamp=1;
+		ThirdPersonActive = 1;
+	}
+}
+
+void ToggleRadioMenu(void)
+{
+	if (!DisplayRadioMenu)
+		DisplayRadioMenu=1;
+	else
+		DisplayRadioMenu=0;
+}
+
+void Hug(void)
+{
+	PLAYER_STATUS *playerStatusPtr= (PLAYER_STATUS *) (Player->ObStrategyBlock->SBdataptr);
+
+	if (AvP.PlayerType != I_Alien) return;
+	if (!Player->ObStrategyBlock->DynPtr->IsInContactWithFloor) return;
+	if (playerStatusPtr->Class != CLASS_EXF_W_SPEC)	return;
+
+	playerStatusPtr->ViewPanX = 0;
+	playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Jump = 1;
+	RamAttackInProgress=1;
+}
+
+void Ram(void)
+{
+	PLAYER_STATUS *playerStatusPtr= (PLAYER_STATUS *) (Player->ObStrategyBlock->SBdataptr);
+	int pitch = (FastRandom()%256)-128;
+
+	if (AvP.PlayerType != I_Alien) return;
+	if (!Player->ObStrategyBlock->DynPtr->IsInContactWithFloor) return;
+	if (GrabPlayer) return;
+
+	/* Facehuggers hug instead of ram */
+	if (playerStatusPtr->Class == CLASS_EXF_W_SPEC)
+	{
+		Hug();
+		return;
+	}
+	playerStatusPtr->ViewPanX = 0;
+	playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Jump = 1;
+	if (playerStatusPtr->Class == CLASS_EXF_SNIPER)
+		PlayAlienSound(1, ASC_Scream_General, pitch, &playerStatusPtr->soundHandle, &(Player->ObStrategyBlock->DynPtr->Position));
+	else
+		PlayAlienSound(0, ASC_Scream_General, pitch, &playerStatusPtr->soundHandle, &(Player->ObStrategyBlock->DynPtr->Position));
+	RamAttackInProgress=1;
+
+	if (AvP.Network != I_No_Network)
+		netGameData.myLastScream = ASC_Scream_General;
+}
+
+void Grab(void)
+{
+	PLAYER_STATUS *playerStatusPtr= (PLAYER_STATUS *) (Player->ObStrategyBlock->SBdataptr);
+	extern void MeleeWeapon_90Degree_Front_Core(DAMAGE_PROFILE *damage,int multiple,int range);
+
+	if (AvP.PlayerType != I_Alien) return;
+	if (playerStatusPtr->Immobilized) return;
+	if (GrabPlayer) return;
+
+	MeleeWeapon_90Degree_Front_Core(&TemplateAmmo[AMMO_FRISBEE_FIRE].MaxDamage[AvP.PlayerType],ONE_FIXED,TemplateAmmo[AMMO_FRISBEE_FIRE].MaxRange);
+	GrabAttackInProgress=1;
+	InitHModelTweening(&PlayersWeaponHModelController,(ONE_FIXED>>4),HMSQT_AlienHUD,(int)AHSS_Both_Down,(ONE_FIXED/6),0);
+}
+
+void UseMotionTracker(void)
+{
+	PLAYER_STATUS *playerStatusPtr= (PLAYER_STATUS *) (Player->ObStrategyBlock->SBdataptr);
+	PLAYER_WEAPON_DATA *weaponPtr = &(playerStatusPtr->WeaponSlot[playerStatusPtr->SelectedWeaponSlot]);
+	LOCALASSERT(playerStatusPtr);
+
+	if (AvP.PlayerType!=I_Marine) return;
+	if (playerStatusPtr->Honor) return;
+
+	if (weaponPtr->WeaponIDNumber != WEAPON_CUDGEL &&
+		weaponPtr->WeaponIDNumber != WEAPON_MARINE_PISTOL)
+		return;
+
+	if (playerStatusPtr->MTrackerType == 0) return;
+	if (playerStatusPtr->MTrackerType == 3) return;
+
+	if (playerStatusPtr->MTrackerType == 1) {
+		playerStatusPtr->MTrackerType = 2;
+	} else {
+		playerStatusPtr->MTrackerType = 1;
+	}
+}
+
+void InfLampToggle(void)
+{
+	if (AvP.PlayerType != I_Marine) return;
+
+	if (InfLamp)
+	{
+		InfLamp = 0;
+		//NewOnScreenMessage("INFINITE BATTERY DISABLED");
+	} else {
+		InfLamp = 1;
+		//NewOnScreenMessage("INFINITE BATTERY ENABLED");
+	}
+}
+
+void Toggle3rdPerson(void)
+{
+	if (ThirdPersonActive)
+		ThirdPersonActive = 0;
+	else
+		ThirdPersonActive = 1;
+}
+
+void UseMedikit(void)
+{
+	PLAYER_STATUS *playerStatusPtr= (PLAYER_STATUS *) (Player->ObStrategyBlock->SBdataptr);
+	LOCALASSERT(playerStatusPtr);
+
+	NPC_DATA *NpcData;
+	NPC_TYPES PlayerType;
+
+	if (playerStatusPtr->Honor) return;
+
+	switch(AvP.PlayerType) 
+	{
+		case(I_Marine):
+		{
+			switch (AvP.Difficulty) {
+				case I_Easy:
+					PlayerType=I_PC_Marine_Easy;
+					break;
+				default:
+				case I_Medium:
+					PlayerType=I_PC_Marine_Medium;
+					break;
+				case I_Hard:
+					PlayerType=I_PC_Marine_Hard;
+					break;
+				case I_Impossible:
+					PlayerType=I_PC_Marine_Impossible;
+					break;
+			}
+			break;
+		}
+		case(I_Predator):
+		{
+			return;
+			break;
+		}
+		case(I_Alien):
+		{
+			return;
+			break;
+		}
+		default:
+		{
+			LOCALASSERT(1==0);
+			break;
+		}
+	}
+	NpcData=GetThisNpcData(PlayerType);
+	LOCALASSERT(NpcData);
+
+	if(AvP.PlayerType!=I_Marine) return;
+
+	if (playerStatusPtr->Class == CLASS_MEDIC_PR ||
+		playerStatusPtr->Class == CLASS_MEDIC_FT ||
+		playerStatusPtr->Class == CLASS_ENGINEER)
+		return;
+
+	if (playerStatusPtr->Medikit == 0) return;
+
+	if (Player->ObStrategyBlock->SBDamageBlock.IsOnFire) {
+		Player->ObStrategyBlock->SBDamageBlock.IsOnFire=0;
+	} else if (Player->ObStrategyBlock->SBDamageBlock.Health==NpcData->StartingStats.Health<<ONE_FIXED_SHIFT) {
+		return;
+	}
+	Player->ObStrategyBlock->SBDamageBlock.Health=NpcData->StartingStats.Health<<ONE_FIXED_SHIFT;
+	playerStatusPtr->Health=Player->ObStrategyBlock->SBDamageBlock.Health;
+	playerStatusPtr->Medikit = 0;
+	Sound_Play(SID_PICKUP,"h");
+}
+
+#if 1
+void Restore(void)
+{
+	PLAYER_STATUS *playerStatusPtr= (PLAYER_STATUS *) (Player->ObStrategyBlock->SBdataptr);
+	LOCALASSERT(playerStatusPtr);
+
+	NPC_DATA *NpcData;
+	NPC_TYPES PlayerType;
+
+	switch(AvP.PlayerType) 
+	{
+		case(I_Marine):
+		{
+			switch (AvP.Difficulty) {
+				case I_Easy:
+					PlayerType=I_PC_Marine_Easy;
+					break;
+				default:
+				case I_Medium:
+					PlayerType=I_PC_Marine_Medium;
+					break;
+				case I_Hard:
+					PlayerType=I_PC_Marine_Hard;
+					break;
+				case I_Impossible:
+					PlayerType=I_PC_Marine_Impossible;
+					break;
+			}
+			break;
+		}
+		case(I_Predator):
+		{
+			switch (AvP.Difficulty) {
+				case I_Easy:
+					PlayerType=I_PC_Predator_Easy;
+					break;
+				default:
+				case I_Medium:
+					PlayerType=I_PC_Predator_Medium;
+					break;
+				case I_Hard:
+					PlayerType=I_PC_Predator_Hard;
+					break;
+				case I_Impossible:
+					PlayerType=I_PC_Predator_Impossible;
+					break;
+			}
+			break;
+		}
+		case(I_Alien):
+		{
+			switch (AvP.Difficulty) {
+				case I_Easy:
+					PlayerType=I_PC_Alien_Easy;
+					break;
+				default:
+				case I_Medium:
+					PlayerType=I_PC_Alien_Medium;
+					break;
+				case I_Hard:
+					PlayerType=I_PC_Alien_Hard;
+					break;
+				case I_Impossible:
+					PlayerType=I_PC_Alien_Impossible;
+					break;
+			}
+			break;
+		}
+		default:
+		{
+			LOCALASSERT(1==0);
+			break;
+		}
+	}
+	NpcData=GetThisNpcData(PlayerType);
+	LOCALASSERT(NpcData);
+
+	if (Player->ObStrategyBlock->SBDamageBlock.IsOnFire) {
+		Player->ObStrategyBlock->SBDamageBlock.IsOnFire=0;
+	}
+	Player->ObStrategyBlock->SBDamageBlock.Health=NpcData->StartingStats.Health<<ONE_FIXED_SHIFT;
+	playerStatusPtr->Health=Player->ObStrategyBlock->SBDamageBlock.Health;
+
+	Player->ObStrategyBlock->SBDamageBlock.Armour=NpcData->StartingStats.Armour<<ONE_FIXED_SHIFT;
+	playerStatusPtr->Armour=Player->ObStrategyBlock->SBDamageBlock.Armour;
+
+}
+
+void GodMode(void)
+{
+	PLAYER_STATUS *psPtr = (PLAYER_STATUS *) (Player->ObStrategyBlock->SBdataptr);
+	LOCALASSERT(psPtr);
+
+	if (psPtr->IsImmortal)
+	{
+		GADGET_NewOnScreenMessage("IMMORTALITY DISABLED");
+		psPtr->IsImmortal = 0;
+	} else {
+		GADGET_NewOnScreenMessage("IMMORTALITY ENABLED");
+		psPtr->IsImmortal = 1;
+	}
+}
+#endif
+
 extern void DisplaySavesLeft();
 
-
+extern void KickPlayer(int index);
 
 struct DEBUGGINGTEXTOPTIONS ShowDebuggingText;
 
@@ -92,9 +414,26 @@ extern void CastPredoBot(int weapon);
 extern void CastPredAlienBot(void);
 extern void CastPraetorianBot(void);
 extern void CastXenoborg(void);
+extern void CastSentrygun(void);
+extern void ChangeToAlien();
+extern void ChangeToPredator();
 
 extern int ShowMultiplayerScoreTimer;
 
+void DeploySentry(void)
+{
+	PLAYER_STATUS *playerStatusPtr= (PLAYER_STATUS *) (Player->ObStrategyBlock->SBdataptr);
+	LOCALASSERT(playerStatusPtr);
+
+	if(AvP.PlayerType!=I_Marine) return;
+
+	if (playerStatusPtr->IHaveAPlacedAutogun == 0) return;
+
+	if (playerStatusPtr->IHaveAPlacedAutogun == 1) {
+		CastSentrygun();
+		playerStatusPtr->IHaveAPlacedAutogun = 0;
+	}
+}
 static void ShowFPS(void)
 {
 	ShowDebuggingText.FPS = ~ShowDebuggingText.FPS;
@@ -142,72 +481,42 @@ static void ShowSounds(void)
 
 
 extern void ChangeToMarine();
-static void ChangeToSpecialist_General()
-{
-	netGameData.myCharacterSubType=NGSCT_General;
-	ChangeToMarine();
-}
-static void ChangeToSpecialist_PulseRifle()
-{
-	netGameData.myCharacterSubType=NGSCT_PulseRifle;
-	ChangeToMarine();
-}
-static void ChangeToSpecialist_Smartgun()
-{
-	if(netGameData.allowSmartgun)
-	{
-		netGameData.myCharacterSubType=NGSCT_Smartgun;
-	}
-	ChangeToMarine();
-}
-static void ChangeToSpecialist_Flamer()
-{
-	if(netGameData.allowFlamer)
-	{
-		netGameData.myCharacterSubType=NGSCT_Flamer;
-	}
-	ChangeToMarine();
-}
-static void ChangeToSpecialist_Sadar()
-{
-	if(netGameData.allowSadar)
-	{
-		netGameData.myCharacterSubType=NGSCT_Sadar;
-	}
-	ChangeToMarine();
-}
-static void ChangeToSpecialist_GrenadeLauncher()
-{
-	if(netGameData.allowGrenadeLauncher)
-	{
-		netGameData.myCharacterSubType=NGSCT_GrenadeLauncher;
-	}
-	ChangeToMarine();
-}
-static void ChangeToSpecialist_Minigun()
-{
-	if(netGameData.allowMinigun)
-	{
-		netGameData.myCharacterSubType=NGSCT_Minigun;
-	}
-	ChangeToMarine();
-}
-static void ChangeToSpecialist_Frisbee()
-{
-	if(netGameData.allowSmartDisc)
-	{
-		netGameData.myCharacterSubType=NGSCT_Frisbee;
-	}
-	ChangeToMarine();
-}
+extern void ChangeToAlien();
+extern void ChangeToPredator();
+extern int InGameMenusAreRunning(void);
 
-static void ChangeToSpecialist_Pistols()
+void ChangeSpecies()
 {
-	if(netGameData.allowPistols)
-	{
-		netGameData.myCharacterSubType=NGSCT_Pistols;
+	PLAYER_STATUS *psPtr = (PLAYER_STATUS *) (Player->ObStrategyBlock->SBdataptr);
+	LOCALASSERT(psPtr);
+
+	if (InGameMenusAreRunning()) return;
+
+	if (AvP.Network == I_No_Network) return;
+
+	if (AvP.PlayerType == I_Alien) {
+		ChangeToAlien();
+	} else if (AvP.PlayerType == I_Marine) {
+		ChangeToMarine();
+	} else {
+		ChangeToPredator();
 	}
-	ChangeToMarine();
+	psPtr->Class = 20; //CLASS_SPECIES_CHANGE...
+}
+void ChangeClass()
+{
+	PLAYER_STATUS *psPtr = (PLAYER_STATUS *) (Player->ObStrategyBlock->SBdataptr);
+	LOCALASSERT(psPtr);
+
+	if (InGameMenusAreRunning()) return;
+
+	if (AvP.Network == I_No_Network) return;
+
+	if ((netGameData.LifeCycle) && (AvP.PlayerType == I_Alien)) return;
+
+	//psPtr->Class = CLASS_NONE;
+	//psPtr->invulnerabilityTimer = ONE_FIXED*120;
+	DisplayClasses = 1;
 }
 
 extern void ShowMultiplayerScores()
@@ -358,8 +667,7 @@ void CreateGameSpecificConsoleCommands(void)
 		(
 			"GIVEALLWEAPONS",
 			"BE CAREFUL WHAT YOU WISH FOR",
-			GiveAllWeaponsCheat,
-			IsACheat
+			GiveAllWeaponsCheat
 		);
 
 
@@ -626,12 +934,6 @@ void CreateGameSpecificConsoleCommands(void)
 	
 	ConsoleCommand::Make
 	(
-		"SPECIALISTMARINE_GENERAL",
-		"Become a general marine (can use all weapons)",
-		ChangeToSpecialist_General
-	);
-	ConsoleCommand::Make
-	(
 		"SPECIALISTMARINE_PULSERIFLE",
 		"Become a pulserifle marine",
 		ChangeToSpecialist_PulseRifle
@@ -672,13 +974,6 @@ void CreateGameSpecificConsoleCommands(void)
 		"Become an SD marine",
 		ChangeToSpecialist_Frisbee
 	);
-	ConsoleCommand::Make
-	(
-		"SPECIALISTMARINE_PISTOLS",
-		"Become a pistol marine",
-		ChangeToSpecialist_Pistols
-	);
-
 	
 	#if 1
 	ConsoleCommand::Make
@@ -808,7 +1103,57 @@ void CreateGameSpecificConsoleCommands(void)
 		"",
 		DisplaySavesLeft
 	);
+	ConsoleCommand::Make
+	(
+		"GIVESTUFF",
+		"GIVES YOU LOTSA NEW STUFF.",
+		GiveAllWeaponsCheat
+	);
+	ConsoleCommand::Make
+	(
+		"KICK",
+		"Kick a player.",
+		KickPlayer
+	);
 
+	#if 1
+	ConsoleCommand::Make
+	(
+		"GOD",
+		"Become the almight God of AVP.. muahahah!",
+		GodMode
+	);
+	ConsoleCommand::Make
+	(
+		"RESTORE",
+		"Restore full Armor and Health.",
+		Restore
+	);
+	#endif
+	ConsoleCommand::Make
+	(
+		"APC",
+		"Drive an APC!",
+		ToggleAPC
+	);
+	ConsoleCommand::Make
+	(
+		"INFLAMP",
+		"Infinite Lamp Battery.",
+		InfLampToggle
+	);
+	ConsoleCommand::Make
+	(
+		"COMPLETELEVEL",
+		"Complete the level.",
+		CompleteLevel
+	);
+	ConsoleCommand::Make
+	(
+		"THIRDPERSON",
+		"Change to 3rd-person viewmode.",
+		Toggle3rdPerson
+	);
 }	
 
 

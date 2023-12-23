@@ -1431,7 +1431,7 @@ int LoadWavFile(int soundNum, char * wavFileName)
 	//calculate length of sample
 	lengthInSeconds=DIV_FIXED(myChunkHeader.chunkLength,myWaveFormat.nAvgBytesPerSec);
 
-	if((myChunkHeader.chunkLength<0)||(myChunkHeader.chunkLength > SOUND_MAXSIZE))
+	if((myChunkHeader.chunkLength<0)/*||(myChunkHeader.chunkLength > SOUND_MAXSIZE)*/)
 	{
 		LOCALASSERT(1==0);
 		fclose(myFile);
@@ -1869,8 +1869,9 @@ void PlatUpdatePlayer()
 	{
 		extern int NormalFrameTime;
 		extern int DopplerShiftIsOn;
+		extern int Underwater;
 
-		if(AvP.PlayerType != I_Alien)
+		if(AvP.PlayerType == I_Marine)  //!= I_Alien
 		{
 			IDirectSound3DListener_SetOrientation
 				(
@@ -1899,7 +1900,8 @@ void PlatUpdatePlayer()
 				);
 		}
 
-		if (AvP.PlayerType == I_Alien && DopplerShiftIsOn && NormalFrameTime)
+		if ((AvP.PlayerType == I_Alien || AvP.PlayerType == I_Predator) && 
+			DopplerShiftIsOn && NormalFrameTime)
 		{
 			DYNAMICSBLOCK *dynPtr=Player->ObStrategyBlock->DynPtr;
 			float vx,vy,vz;

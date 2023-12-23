@@ -551,16 +551,16 @@ BOOL TestMemoryAccess(void)
 			BOOL BlitAsyncQueue;
 			BOOL BankSwitched;
 			// Timing factors
-			int TimeForVramWrite;
-			int TimeForSysMemWrite;
-			unsigned char* SurfacePtr;
+			//int TimeForVramWrite;
+			//int TimeForSysMemWrite;
+			//unsigned char* SurfacePtr;
             // DirectX intfc
             DDCAPS              ddcaps;
             HRESULT             ddrval;
-			LPDIRECTDRAWSURFACE lpTestSurf;
-			DDSURFACEDESC       ddsd;
+			//LPDIRECTDRAWSURFACE lpTestSurf;
+			//DDSURFACEDESC       ddsd;
 			// etc
-			int i;
+			//int i;
 			int TestSurfHeight = 480;
 			int TestSurfWidth = 640;
 

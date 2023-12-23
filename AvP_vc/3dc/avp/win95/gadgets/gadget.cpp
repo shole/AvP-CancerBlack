@@ -81,18 +81,18 @@ void Gadget :: Render_Report
 )
 {
 	// use to textprint useful information about a call to "Render"
-	textprint
-	(
-		"%s::Render at(%i,%i) clip(%i,%i,%i,%i) a=%i\n",
-		DebugName,
-		R2Pos . x,
-		R2Pos . y,
-		R2Rect_Clip . x0,
-		R2Rect_Clip . y0,
-		R2Rect_Clip . x1,
-		R2Rect_Clip . y1,
-		FixP_Alpha
-	);
+	//textprint
+	//(
+	//	"%s::Render at(%i,%i) clip(%i,%i,%i,%i) a=%i\n",
+	//	DebugName,
+	//	R2Pos . x,
+	//	R2Pos . y,
+	//	R2Rect_Clip . x0,
+	//	R2Rect_Clip . y0,
+	//	R2Rect_Clip . x1,
+	//	R2Rect_Clip . y1,
+	//	FixP_Alpha
+	//);
 }
 #endif
 

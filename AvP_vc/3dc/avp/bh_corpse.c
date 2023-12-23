@@ -112,6 +112,7 @@ void Convert_Alien_To_Corpse(STRATEGYBLOCK *sbPtr,DEATH_DATA *this_death,DAMAGE_
 
 	NETCORPSEDATABLOCK *corpseDataPtr;
 	ALIEN_STATUS_BLOCK *alienStatusPointer;
+	int CorpseLifeTime;
 		
 	alienStatusPointer=(ALIEN_STATUS_BLOCK *)(sbPtr->SBdataptr);    
 	/* Convert an alien... to a corpse. */
@@ -195,7 +196,9 @@ void Convert_Alien_To_Corpse(STRATEGYBLOCK *sbPtr,DEATH_DATA *this_death,DAMAGE_
 		ProveHModel_Far(&corpseDataPtr->HModelController,sbPtr);
 	}
 
-	corpseDataPtr->timer=ALIEN_DYINGTIME;
+	CorpseLifeTime = ALIEN_DYINGTIME;
+
+	corpseDataPtr->timer=CorpseLifeTime;//ALIEN_DYINGTIME;
 	corpseDataPtr->validityTimer=CORPSE_VALIDITY_TIME;
 	corpseDataPtr->HModelController.Looped=0;
 	corpseDataPtr->HModelController.LoopAfterTweening=0;
@@ -226,6 +229,7 @@ void Convert_Predator_To_Corpse(STRATEGYBLOCK *sbPtr,DEATH_DATA *this_death) {
 
 	NETCORPSEDATABLOCK *corpseDataPtr;
 	PREDATOR_STATUS_BLOCK *predatorStatusPointer;
+	int CorpseLifeTime;
 		
 	predatorStatusPointer=(PREDATOR_STATUS_BLOCK *)(sbPtr->SBdataptr);    
 	/* Convert a predator... to a corpse. */
@@ -302,7 +306,9 @@ void Convert_Predator_To_Corpse(STRATEGYBLOCK *sbPtr,DEATH_DATA *this_death) {
 		ProveHModel_Far(&corpseDataPtr->HModelController,sbPtr);
 	}
 
-	corpseDataPtr->timer=PRED_DIETIME;
+	CorpseLifeTime = PRED_DIETIME;
+
+	corpseDataPtr->timer=CorpseLifeTime;//PRED_DIETIME;
 	corpseDataPtr->validityTimer=CORPSE_VALIDITY_TIME;
 	corpseDataPtr->HModelController.Looped=0;
 	corpseDataPtr->HModelController.LoopAfterTweening=0;
@@ -330,6 +336,7 @@ void Convert_Marine_To_Corpse(STRATEGYBLOCK *sbPtr,DEATH_DATA *this_death) {
 
 	NETCORPSEDATABLOCK *corpseDataPtr;
 	MARINE_STATUS_BLOCK *marineStatusPointer;
+	int CorpseLifeTime;
 		
 	marineStatusPointer=(MARINE_STATUS_BLOCK *)(sbPtr->SBdataptr);    
 	/* Convert a predator... to a corpse. */
@@ -413,7 +420,9 @@ void Convert_Marine_To_Corpse(STRATEGYBLOCK *sbPtr,DEATH_DATA *this_death) {
 		ProveHModel_Far(&corpseDataPtr->HModelController,sbPtr);
 	}
 
-	corpseDataPtr->timer=MARINE_DYINGTIME;
+	CorpseLifeTime = MARINE_DYINGTIME;
+
+	corpseDataPtr->timer=CorpseLifeTime;//MARINE_DYINGTIME;
 	corpseDataPtr->validityTimer=CORPSE_VALIDITY_TIME;
 	corpseDataPtr->HModelController.Looped=0;
 	corpseDataPtr->HModelController.LoopAfterTweening=0;

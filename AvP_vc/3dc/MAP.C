@@ -212,7 +212,7 @@ void MapBlockInit(DISPLAYBLOCK *dptr)
 
 	/* Augmented Z */
 
-	if(sptr->shapeflags & ShapeFlag_AugZ) dptr->ObFlags2 |= ObFlag2_AugZ;
+	if(dptr && sptr && sptr->shapeflags & ShapeFlag_AugZ) dptr->ObFlags2 |= ObFlag2_AugZ;
 
 
 	/* Pass address of the shape data header back to the block for others */
@@ -226,21 +226,19 @@ void MapBlockInit(DISPLAYBLOCK *dptr)
 
 
 	/* Copy shape radius to ODB */
+	if (dptr && sptr) {
+		dptr->ObRadius = sptr->shaperadius;
 
-	dptr->ObRadius = sptr->shaperadius;
+		/* Copy shape xyz extents to ODB */
 
-	/* Copy shape xyz extents to ODB */
+		dptr->ObMaxX = sptr->shapemaxx;
+		dptr->ObMinX = sptr->shapeminx;
 
-	dptr->ObMaxX = sptr->shapemaxx;
-	dptr->ObMinX = sptr->shapeminx;
+		dptr->ObMaxY = sptr->shapemaxy;
+		dptr->ObMinY = sptr->shapeminy;
 
-	dptr->ObMaxY = sptr->shapemaxy;
-	dptr->ObMinY = sptr->shapeminy;
-
-	dptr->ObMaxZ = sptr->shapemaxz;
-	dptr->ObMinZ = sptr->shapeminz;
-
-
-   
+		dptr->ObMaxZ = sptr->shapemaxz;
+		dptr->ObMinZ = sptr->shapeminz;
+	}
 }
 

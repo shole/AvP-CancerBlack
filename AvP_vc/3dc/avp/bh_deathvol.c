@@ -18,6 +18,10 @@ extern DISPLAYBLOCK* ActiveBlockList[];
 extern DAMAGE_PROFILE DeathVolumeDamage;
 extern int NormalFrameTime;
 
+// Ladder system, possible fix.
+int Ladder[20];
+int CurrentLadder=-1;
+
 void* DeathVolumeBehaveInit(void* bhdata,STRATEGYBLOCK* sbptr)
 {
 	DEATH_VOLUME_BEHAV_BLOCK* dv_bhv;
@@ -53,7 +57,7 @@ void* DeathVolumeBehaveInit(void* bhdata,STRATEGYBLOCK* sbptr)
 
 void DeathVolumeBehaveFun(STRATEGYBLOCK* vol_sbptr)
 {
-	DEATH_VOLUME_BEHAV_BLOCK* dv_bhv;	
+	DEATH_VOLUME_BEHAV_BLOCK* dv_bhv;
  	GLOBALASSERT(vol_sbptr);
 	dv_bhv = (DEATH_VOLUME_BEHAV_BLOCK*)vol_sbptr->SBdataptr;
 	GLOBALASSERT((dv_bhv->bhvr_type == I_BehaviourDeathVolume));
@@ -63,7 +67,12 @@ void DeathVolumeBehaveFun(STRATEGYBLOCK* vol_sbptr)
 		int i;
 		STRATEGYBLOCK* sbPtr;
 		DYNAMICSBLOCK* dynPtr;
-		int miny,maxy;
+		int miny,maxy,valid=1;
+
+		if (CurrentLadder==-1)
+			CurrentLadder=0;
+		else
+			CurrentLadder++;
 
 		for(i=0;i<NumActiveBlocks;i++)
 		{
@@ -78,31 +87,32 @@ void DeathVolumeBehaveFun(STRATEGYBLOCK* vol_sbptr)
 
 			if(dv_bhv->collision_required)
 			{
-				if(!dynPtr->CollisionReportPtr) continue;
+				if(!dynPtr->CollisionReportPtr)
+				{
+					continue;
+				}
 			}
 
 			//is the object within the death volume?
 			//check a vertical line against the death volume's bounding box
 			
 			//first check the object's centre x and centre z values against the volume
-			if(dptr->ObWorld.vx<dv_bhv->volume_min.vx) continue;
-			if(dptr->ObWorld.vx>dv_bhv->volume_max.vx) continue;
-			if(dptr->ObWorld.vz<dv_bhv->volume_min.vz) continue;
-			if(dptr->ObWorld.vz>dv_bhv->volume_max.vz) continue;
+			if(dptr->ObWorld.vx<dv_bhv->volume_min.vx) valid=0;
+			if(dptr->ObWorld.vx>dv_bhv->volume_max.vx) valid=0;
+			if(dptr->ObWorld.vz<dv_bhv->volume_min.vz) valid=0;
+			if(dptr->ObWorld.vz>dv_bhv->volume_max.vz) valid=0;
 
 			//now check  the object's vertical extents for overlap with the death volume bounding box
 			miny=dptr->ObWorld.vy+dptr->ObMinY;
 			maxy=dptr->ObWorld.vy+dptr->ObMaxY;
-			if(max(miny,dv_bhv->volume_min.vy) > min(maxy,dv_bhv->volume_max.vy)) continue;
+			if(max(miny,dv_bhv->volume_min.vy) > min(maxy,dv_bhv->volume_max.vy)) valid=0;
 
-			/*
-			if(dynPtr->Position.vx > dv_bhv->volume_min.vx &&
-			   dynPtr->Position.vx < dv_bhv->volume_max.vx &&
-			   dynPtr->Position.vz > dv_bhv->volume_min.vz &&
-			   dynPtr->Position.vz < dv_bhv->volume_max.vz &&
-			   dynPtr->Position.vy > dv_bhv->volume_min.vy &&
-			   dynPtr->Position.vy < dv_bhv->volume_max.vy)
-			*/
+			if (!valid)
+			{
+				Ladder[CurrentLadder]=0;
+				continue;
+			}
+
 			{
 				//finally see if the object is one of the types that can be harmed by the death volume
 				if(sbPtr->I_SBtype==I_BehaviourAlien ||
@@ -130,6 +140,13 @@ void DeathVolumeBehaveFun(STRATEGYBLOCK* vol_sbptr)
 						VECTORCH direction={0,-ONE_FIXED,0};
 						DAMAGE_PROFILE damage = DeathVolumeDamage;
 						damage.Penetrative = dv_bhv->damage_per_second;
+
+						// A damage of 100 means it's a ladder object.
+						if (damage.Penetrative == 100)
+						{
+							Ladder[CurrentLadder] = 1;
+							return;
+						}
 						CauseDamageToObject(sbPtr,&damage,NormalFrameTime,&direction);
 					}
 					else
@@ -137,19 +154,15 @@ void DeathVolumeBehaveFun(STRATEGYBLOCK* vol_sbptr)
 						//kill the creature/player
 						VECTORCH direction={0,-ONE_FIXED,0};
 						CauseDamageToObject(sbPtr,&certainDeath,ONE_FIXED,&direction);
+						Ladder[CurrentLadder] = 0;
 					}
 
 					//reset network killer id
 					myNetworkKillerId = AVPDPNetID;
-		
 				}
-			
 			}
 		}
-		
-		
 	}
-
 }
 
 

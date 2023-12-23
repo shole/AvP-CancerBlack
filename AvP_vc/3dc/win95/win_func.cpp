@@ -205,7 +205,7 @@ BOOL WaitForRasterThread()
 {
     BOOL RetVal;
 	DWORD ThreadStatus;
-	int i;
+	//int i;
 
     // Note that if this is to work the 
     // rasterisation thread must have a

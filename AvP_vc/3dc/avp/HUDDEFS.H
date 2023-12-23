@@ -35,6 +35,14 @@ typedef struct
 	int Y;
 	int Brightness;
 } BLIP_TYPE;
+
+typedef struct
+{
+	int X;
+	int Y;
+	int Brightness;
+	int Color;
+} SONAR_BLIP_TYPE;
 /*KJL*************************************************
 * Speed at which gunsight moves when smart-targeting *
 *************************************************KJL*/
@@ -98,7 +106,6 @@ enum PREDATOR_HUD_DIGIT
     PREDATOR_HUD_HEALTH_4,
     PREDATOR_HUD_HEALTH_5,
     
-	/*
 	PREDATOR_HUD_THREATDISPLAY_1,
 	PREDATOR_HUD_THREATDISPLAY_2,
 	PREDATOR_HUD_THREATDISPLAY_3,
@@ -107,7 +114,7 @@ enum PREDATOR_HUD_DIGIT
 	PREDATOR_HUD_THREATDISPLAY_6,
 	PREDATOR_HUD_THREATDISPLAY_7,
 	PREDATOR_HUD_THREATDISPLAY_8,
-	*/
+	
 	MAX_NO_OF_PREDATOR_HUD_DIGITS
 };
 

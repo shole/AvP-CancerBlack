@@ -10,6 +10,7 @@
 #include "pvisible.h"
 #include "particle.h"
 #include "lighting.h"
+#include "DetailLevels.h"
 
 #define UseLocalAssert Yes
 #include "ourasert.h"
@@ -167,31 +168,91 @@ void ParticleGeneratorBehaveFun(STRATEGYBLOCK* sbptr)
 			{
 				case PARGEN_TYPE_SPARK :
 				{
-					if(pargen->timer<0)	
-					{
-
-						if((FastRandom() & 0xffff)<=pargen->probability)
+						if(pargen->timer<0)	
 						{
-							//create sparks
-							//like MakeSprayOfSparks , but in z direction
-							int noOfSparks = 15;
-							do
-							{
-								
-								VECTORCH velocity;
-								velocity.vx = (FastRandom()&2047)-1024;
-								velocity.vy = (FastRandom()&2047)-1024;
-								velocity.vz = (FastRandom()&2047);
-								RotateVector(&velocity,&pargen->orientation);
-								MakeParticle(&pargen->position,&velocity,ParticleUsed[pargen->type]);	
-							}
-							while(--noOfSparks);
-							
-							MakeLightElement(&pargen->position,LIGHTELEMENT_ELECTRICAL_SPARKS);
-							play_sound=TRUE;
-						}
+							int chance = pargen->probability;
+							unsigned int IsDripper=0;
 
-					}
+							// For Drippers...
+							if (chance < 700) {
+								chance=32768;
+								IsDripper=1;
+							} else if (chance < 1400) {
+								chance=32768;
+								IsDripper=2;
+							} else if (chance < 2100) {
+								chance=65536;
+								IsDripper=3;
+							} else if (chance < 2800) {
+								chance=65536;
+								IsDripper=4;
+							} else if (chance < 3500) {
+								chance=65536;
+								IsDripper=5;
+							}
+							if((FastRandom() & 0xffff)<=chance)
+							{
+								//create sparks
+								//like MakeSprayOfSparks , but in z direction
+								int noOfSparks = 15;
+								if (IsDripper) noOfSparks=((FastRandom()%5)+1);
+
+								// Programmed a new rain code in d3d_render.cpp..
+								#if 0
+								if (IsDripper==3)
+								{
+									if (LocalDetailLevels.WeatherFX)
+										noOfSparks = noOfSparks*4;
+									else
+										noOfSparks = noOfSparks*2;
+								}
+								#endif
+
+								if (IsDripper==4) noOfSparks = 1;
+								if (IsDripper==5)
+								{
+									if (LocalDetailLevels.WeatherFX)
+										noOfSparks = noOfSparks*4;
+									else
+										noOfSparks = noOfSparks*2;
+								}
+
+								do
+								{
+									VECTORCH velocity;
+									velocity.vx = (FastRandom()&2047)-1024;
+									velocity.vy = (FastRandom()&2047)-1024;
+									velocity.vz = (FastRandom()&2047);
+									RotateVector(&velocity,&pargen->orientation);
+									if (IsDripper==1) {
+										MakeParticle(&pargen->position,&velocity,PARTICLE_HUMAN_BLOOD);
+									} else if (IsDripper==2) {
+										MakeParticle(&pargen->position,&velocity,PARTICLE_RAIN);
+									} else if (IsDripper==3) {
+										// Made a new rain code in d3d_render.cpp
+									} else if (IsDripper==4) {
+										int i=5;
+										do {
+											MakeParticle(&pargen->position, &velocity, PARTICLE_WATERFALLSPRAY);
+										}
+										while(i--);
+									} else if (IsDripper==5) {
+										VECTORCH position;
+										position.vx = (pargen->position.vx + ((FastRandom()%49152)-24576));
+										position.vy = pargen->position.vy;
+										position.vz = (pargen->position.vz + ((FastRandom()%49152)-24576));
+										MakeParticle(&position, &velocity, PARTICLE_SNOW);
+									} else {
+										MakeParticle(&pargen->position,&velocity,ParticleUsed[pargen->type]);
+									}
+								}
+								while(--noOfSparks);
+							
+								if (!IsDripper)
+									MakeLightElement(&pargen->position,LIGHTELEMENT_ELECTRICAL_SPARKS);
+								play_sound=TRUE;
+							}
+						}
 				}
 				break;
 
@@ -202,29 +263,29 @@ void ParticleGeneratorBehaveFun(STRATEGYBLOCK* sbptr)
 				case PARGEN_TYPE_STEAM :
 				case PARGEN_TYPE_BLACKSMOKE :
 				{
-					while(pargen->timer<0)
-					{
-						VECTORCH velocity;
-						VECTORCH position=pargen->position;
-						int offset;
+						while(pargen->timer<0)
+						{
+							VECTORCH velocity;
+							VECTORCH position=pargen->position;
+							int offset;
 	
-						pargen->timer+=pargen->frequency;
+							pargen->timer+=pargen->frequency;
 
-						//get a velocity of magnitude in the region of speed
-						velocity.vx = ((FastRandom()&1023) - 512);
-						velocity.vy = ((FastRandom()&1023) - 512);
-						velocity.vz = MUL_FIXED(pargen->speed,(ONE_FIXED+(FastRandom()&0x3fff)));
+							//get a velocity of magnitude in the region of speed
+							velocity.vx = ((FastRandom()&1023) - 512);
+							velocity.vy = ((FastRandom()&1023) - 512);
+							velocity.vz = MUL_FIXED(pargen->speed,(ONE_FIXED+(FastRandom()&0x3fff)));
 						
-						RotateVector(&velocity,&pargen->orientation);
+							RotateVector(&velocity,&pargen->orientation);
 
-						//allow particle to have had part of a frames movement already
-						offset=FastRandom()%NormalFrameTime;
-						position.vx+=MUL_FIXED(offset,velocity.vx);
-						position.vy+=MUL_FIXED(offset,velocity.vy);
-						position.vz+=MUL_FIXED(offset,velocity.vz);
+							//allow particle to have had part of a frames movement already
+							offset=FastRandom()%NormalFrameTime;
+							position.vx+=MUL_FIXED(offset,velocity.vx);
+							position.vy+=MUL_FIXED(offset,velocity.vy);
+							position.vz+=MUL_FIXED(offset,velocity.vz);
 
-						MakeParticle(&position,&velocity,ParticleUsed[pargen->type]);	
-					}
+							MakeParticle(&position,&velocity,ParticleUsed[pargen->type]);	
+						}
 				}
 				break;
 

@@ -13,6 +13,7 @@ extern "C" {
 #include "inline.h"
 #include "cd_player.h"
 #include "psndplat.h"
+#include "resource.h"
 
 #include "rentrntq.h"
 	// Added 21/11/97 by DHM: support for a queue of Windows
@@ -210,6 +211,7 @@ long FAR PASCAL WindowProc(HWND hWnd, UINT message,
 	 // This, in combination with code in win_func,
 	 // will hopefully disable Alt-Tabbing...
      case WM_ACTIVATEAPP:
+		 /*
         bActive = (BOOL) wParam;
         
         LOGDXFMT(("WM_ACTIVATEAPP msg: bActive = %d",(int)bActive));
@@ -226,6 +228,7 @@ long FAR PASCAL WindowProc(HWND hWnd, UINT message,
         	ATOnAppReactivate();
         }
 		IngameKeyboardInput_ClearBuffer();
+		*/
         
 		return 0;
 
@@ -299,11 +302,13 @@ long FAR PASCAL WindowProc(HWND hWnd, UINT message,
 	 // problems under obscure cirumstances, I am removing 
 	 // this now (25/7/96).
 	 // And putting it back... (20/9/96)
+		 /*
     	ReleaseDirect3D();
-	 	/* patrick 9/6/97: hmmmmm.... */  	
+	 	
 	   	PlatEndSoundSys();
 
 	   	PostQuitMessage(0);
+		*/
         break;
     }
 
@@ -422,7 +427,7 @@ BOOL InitialiseWindowsSystem(HANDLE hInstance, int nCmdShow,
 	game this icon will be project specific.
 */
       #if 1
-      wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+      wc.hIcon = LoadIcon(NULL, MAKEINTRESOURCE(IDI_AMP));
 	  #else
       wc.hIcon = NULL;
 	  #endif
@@ -650,6 +655,41 @@ BOOL ExitWindowsSystem(void)
    return rc;
 }
 
+// Trying to fix the "strange bug".. -- Eldritch
+#if 0
+void MakeToAsciiTable(void)
+{
+	FILE *src = fopen("Seb.txt","wt"); // ADDED
+	WORD output;
+	for (int k=0; k<=255; k++)
+	{
+		ksarray[k]=0;
+	}
+
+	if(src) //ADDED
+	{
+		for (int i=0; i<=255; i++)
+		{
+			for (int s=0; s<=255; s++)
+			{
+				fprintf(src,"i=%d s=%d ",i,s); // ADDED
+				if (ToAscii(i,s,&ksarray[0],&output,0)!=0)
+				{
+					ToAsciiTable[i][s] = (unsigned char)output;
+					fprintf(src,"output=%d\n",output); // ADDED
+				}
+				else 
+				{
+					ToAsciiTable[i][s] = 0;
+					fprintf(src,"0\n"); // ADDED
+				}
+			}
+		}
+		fputs("ok",src); // ADDED
+		fclose(src); // ADDED
+	}
+}
+#else
 void MakeToAsciiTable(void)
 {
 	WORD output;
@@ -673,6 +713,7 @@ void MakeToAsciiTable(void)
 		}
 	}
 }
+#endif
 // End of extern C declaration 
 
 };

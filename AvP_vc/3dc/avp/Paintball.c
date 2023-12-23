@@ -10,6 +10,7 @@
 PAINTBALLMODE PaintBallMode;
 
 extern int NormalFrameTime;
+extern void RenderDecal(DECAL *decalPtr);
 
 extern void TogglePaintBallMode(void)
 {
@@ -100,7 +101,7 @@ extern void PaintBallMode_DrawCurrentDecalAtTarget(void)
 
 	{
 		PrintDebuggingText("PAINTBALL MODE ACTIVE\n");
-		PrintDebuggingText("TOTAL PRE-DECALS: %d OUT OF 1024\n",NumFixedDecals);
+		//PrintDebuggingText("TOTAL PRE-DECALS: %d OUT OF 1024\n",NumFixedDecals);
 	}
 	
 }

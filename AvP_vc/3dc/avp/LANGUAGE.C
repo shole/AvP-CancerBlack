@@ -46,7 +46,7 @@ void InitTextStrings(void)
 	#elif ALIEN_DEMO
 	TextBufferPtr = LoadTextFile("aenglish.txt");
 	#elif USE_LANGUAGE_TXT
-	TextBufferPtr = LoadTextFile("language.txt");
+	TextBufferPtr = LoadTextFile("cb_language.txt");
 	#else
 	TextBufferPtr = LoadTextFile(LanguageFilename[AvP.Language]);
 	#endif

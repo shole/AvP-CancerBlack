@@ -53,10 +53,10 @@
 #define MOTIONTRACKERS 0
 #define ANARCHY 0
 #define PISTOL_CLIP_SIZE 8
-#define SENTRY_SENSITIVITY 1500
-#define MARINE_AUTODETECT_RANGE	2500
+#define SENTRY_SENSITIVITY 3000
+#define MARINE_AUTODETECT_RANGE	5000
 
-#define SUSPECT_SENSITIVITY 2100
+#define SUSPECT_SENSITIVITY 4200
 /* Ten centimetres.  It can make a lot of difference. */
 
 #define ALL_NEW_AVOIDANCE	(1)
@@ -71,6 +71,7 @@ extern ACTIVESOUNDSAMPLE ActiveSounds[];
 extern int CurrentLightAtPlayer;
 
 extern int AIModuleArraySize;
+extern int NumActiveBlocks;
 extern AIMODULE *AIModuleArray;
 extern DAMAGE_PROFILE FallingDamage;
 
@@ -81,12 +82,15 @@ extern SECTION * GetNamedHierarchyFromLibrary(const char * rif_name, const char 
 extern STRATEGYBLOCK* CreateGrenadeKernel(AVP_BEHAVIOUR_TYPE behaviourID, VECTORCH *position, MATRIXCH *orient,int fromplayer);
 extern STRATEGYBLOCK* CreateRocketKernel(VECTORCH *position, MATRIXCH *orient,int fromplayer);
 extern STRATEGYBLOCK* CreateFrisbeeKernel(VECTORCH *position, MATRIXCH *orient, int fromplayer);
+extern STRATEGYBLOCK* InitialiseEnergyBoltBehaviourKernel(VECTORCH *position,MATRIXCH *orient, int player, DAMAGE_PROFILE *damage, int factor);
+extern STRATEGYBLOCK* DropWeapon(VECTORCH *location, int type, char *name);
 extern int AlienPCIsCurrentlyVisible(int checktime,STRATEGYBLOCK *sbPtr);
 extern int ObjectShouldAppearOnMotionTracker(STRATEGYBLOCK *sbPtr);
 extern int SBIsEnvironment(STRATEGYBLOCK *sbPtr);
 void Marine_SwitchExpression(STRATEGYBLOCK *sbPtr,int state);
 
 extern void PrintSpottedNumber(void);
+extern void GetTargetingPointOfObject_Far(STRATEGYBLOCK *sbPtr, VECTORCH *targetPtr);
 
 /* prototypes for this file */
 static STATE_RETURN_CONDITION Execute_MFS_Wait(STRATEGYBLOCK *sbPtr);
@@ -98,6 +102,8 @@ static STATE_RETURN_CONDITION Execute_MFS_Return(STRATEGYBLOCK *sbPtr);
 static STATE_RETURN_CONDITION Execute_MFS_Pathfinder(STRATEGYBLOCK *sbPtr);
 static STATE_RETURN_CONDITION Execute_MFS_Avoidance(STRATEGYBLOCK *sbPtr);
 static STATE_RETURN_CONDITION Execute_MFS_SentryMode(STRATEGYBLOCK *sbPtr);
+static STATE_RETURN_CONDITION Execute_MFS_Respond(STRATEGYBLOCK *sbPtr);
+static STATE_RETURN_CONDITION Execute_MFS_Retreat(STRATEGYBLOCK *sbPtr);
 
 static STATE_RETURN_CONDITION Execute_MNS_Approach(STRATEGYBLOCK *sbPtr);
 static STATE_RETURN_CONDITION Execute_MNS_Avoidance(STRATEGYBLOCK *sbPtr);
@@ -126,6 +132,7 @@ static STATE_RETURN_CONDITION Execute_MNS_PanicReloading(STRATEGYBLOCK *sbPtr);
 static STATE_RETURN_CONDITION Execute_MNS_DischargeTwoPistols(STRATEGYBLOCK *sbPtr);
 static STATE_RETURN_CONDITION Execute_MNS_DischargeSkeeter(STRATEGYBLOCK *sbPtr);
 static STATE_RETURN_CONDITION Execute_MNS_AcidAvoidance(STRATEGYBLOCK *sbPtr);
+static STATE_RETURN_CONDITION Execute_MNS_PumpAction(STRATEGYBLOCK *sbPtr);
 
 static void MarineMisfireFlameThrower(SECTION_DATA *muzzle, int *timer);
 static STATE_RETURN_CONDITION Execute_MNS_NullPanicFire(STRATEGYBLOCK *sbPtr);
@@ -139,6 +146,8 @@ static STATE_RETURN_CONDITION Execute_MNS_PanicFireUnarmed(STRATEGYBLOCK *sbPtr)
 
 void NPC_Maintain_Minigun(STRATEGYBLOCK *sbPtr, DELTA_CONTROLLER *mgd);
 void Marine_AssumePanicExpression(STRATEGYBLOCK *sbPtr);
+DISPLAYBLOCK *MakeAIPistolCasing(VECTORCH *position, MATRIXCH *orient);
+extern DISPLAYBLOCK *MakeShotgunShell(VECTORCH *position, MATRIXCH *orient);
 
 static void Execute_Dying(STRATEGYBLOCK *sbPtr); /* used for near and far */
 
@@ -230,7 +239,7 @@ void DoMarineHearing(STRATEGYBLOCK *sbPtr);
 static void HandleWaitingAnimations(STRATEGYBLOCK *sbPtr);
 static void HandleMovingAnimations(STRATEGYBLOCK *sbPtr);
 int MakeModifiedTargetNum(int targetnum,int dist);
-
+int MarineSight_FrustrumReject(STRATEGYBLOCK *sbPtr, VECTORCH *localOffset, STRATEGYBLOCK *target);
 
 /* Console Variables */
 
@@ -261,7 +270,7 @@ MARINE_WEAPON_DATA NPC_Marine_Weapons[] = {
 		1000*65536/60,						/* Firing Rate */
 		MARINE_NEAR_FIRE_TIME,				/* Firing Time */
 		10,									/* MinimumBurstSize */
-		AMMO_10MM_CULW_NPC,						/* Ammo profile */
+		AMMO_10MM_CULW,						/* Ammo profile */
 		99,									/* clip_size */
 		MSSS_Reload,						/* Reload_Sequence */
 		300,								/* TargetCallibrationShift */
@@ -327,7 +336,7 @@ MARINE_WEAPON_DATA NPC_Marine_Weapons[] = {
 		50*65536,							/* Firing Rate */
 		MARINE_NEAR_FIRE_TIME,				/* Firing Time */
 		50,									/* MinimumBurstSize */
-		AMMO_SMARTGUN_NPC,						/* Ammo profile */
+		AMMO_SMARTGUN,						/* Ammo profile */
 		300,								/* clip_size */
 		MSSS_Reload,						/* Reload_Sequence */
 		0,									/* TargetCallibrationShift */
@@ -388,21 +397,21 @@ MARINE_WEAPON_DATA NPC_Marine_Weapons[] = {
 		"marine with pulse rifle", 			/* HitLocationTableName */
 		"Template",							/* TemplateName */
 		"gren mag",							/* ClipName */
-		9000,								/* MinRange (Don't fire when closer) */
+		0,									/* MinRange (Don't fire when closer) */
 		MARINE_CLOSE_APPROACH_DISTANCE,		/* ForceFireRange (Fire if closer) */
-		-1,									/* MaxRange (Don't fire if further) */
+		18000,								/* MaxRange (Don't fire if further) */
 		0,									/* Accuracy */
-		1000*65536/60,						/* Firing Rate */
-		MARINE_NEAR_FIRE_TIME,				/* Firing Time */
+		1,									/* Firing Rate */
+		-1,									/* Firing Time */
 		0,									/* MinimumBurstSize */
-		AMMO_10MM_CULW,						/* Ammo profile */
-		6,									/* clip_size */
+		AMMO_GRENADE,						/* Ammo profile */
+		8,									/* clip_size */
 		MSSS_Reload,  						/* Reload_Sequence */
 		0,									/* TargetCallibrationShift */
 		SID_ROCKFIRE,						/* StartSound */
 		SID_NOSOUND,						/* LoopSound */
 		SID_NOSOUND,						/* EndSound */
-		1,									/* Enable Grenades */
+		0,									/* Enable Grenades */
 		1,									/* UseElevation */
 		1,									/* EnableTracker */
 		1,									/* ARealMarine */
@@ -412,31 +421,31 @@ MARINE_WEAPON_DATA NPC_Marine_Weapons[] = {
 		MNPCW_Minigun,						/* ID */
 		SFX_MUZZLE_FLASH_AMORPHOUS,			/* enum SFX_ID SfxID; */
 
-		Execute_MNS_DischargeMinigun,		/* Func. */
+		Execute_MNS_DischargeLOSWeapon,		/* Func. */
 		NULL,								/* Misfire func. */
-		Execute_MNS_PanicFireMinigun,		/* WeaponPanicFireFunction */
+		Execute_MNS_PanicFireLOSWeapon,		/* WeaponPanicFireFunction */
 		"hnpcmarine",						/* Riffname */
-		"Marine with Mini Gun", 			/* HierarchyName */
+		"marine with pulse rifle", 			/* HierarchyName */
 		"dum flash",						/* GunflashName */
-		"mini gun",							/* ElevationSection */
+		"pulse rifle",						/* ElevationSection */
 		"marine with pulse rifle", 			/* HitLocationTableName */
 		"Template",							/* TemplateName */
-		"mini mag",							/* ClipName */
+		"pulse mag",						/* ClipName */
 		0,									/* MinRange (Don't fire when closer) */
 		MARINE_CLOSE_APPROACH_DISTANCE,		/* ForceFireRange (Fire if closer) */
 		-1,									/* MaxRange (Don't fire if further) */
 		0,									/* Accuracy */
-		100*65536,							/* Firing Rate */
+		1000*65536/60,						/* Firing Rate */
 		MARINE_NEAR_FIRE_TIME,				/* Firing Time */
-		MINIGUN_MINIMUM_BURST,				/* MinimumBurstSize */
-		AMMO_MINIGUN_NPC,						/* Ammo profile */
-		500,								/* clip_size */
+		10,									/* MinimumBurstSize */
+		AMMO_10MM_CULW,						/* Ammo profile */
+		99,									/* clip_size */
 		MSSS_Reload,						/* Reload_Sequence */
-		0,									/* TargetCallibrationShift */
+		300,								/* TargetCallibrationShift */
 		SID_NOSOUND,						/* StartSound */
-		SID_MINIGUN_LOOP,					/* LoopSound */
-		SID_MINIGUN_END, 					/* EndSound */
-		0,									/* Enable Grenades */
+		SID_PULSE_LOOP,						/* LoopSound */
+		SID_NOSOUND,						/* EndSound */
+		1,									/* Enable Grenades */
 		1,									/* UseElevation */
 		1,									/* EnableTracker */
 		1,									/* ARealMarine */
@@ -458,7 +467,7 @@ MARINE_WEAPON_DATA NPC_Marine_Weapons[] = {
 		NULL,								/* ClipName */
 		0,									/* MinRange (Don't fire when closer) */
 		MARINE_CLOSE_APPROACH_DISTANCE,		/* ForceFireRange (Fire if closer) */
-		-1,									/* MaxRange (Don't fire if further) */
+		18000,								/* MaxRange (Don't fire if further) */
 		30000,	  							/* Accuracy */
 		1,									/* Firing Rate */
 		MARINE_NEAR_FIRE_TIME,				/* Firing Time */
@@ -492,16 +501,16 @@ MARINE_WEAPON_DATA NPC_Marine_Weapons[] = {
 		NULL,								/* ClipName */
 		0,									/* MinRange (Don't fire when closer) */
 		MARINE_CLOSE_APPROACH_DISTANCE,		/* ForceFireRange (Fire if closer) */
-		-1,									/* MaxRange (Don't fire if further) */
+		18000,								/* MaxRange (Don't fire if further) */
 		0,									/* Accuracy */
 		1,									/* Firing Rate */
 		-1,									/* Firing Time */
 		0,									/* MinimumBurstSize */
-		AMMO_SHOTGUN,						/* Ammo profile */
+		AMMO_GRENADE,						/* Ammo profile */
 		8,									/* clip_size */
 		MSSS_Reload,						/* Reload_Sequence */
 		0,									/* TargetCallibrationShift */
-		SID_SHOTGUN,						/* StartSound */
+		SID_ROCKFIRE,						/* StartSound */
 		SID_NOSOUND,						/* LoopSound */
 		SID_NOSOUND,						/* EndSound */
 		0,									/* Enable Grenades */
@@ -526,12 +535,12 @@ MARINE_WEAPON_DATA NPC_Marine_Weapons[] = {
 		NULL,								/* ClipName */
 		0,									/* MinRange (Don't fire when closer) */
 		MARINE_CLOSE_APPROACH_DISTANCE,		/* ForceFireRange (Fire if closer) */
-		-1,									/* MaxRange (Don't fire if further) */
+		18000,								/* MaxRange (Don't fire if further) */
 		10000,	  							/* Accuracy */
 		1,									/* Firing Rate */
 		MARINE_NEAR_FIRE_TIME,				/* Firing Time */
 		0,									/* MinimumBurstSize */
-		AMMO_10MM_CULW_NPC,						/* Ammo profile */
+		AMMO_MARINE_PISTOL,					/* Ammo profile */
 		PISTOL_CLIP_SIZE,					/* clip_size */
 		MSSS_Reload,						/* Reload_Sequence */
 		0,									/* TargetCallibrationShift */
@@ -666,11 +675,11 @@ MARINE_WEAPON_DATA NPC_Marine_Weapons[] = {
 		1,									/* Firing Rate */
 		-1,									/* Firing Time */
 		0,									/* MinimumBurstSize */
-		AMMO_SHOTGUN,						/* Ammo profile */
+		AMMO_GRENADE,						/* Ammo profile */
 		8,									/* clip_size */
 		MSSS_Reload,						/* Reload_Sequence */
 		0,									/* TargetCallibrationShift */
-		SID_SHOTGUN,						/* StartSound */
+		SID_ROCKFIRE,						/* StartSound */
 		SID_NOSOUND,						/* LoopSound */
 		SID_NOSOUND,						/* EndSound */
 		0,									/* Enable Grenades */
@@ -700,11 +709,11 @@ MARINE_WEAPON_DATA NPC_Marine_Weapons[] = {
 		1,									/* Firing Rate */
 		-1,									/* Firing Time */
 		0,									/* MinimumBurstSize */
-		AMMO_SHOTGUN,						/* Ammo profile */
+		AMMO_GRENADE,						/* Ammo profile */
 		8,									/* clip_size */
 		MSSS_Reload,						/* Reload_Sequence */
 		0,									/* TargetCallibrationShift */
-		SID_SHOTGUN,						/* StartSound */
+		SID_ROCKFIRE,						/* StartSound */
 		SID_NOSOUND,						/* LoopSound */
 		SID_NOSOUND,						/* EndSound */
 		0,									/* Enable Grenades */
@@ -734,7 +743,7 @@ MARINE_WEAPON_DATA NPC_Marine_Weapons[] = {
 		1,									/* Firing Rate */
 		MARINE_NEAR_FIRE_TIME,				/* Firing Time */
 		0,									/* MinimumBurstSize */
-		AMMO_10MM_CULW_NPC,						/* Ammo profile */
+		AMMO_MARINE_PISTOL,					/* Ammo profile */
 		PISTOL_CLIP_SIZE,					/* clip_size */
 		MSSS_Reload,						/* Reload_Sequence */
 		0,									/* TargetCallibrationShift */
@@ -919,12 +928,20 @@ MARINE_WEAPON_DATA NPC_Marine_Weapons[] = {
 };
 
 VECTORCH ShotgunBlast[] = {
-	{0,0,400,},
-	{100,0,400,},
-	{-100,0,400,},
-	{50,0,400,},
-	{-50,0,400,},
-	{-1,-1,-1,},
+	{  0,  0,400,},
+	{  3,  0,400,},
+	{ -3,  0,400,},
+	{  6,  0,400,},
+	{ -6,  0,400,},
+	{  1,  6,400,},
+	{ -1,  6,400,},
+	{  2,  6,400,},
+	{ -2,  6,400,},
+	{  1, -6,400,},
+	{ -1, -6,400,},
+	{  2, -6,400,},
+	{ -2, -6,400,},
+	{ -1, -1, -1,},
 };
 
 SQUAD_COMMAND_STATE NpcSquad;
@@ -1012,10 +1029,11 @@ void DoSquad(void) {
 	NpcSquad.Squad_Delta_Morale=NpcSquad.Nextframe_Squad_Delta_Morale;
 	NpcSquad.Nextframe_Squad_Delta_Morale=0;
 
-	/* Update morale. */
+	/* Update morale. ELD: No, don't do this, Marines are tough hombres */
+	/* I made all accounterments give out a positive number */
 	NpcSquad.Nextframe_Squad_Delta_Morale+=MUL_FIXED(NormalFrameTime,(NpcSquad.NearUnpanickedMarines*50));
-	NpcSquad.Nextframe_Squad_Delta_Morale-=MUL_FIXED(NormalFrameTime,(NpcSquad.NearPanickedMarines*1000));
-	NpcSquad.Nextframe_Squad_Delta_Morale-=MUL_FIXED(NormalFrameTime,(NpcSquad.NearBurningMarines*3000));
+	NpcSquad.Nextframe_Squad_Delta_Morale+=MUL_FIXED(NormalFrameTime,(NpcSquad.NearPanickedMarines*1000));
+	NpcSquad.Nextframe_Squad_Delta_Morale+=MUL_FIXED(NormalFrameTime,(NpcSquad.NearBurningMarines*3000));
 
 	if (TERROR_MODE) {
 		NpcSquad.Nextframe_Squad_Delta_Morale=-100000000;
@@ -1023,13 +1041,13 @@ void DoSquad(void) {
 	
 	/* Status display. */
 	if (ShowSquadState) {
-		PrintDebuggingText("Marine Alert Status = %d\n",NpcSquad.alertStatus);
-		PrintDebuggingText("Marine Alert Priority = %d\n",NpcSquad.alertPriority);
-		PrintDebuggingText("Responding Marines = %d\n",NpcSquad.RespondingMarines);
-		PrintDebuggingText("NearPanicked Marines = %d\n",NpcSquad.NearPanickedMarines);
-		PrintDebuggingText("NearUnpanicked Marines = %d\n",NpcSquad.NearUnpanickedMarines);
-		PrintDebuggingText("NearBurning Marines = %d\n",NpcSquad.NearBurningMarines);
-		PrintDebuggingText("Marine Outstanding Response Level = %d\n",NpcSquad.responseLevel);
+		//PrintDebuggingText("Marine Alert Status = %d\n",NpcSquad.alertStatus);
+		//PrintDebuggingText("Marine Alert Priority = %d\n",NpcSquad.alertPriority);
+		//PrintDebuggingText("Responding Marines = %d\n",NpcSquad.RespondingMarines);
+		//PrintDebuggingText("NearPanicked Marines = %d\n",NpcSquad.NearPanickedMarines);
+		//PrintDebuggingText("NearUnpanicked Marines = %d\n",NpcSquad.NearUnpanickedMarines);
+		//PrintDebuggingText("NearBurning Marines = %d\n",NpcSquad.NearBurningMarines);
+		//PrintDebuggingText("Marine Outstanding Response Level = %d\n",NpcSquad.responseLevel);
 		if (NpcSquad.alertZone==NULL) {
 			PrintDebuggingText("Marine Alert Zone = NULL\n");
 		} else {
@@ -1037,14 +1055,14 @@ void DoSquad(void) {
 
 			sampleModule=*(NpcSquad.alertZone->m_module_ptrs);
 			if (sampleModule==NULL) {
-				PrintDebuggingText("Marine Alert Zone = Totally Farped! %d\n",NpcSquad.alertZone->m_index);
+				//PrintDebuggingText("Marine Alert Zone = Totally Farped! %d\n",NpcSquad.alertZone->m_index);
 			} else {
-				PrintDebuggingText("Marine Alert Zone = %d, '%s'\n",sampleModule->m_index,sampleModule->name);
+				//PrintDebuggingText("Marine Alert Zone = %d, '%s'\n",sampleModule->m_index,sampleModule->name);
 			}
 		}
-		PrintDebuggingText("Squad Suspicion = %d\n",NpcSquad.Squad_Suspicion);
-		PrintDebuggingText("Squad Suspect Point = %d %d %d\n",NpcSquad.squad_suspect_point.vx,
-			NpcSquad.squad_suspect_point.vy,NpcSquad.squad_suspect_point.vz);
+		//PrintDebuggingText("Squad Suspicion = %d\n",NpcSquad.Squad_Suspicion);
+		//PrintDebuggingText("Squad Suspect Point = %d %d %d\n",NpcSquad.squad_suspect_point.vx,
+			//NpcSquad.squad_suspect_point.vy,NpcSquad.squad_suspect_point.vz);
 	}
 
 	/* And now just for me... :-) */
@@ -1202,12 +1220,81 @@ void ChangeToAlternateAccoutrementSet(STRATEGYBLOCK *sbPtr, int index) {
 	HIERARCHY_VARIANT_DATA* variant_data;
 	HIERARCHY_SHAPE_REPLACEMENT* replacement_array;
 	MARINE_STATUS_BLOCK *marineStatusPointer;
+	extern char LevelName[];
 	int a;
 	    
 	LOCALASSERT(sbPtr);
 	marineStatusPointer = (MARINE_STATUS_BLOCK *)(sbPtr->SBdataptr);    
     LOCALASSERT(marineStatusPointer);	          		
 	
+	// A small test.. -- ELDRITCH
+	switch(marineStatusPointer->My_Weapon->id)
+	{
+	case MNPCW_PulseRifle:
+		if (!stricmp("valore",&LevelName))
+			index = 2;
+		else if (!stricmp("arrival",&LevelName))
+			index = 2;
+		else {
+			switch(FastRandom()%3) {
+			default:
+			case 0:
+				index = 1;
+				break;
+			case 1:
+				index = 3;
+				break;
+			case 2:
+				index = 4;
+				break;
+			}
+		}
+		break;
+	case MNPCW_Flamethrower:
+	case MNPCW_SADAR:
+		switch(FastRandom()%3) {
+		default:
+		case 0:
+			index = 1;
+			break;
+		case 1:
+			index = 3;
+			break;
+		case 2:
+			index = 4;
+			break;
+		}
+		break;
+	case MNPCW_Smartgun:
+		switch(FastRandom()%2) {
+		case 0:
+			index = 10;
+			break;
+		case 1:
+			index = 9;
+			break;
+		}
+		break;
+	case MNPCW_GrenadeLauncher:
+	case MNPCW_PistolMarine:
+		index = 2;
+		break;
+	case MNPCW_MUnarmed:
+	case MNPCW_MPistol:
+	case MNPCW_MShotgun:
+	case MNPCW_MMolotov:
+	case MNPCW_MFlamer:
+		switch(FastRandom()%2) {
+		case 0:
+			index = 6;
+			break;
+		case 1:
+			index = 13;
+			break;
+		}
+		break;
+	}
+
 	variant_data=GetHierarchyAlternateShapeSetCollectionFromLibrary(marineStatusPointer->My_Weapon->Riffname,index);
 
 	if (variant_data==NULL) {
@@ -1226,16 +1313,15 @@ void ChangeToAlternateAccoutrementSet(STRATEGYBLOCK *sbPtr, int index) {
 	
 	a=0;
 
-	while (replacement_array[a].replaced_section_name!=NULL) {
+	while (replacement_array[a].replaced_section_name!=NULL) 
+	{
 		SECTION_DATA *target_section;
 
 		target_section=GetThisSectionData(marineStatusPointer->HModelController.section_data,
 			replacement_array[a].replaced_section_name);
 		if (target_section) {
 			target_section->Shape=replacement_array[a].replacement_shape;
-			#if 1
 			target_section->ShapeNum=replacement_array[a].replacement_shape_index;
-			#endif
 			target_section->replacement_id = replacement_array[a].replacement_id;
 			
 			Setup_Texture_Animation_For_Section(target_section);
@@ -1399,7 +1485,8 @@ void CreateMarineBot(VECTORCH *Position, int weapon)
 
 
 		marineStatus->Target=NULL; //Player->ObStrategyBlock;
-		if ( (weapon<=0)||(weapon>(int)MNPCW_End)) {
+
+		if ((weapon<=0)||(weapon>(int)MNPCW_End)) {
 			marineStatus->My_Weapon=GetThisNPCMarineWeapon(GetThisManAWeapon());
 		} else {
 			#if (TWO_PISTOL_GUY==0)
@@ -1500,7 +1587,7 @@ void CreateMarineBot(VECTORCH *Position, int weapon)
 		}
 		Create_HModel(&marineStatus->HModelController,root_section);
 		InitHModelSequence(&marineStatus->HModelController,(int)HMSQT_MarineRun,(int)MRSS_Standard,ONE_FIXED);
-		
+
 		if (marineStatus->My_Weapon->UseElevation) {
 			DELTA_CONTROLLER *delta;
 			delta=Add_Delta_Sequence(&marineStatus->HModelController,"Elevation",(int)HMSQT_MarineStand,(int)MSSS_Elevation,0);
@@ -1586,8 +1673,6 @@ void CreateMarineBot(VECTORCH *Position, int weapon)
 		}
 
 		MakeMarineNear(sbPtr);
-
-		NewOnScreenMessage("MARINEBOT CREATED");
 	}
 	else
 	{
@@ -1824,63 +1909,9 @@ void InitMarineBehaviour(void* bhdata, STRATEGYBLOCK *sbPtr)
 		marineStatus->Android=marineStatus->My_Weapon->Android;
 		
 		//use accoutement set for both marine and civilian
-		#if 0
-		if (strcmp("hnpcmarine",marineStatus->My_Weapon->Riffname)==0) {
-			/* Normal marine. */
-			if ((toolsData->textureID==0)||(toolsData->textureID>4)) {
-				/* Random. */
-				int dice=FastRandom()&65535;
-				if (dice<16384) {
-					ChangeToAlternateShapeSet(sbPtr, "Face Four");
-				} else if (dice<32768) {
-					ChangeToAlternateShapeSet(sbPtr, "Face Three");
-				}
-			} else {
-				switch (toolsData->textureID) {
-					case 1:
-					default:
-						/* No change. */
-						break;
-					case 2:
-						ChangeToAlternateShapeSet(sbPtr, "Face Four");
-						break;
-					case 3:
-						ChangeToAlternateShapeSet(sbPtr, "Face Three");
-						break;
-				}
-			}
-		} else if (strcmp("hnpc_civvie",marineStatus->My_Weapon->Riffname)==0) {
-			/* Civvies. */
-			#if 0
-			if ((toolsData->textureID==0)||(toolsData->textureID>3)) {
-				int dice=FastRandom()&65535;
-				if (dice<32767) {
-					ChangeToAlternateShapeSet(sbPtr, "MedicalGuy");
-				} else if (dice<49152) {
-					ChangeToAlternateShapeSet(sbPtr, "CompanyGuy");
-				}
-			} else {
-				switch (toolsData->textureID) {
-					case 1:
-					default:
-						/* No change. */
-						break;
-					case 2:
-						ChangeToAlternateShapeSet(sbPtr, "MedicalGuy");
-						break;
-					case 3:
-						ChangeToAlternateShapeSet(sbPtr, "CompanyGuy");
-						break;
-				}
-			}
-			#else
-			/* Gonna need a different handler for this? */
-			ChangeToAlternateAccoutrementSet(sbPtr, toolsData->textureID);
-			#endif
-		}
-		#else
+		//I will try and modify this so marines use the same look...
 		ChangeToAlternateAccoutrementSet(sbPtr, toolsData->textureID);
-		#endif
+
 		marineStatus->VoicePitch = (FastRandom() & 255) - 128;
 
 		Marine_SwitchExpression(sbPtr,0);
@@ -2119,7 +2150,7 @@ void CreateMarineDynamic(STRATEGYBLOCK *Generator,MARINE_NPC_WEAPONS weapon_for_
 		root_section=GetNamedHierarchyFromLibrary(marineStatus->My_Weapon->Riffname,marineStatus->My_Weapon->HierarchyName);
 		Create_HModel(&marineStatus->HModelController,root_section);
 		InitHModelSequence(&marineStatus->HModelController,(int)HMSQT_MarineRun,(int)MRSS_Standard,ONE_FIXED);
-		
+
 		if (marineStatus->My_Weapon->UseElevation) {
 			DELTA_CONTROLLER *delta;
 			delta=Add_Delta_Sequence(&marineStatus->HModelController,"Elevation",(int)HMSQT_MarineStand,(int)MSSS_Elevation,0);
@@ -2496,6 +2527,42 @@ void MarineBehaviour(STRATEGYBLOCK *sbPtr)
 						CurrentGameStats_Spotted();
 						marineStatusPointer->SpotFlag=1;
 					}
+					/* Follow the player -- Eld */
+					if (!marineStatusPointer->My_Weapon->ARealMarine)
+					{
+						if (marineStatusPointer->Target &&
+							marineStatusPointer->Target == Player->ObStrategyBlock)
+						{
+							// In the same module: Approach.
+							if (marineStatusPointer->Target->containingModule == sbPtr->containingModule)
+							{
+								int range;
+								range=VectorDistance((&marineStatusPointer->Target->DynPtr->Position),(&sbPtr->DynPtr->Position));
+
+								if (range > 10000)
+								{
+									marineStatusPointer->suspicious = ONE_FIXED;
+									marineStatusPointer->suspect_point = Player->ObStrategyBlock->DynPtr->Position;
+									marineStatusPointer->behaviourState = MBS_Approaching;
+									Marine_Enter_Approach_State(sbPtr);
+								}
+								else
+								{
+									marineStatusPointer->suspicious = 0;
+									marineStatusPointer->suspect_point.vx = 0;
+									marineStatusPointer->suspect_point.vy = 0;
+									marineStatusPointer->suspect_point.vz = 0;
+									marineStatusPointer->behaviourState = MBS_Waiting;
+									Marine_Enter_Wait_State(sbPtr);
+								}
+							}
+							else	// Not in the same module: Hunt.
+							{
+								marineStatusPointer->destinationmodule = marineStatusPointer->Target->containingModule->m_aimodule;
+								Marine_Enter_Wander_State(sbPtr);
+							}
+						}
+					}
 				}
 
 				/* New Enemy! */
@@ -2558,7 +2625,7 @@ void MarineBehaviour(STRATEGYBLOCK *sbPtr)
 					marineStatusPointer->previous_suspicion=0;
 					marineStatusPointer->using_squad_suspicion=0;
 					if (marineStatusPointer->Android==0) {
-						marineStatusPointer->Courage-=(NormalFrameTime>>1);
+						marineStatusPointer->Courage-=0;//(NormalFrameTime>>1);
 					}
 				}
 			} 		
@@ -2612,11 +2679,10 @@ void MarineBehaviour(STRATEGYBLOCK *sbPtr)
 	}
 
 	/* Now hearing. */
-	
 	DoMarineHearing(sbPtr);
 
 	/* That was senses. Now courage. */
-	if (marineStatusPointer->Android==0) {
+	if (marineStatusPointer->Android==1) {
 
 		if ((marineStatusPointer->Target==NULL)&&(marineStatusPointer->suspicious==0)) {
 			marineStatusPointer->Courage+=MUL_FIXED(NormalFrameTime,300);
@@ -2640,10 +2706,16 @@ void MarineBehaviour(STRATEGYBLOCK *sbPtr)
 		sbPtr->SBDamageBlock.Health = 0;
 	}
 
-	if (sbPtr->SBDamageBlock.IsOnFire) {
+	if (sbPtr->SBDamageBlock.IsOnFire)
+	{
+		// Firedamage is made to the torso -- Eld
+		{
+			SECTION_DATA *torso;
+			torso = GetThisSectionData(marineStatusPointer->HModelController.section_data,"chest");
 
-		CauseDamageToObject(sbPtr,&firedamage,NormalFrameTime,NULL);
-
+			if (torso)
+				CauseDamageToHModel(&marineStatusPointer->HModelController,sbPtr,&firedamage,NormalFrameTime,torso,NULL,NULL,0);
+		}
 		if (sbPtr->I_SBtype==I_BehaviourNetCorpse) {
 			/* Gettin' out of here... */
 			return;
@@ -2671,12 +2743,12 @@ void MarineBehaviour(STRATEGYBLOCK *sbPtr)
 
 	if ((ShowSquadState)||((sbPtr->SBdptr)&&(ShowNearSquad))) {
 		if (sbPtr->name) {
-			PrintDebuggingText("%s: ",sbPtr->name);
+			//PrintDebuggingText("%s: ",sbPtr->name);
 		} else {
 			PrintDebuggingText("Unnamed: ");
 		}
 		if (marineStatusPointer->suspicious) {
-			PrintDebuggingText("Suspicious %d ",marineStatusPointer->suspicious);
+			//PrintDebuggingText("Suspicious %d ",marineStatusPointer->suspicious);
 		}
 	}
 
@@ -2738,6 +2810,30 @@ void MarineBehaviour(STRATEGYBLOCK *sbPtr)
 			&&(marineStatusPointer->behaviourState!=MBS_Dying)
 			) {
 			Marine_Enter_Retreat_State(sbPtr);
+		}
+	}
+
+	// Flee from grenades!
+	{
+		extern int NumActiveStBlocks;
+		extern STRATEGYBLOCK *ActiveStBlockList[];
+		STRATEGYBLOCK *grenade;
+		int sbIndex=0;
+
+		while (sbIndex < NumActiveStBlocks)
+		{
+			grenade = ActiveStBlockList[sbIndex++];
+
+			// Check all active Strategyblocks.
+			if (grenade && grenade->I_SBtype && grenade->DynPtr) {
+				// Aha! A grenade!
+				if (grenade->I_SBtype == I_BehaviourClusterGrenade) {
+					// Run away! Run away!
+					if (grenade->containingModule == sbPtr->containingModule) {
+						Marine_Enter_Retreat_State(sbPtr);
+					}
+				}
+			}
 		}
 	}
 
@@ -2809,7 +2905,6 @@ void MarineBehaviour(STRATEGYBLOCK *sbPtr)
 
 	/* And finally, update lastframe flag. */
 	Marine_ConsiderFallingDamage(sbPtr);
-
 }
 
 void EndMarineMuzzleFlash(STRATEGYBLOCK *sbPtr) {
@@ -2922,7 +3017,7 @@ void WanderMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_Approaching):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Wander marine approach in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+					//PrintDebuggingText("Wander marine approach in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 	
 				if(marineIsNear) {
@@ -2937,7 +3032,7 @@ void WanderMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_Firing):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Wander marine firing in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+					//PrintDebuggingText("Wander marine firing in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -2952,7 +3047,7 @@ void WanderMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_PumpAction):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Wander marine pump action in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+					//PrintDebuggingText("Wander marine pump action in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -2967,7 +3062,7 @@ void WanderMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_PanicFire):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Wander marine panic firing in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+					//PrintDebuggingText("Wander marine panic firing in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -2998,7 +3093,7 @@ void WanderMission_Control(STRATEGYBLOCK *sbPtr) {
 							PrintDebuggingText("Avoidance Level 3");
 							break;
 					}	
-					PrintDebuggingText(" in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+					//PrintDebuggingText(" in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 				if(marineIsNear) {
 					state_result=Execute_MNS_Avoidance(sbPtr);
@@ -3012,7 +3107,7 @@ void WanderMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_Wandering):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Wander marine wander in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+					//PrintDebuggingText("Wander marine wander in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -3028,7 +3123,7 @@ void WanderMission_Control(STRATEGYBLOCK *sbPtr) {
 			{
 				/* Closest to hunt. */
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Wander marine responding in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+					//PrintDebuggingText("Wander marine responding in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -3044,7 +3139,7 @@ void WanderMission_Control(STRATEGYBLOCK *sbPtr) {
 			{
 				/* Real men never retreat! */
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Wander marine Retreating in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+					//PrintDebuggingText("Wander marine Retreating in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 			
 				if (marineIsNear) {
@@ -3059,7 +3154,7 @@ void WanderMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_Waiting):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Wander marine wait in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+					//PrintDebuggingText("Wander marine wait in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -3074,7 +3169,7 @@ void WanderMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_Sentry):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Wander marine sentry in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+					//PrintDebuggingText("Wander marine sentry in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 				GLOBALASSERT(0);
 				if(marineIsNear) {
@@ -3089,7 +3184,7 @@ void WanderMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_Dying):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Wander marine dying in %s\n",sbPtr->containingModule->name);
+					//PrintDebuggingText("Wander marine dying in %s\n",sbPtr->containingModule->name);
 				}
 				if (marineIsNear) {
 					Execute_Dying(sbPtr);
@@ -3101,7 +3196,7 @@ void WanderMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_Taunting):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Wander marine taunt in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+					//PrintDebuggingText("Wander marine taunt in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 	
 				if(marineIsNear) {
@@ -3116,7 +3211,7 @@ void WanderMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_Reloading):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Wander marine reloading in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+					//PrintDebuggingText("Wander marine reloading in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 	
 				if(marineIsNear) {
@@ -3131,7 +3226,7 @@ void WanderMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_PanicReloading):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Wander marine panic reloading in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+					//PrintDebuggingText("Wander marine panic reloading in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 	
 				if(marineIsNear) {
@@ -3146,7 +3241,7 @@ void WanderMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_GetWeapon):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Wander marine get weapon in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+					//PrintDebuggingText("Wander marine get weapon in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 	
 				if(marineIsNear) {
@@ -3168,7 +3263,7 @@ void WanderMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_AcidAvoidance):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Wander marine acid avoidance in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+					//PrintDebuggingText("Wander marine acid avoidance in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -3253,7 +3348,7 @@ void PathfinderMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_Approaching):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Pathfinder marine approach in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+					//PrintDebuggingText("Pathfinder marine approach in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 	
 				if(marineIsNear) {
@@ -3268,7 +3363,7 @@ void PathfinderMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_Firing):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Pathfinder marine firing in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+					//PrintDebuggingText("Pathfinder marine firing in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -3283,7 +3378,7 @@ void PathfinderMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_PumpAction):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Pathfinder marine pump action in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+					//PrintDebuggingText("Pathfinder marine pump action in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -3298,7 +3393,7 @@ void PathfinderMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_PanicFire):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Pathfinder marine panic firing in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+					//PrintDebuggingText("Pathfinder marine panic firing in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -3329,7 +3424,7 @@ void PathfinderMission_Control(STRATEGYBLOCK *sbPtr) {
 							PrintDebuggingText("Avoidance Level 3");
 							break;
 					}	
-					PrintDebuggingText(" in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+					//PrintDebuggingText(" in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 				if(marineIsNear) {
 					state_result=Execute_MNS_Avoidance(sbPtr);
@@ -3343,7 +3438,7 @@ void PathfinderMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_Wandering):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Pathfinder marine wander in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+					//PrintDebuggingText("Pathfinder marine wander in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -3359,7 +3454,7 @@ void PathfinderMission_Control(STRATEGYBLOCK *sbPtr) {
 			{
 				/* Closest to hunt. */
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Pathfinder marine responding in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+					//PrintDebuggingText("Pathfinder marine responding in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -3375,7 +3470,7 @@ void PathfinderMission_Control(STRATEGYBLOCK *sbPtr) {
 			{
 				/* Real men never retreat! */
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Pathfinder marine retreating in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+					//PrintDebuggingText("Pathfinder marine retreating in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 				
 				if (marineIsNear) {
@@ -3390,7 +3485,7 @@ void PathfinderMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_Waiting):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Pathfinder marine wait in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+					//PrintDebuggingText("Pathfinder marine wait in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -3405,7 +3500,7 @@ void PathfinderMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_Sentry):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Pathfinder marine sentry in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+					//PrintDebuggingText("Pathfinder marine sentry in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 				GLOBALASSERT(0);
 				if(marineIsNear) {
@@ -3420,7 +3515,7 @@ void PathfinderMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_Dying):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Pathfinder marine dying in %s\n",sbPtr->containingModule->name);
+					//PrintDebuggingText("Pathfinder marine dying in %s\n",sbPtr->containingModule->name);
 				}
 				if (marineIsNear) {
 					Execute_Dying(sbPtr);
@@ -3432,7 +3527,7 @@ void PathfinderMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_Pathfinding):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Pathfinder marine pathfinding in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+					//PrintDebuggingText("Pathfinder marine pathfinding in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -3447,7 +3542,7 @@ void PathfinderMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_Taunting):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Pathfinder marine taunt in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+					//PrintDebuggingText("Pathfinder marine taunt in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 	
 				if(marineIsNear) {
@@ -3462,7 +3557,7 @@ void PathfinderMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_Returning):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Pathfinder marine returning in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+					//PrintDebuggingText("Pathfinder marine returning in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -3477,7 +3572,7 @@ void PathfinderMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_Reloading):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Pathfinder marine reloading in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+					//PrintDebuggingText("Pathfinder marine reloading in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 	
 				if(marineIsNear) {
@@ -3492,7 +3587,7 @@ void PathfinderMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_PanicReloading):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Pathfinder marine panic reloading in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+					//PrintDebuggingText("Pathfinder marine panic reloading in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 	
 				if(marineIsNear) {
@@ -3507,7 +3602,7 @@ void PathfinderMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_GetWeapon):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Pathfinder marine get weapon in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+					//PrintDebuggingText("Pathfinder marine get weapon in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 	
 				if(marineIsNear) {
@@ -3522,7 +3617,7 @@ void PathfinderMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_AcidAvoidance):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Prahfinder marine acid avoidance in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+					//PrintDebuggingText("Prahfinder marine acid avoidance in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -3611,7 +3706,7 @@ void GuardMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_Approaching):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Guard marine approaching in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+					//PrintDebuggingText("Guard marine approaching in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				GLOBALASSERT(0);
@@ -3627,7 +3722,7 @@ void GuardMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_Firing):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Guard marine firing in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+					//PrintDebuggingText("Guard marine firing in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -3642,7 +3737,7 @@ void GuardMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_PumpAction):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Guard marine pump action in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+//					PrintDebuggingText("Guard marine pump action in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -3657,7 +3752,7 @@ void GuardMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_PanicFire):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Guard marine panic firing in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+//					PrintDebuggingText("Guard marine panic firing in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -3688,7 +3783,7 @@ void GuardMission_Control(STRATEGYBLOCK *sbPtr) {
 							PrintDebuggingText("Avoidance Level 3");
 							break;
 					}	
-					PrintDebuggingText(" in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+//					PrintDebuggingText(" in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -3703,7 +3798,7 @@ void GuardMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_Wandering):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Guard marine wandering in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+//					PrintDebuggingText("Guard marine wandering in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -3718,7 +3813,7 @@ void GuardMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_Retreating):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Guard marine retreating in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+//					PrintDebuggingText("Guard marine retreating in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				/* Real men never retreat! */
@@ -3734,7 +3829,7 @@ void GuardMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_Waiting):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Guard marine waiting in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+//					PrintDebuggingText("Guard marine waiting in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -3751,7 +3846,7 @@ void GuardMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_Sentry):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Guard marine sentry in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+//					PrintDebuggingText("Guard marine sentry in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -3766,7 +3861,7 @@ void GuardMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_Dying):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Guard marine dying in %s\n",sbPtr->containingModule->name);
+//					PrintDebuggingText("Guard marine dying in %s\n",sbPtr->containingModule->name);
 				}
 
 				if (marineIsNear) {
@@ -3779,7 +3874,7 @@ void GuardMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_Taunting):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Guard marine taunt in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+//					PrintDebuggingText("Guard marine taunt in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 	
 				if(marineIsNear) {
@@ -3794,7 +3889,7 @@ void GuardMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_Reloading):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Guard marine reloading in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+//					PrintDebuggingText("Guard marine reloading in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 	
 				if(marineIsNear) {
@@ -3809,7 +3904,7 @@ void GuardMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_PanicReloading):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Guard marine panic reloading in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+//					PrintDebuggingText("Guard marine panic reloading in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 	
 				if(marineIsNear) {
@@ -3824,7 +3919,7 @@ void GuardMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_GetWeapon):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Guard marine get weapon in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+//					PrintDebuggingText("Guard marine get weapon in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 	
 				if(marineIsNear) {
@@ -3846,7 +3941,7 @@ void GuardMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_AcidAvoidance):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Guard marine acid avoidance in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+//					PrintDebuggingText("Guard marine acid avoidance in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -3934,7 +4029,7 @@ void LocalGuardMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_Approaching):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Local Guard marine approaching in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+//					PrintDebuggingText("Local Guard marine approaching in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -3949,7 +4044,7 @@ void LocalGuardMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_Firing):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Local Guard marine firing in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+//					PrintDebuggingText("Local Guard marine firing in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -3964,7 +4059,7 @@ void LocalGuardMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_PumpAction):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Local Guard marine pump action in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+//					PrintDebuggingText("Local Guard marine pump action in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -3979,7 +4074,7 @@ void LocalGuardMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_PanicFire):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Local Guard marine panic firing in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+//					PrintDebuggingText("Local Guard marine panic firing in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -4010,7 +4105,7 @@ void LocalGuardMission_Control(STRATEGYBLOCK *sbPtr) {
 							PrintDebuggingText("Avoidance Level 3");
 							break;
 					}	
-					PrintDebuggingText(" in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+//					PrintDebuggingText(" in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -4025,7 +4120,7 @@ void LocalGuardMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_Wandering):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Local Guard marine wandering in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+//					PrintDebuggingText("Local Guard marine wandering in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -4040,7 +4135,7 @@ void LocalGuardMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_Retreating):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Local Guard marine retreating in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+//					PrintDebuggingText("Local Guard marine retreating in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				/* Real men never retreat! */
@@ -4056,7 +4151,7 @@ void LocalGuardMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_Waiting):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Local Guard marine waiting in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+//					PrintDebuggingText("Local Guard marine waiting in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -4072,7 +4167,7 @@ void LocalGuardMission_Control(STRATEGYBLOCK *sbPtr) {
 			{
 				/* Well, it *might* happen... */
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Local Guard marine responding in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+//					PrintDebuggingText("Local Guard marine responding in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -4087,7 +4182,7 @@ void LocalGuardMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_Returning):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Local Guard marine returning in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+//					PrintDebuggingText("Local Guard marine returning in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -4102,7 +4197,7 @@ void LocalGuardMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_Sentry):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Local Guard marine sentry in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+//					PrintDebuggingText("Local Guard marine sentry in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -4117,7 +4212,7 @@ void LocalGuardMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_Taunting):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Local Guard marine taunt in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+//					PrintDebuggingText("Local Guard marine taunt in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 	
 				if(marineIsNear) {
@@ -4132,7 +4227,7 @@ void LocalGuardMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_Reloading):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Local Guard marine reloading in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+//					PrintDebuggingText("Local Guard marine reloading in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 	
 				if(marineIsNear) {
@@ -4147,7 +4242,7 @@ void LocalGuardMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_PanicReloading):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Local Guard marine panic reloading in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+//					PrintDebuggingText("Local Guard marine panic reloading in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 	
 				if(marineIsNear) {
@@ -4162,7 +4257,7 @@ void LocalGuardMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_Dying):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Local Guard marine dying in %s\n",sbPtr->containingModule->name);
+//					PrintDebuggingText("Local Guard marine dying in %s\n",sbPtr->containingModule->name);
 				}
 
 				if (marineIsNear) {
@@ -4175,7 +4270,7 @@ void LocalGuardMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_GetWeapon):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Local Guard marine get weapon in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+//					PrintDebuggingText("Local Guard marine get weapon in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 	
 				if(marineIsNear) {
@@ -4196,7 +4291,7 @@ void LocalGuardMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_AcidAvoidance):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Local Guard marine acid avoidance in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+//					PrintDebuggingText("Local Guard marine acid avoidance in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -4280,7 +4375,7 @@ void LoiterMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_Approaching):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Noncombatant approaching in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+//					PrintDebuggingText("Noncombatant approaching in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -4296,7 +4391,7 @@ void LoiterMission_Control(STRATEGYBLOCK *sbPtr) {
 			{
 			
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Noncombatant firing in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+//					PrintDebuggingText("Noncombatant firing in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -4312,7 +4407,7 @@ void LoiterMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_PumpAction):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Noncombatant marine pump action in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+//					PrintDebuggingText("Noncombatant marine pump action in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -4327,7 +4422,7 @@ void LoiterMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_PanicFire):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Noncombatant panic firing in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+//					PrintDebuggingText("Noncombatant panic firing in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -4359,7 +4454,7 @@ void LoiterMission_Control(STRATEGYBLOCK *sbPtr) {
 							PrintDebuggingText("Avoidance Level 3");
 							break;
 					}	
-					PrintDebuggingText(" in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+//					PrintDebuggingText(" in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -4376,7 +4471,7 @@ void LoiterMission_Control(STRATEGYBLOCK *sbPtr) {
 			{
 				
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Noncombatant wandering in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+//					PrintDebuggingText("Noncombatant wandering in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -4392,7 +4487,7 @@ void LoiterMission_Control(STRATEGYBLOCK *sbPtr) {
 			{
 				
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Noncombatant retreating in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+//					PrintDebuggingText("Noncombatant retreating in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				/* Wusses, now: they retreat. */
@@ -4409,7 +4504,7 @@ void LoiterMission_Control(STRATEGYBLOCK *sbPtr) {
 			{
 				
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Noncombatant waiting in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+//					PrintDebuggingText("Noncombatant waiting in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -4426,7 +4521,7 @@ void LoiterMission_Control(STRATEGYBLOCK *sbPtr) {
 				GLOBALASSERT(0);
 				
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Noncombatant sentry in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+//					PrintDebuggingText("Noncombatant sentry in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -4441,7 +4536,7 @@ void LoiterMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_Reloading):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Noncombatant reloading in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+//					PrintDebuggingText("Noncombatant reloading in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 	
 				if(marineIsNear) {
@@ -4456,7 +4551,7 @@ void LoiterMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_PanicReloading):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Noncombatant panic reloading in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+//					PrintDebuggingText("Noncombatant panic reloading in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 	
 				if(marineIsNear) {
@@ -4472,7 +4567,7 @@ void LoiterMission_Control(STRATEGYBLOCK *sbPtr) {
 			{
 				
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Noncombatant dying in %s\n",sbPtr->containingModule->name);
+//					PrintDebuggingText("Noncombatant dying in %s\n",sbPtr->containingModule->name);
 				}
 
 				if (marineIsNear) {
@@ -4492,7 +4587,7 @@ void LoiterMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_AcidAvoidance):
 			{
 				if ((ShowSquadState)||((marineIsNear)&&(ShowNearSquad))) {
-					PrintDebuggingText("Noncombatant acid avoidance in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
+//					PrintDebuggingText("Noncombatant acid avoidance in %s: %d\n",sbPtr->containingModule->name,marineStatusPointer->Courage);
 				}
 
 				if (marineIsNear) {
@@ -5225,12 +5320,19 @@ void KillMarine(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int multiple, int 
 	/* Morale. */
 	if (marineStatusPointer->My_Weapon->ARealMarine) {
 		/* Only marine deaths get 'spotted' everywhere, by the APC guy! */
-		NpcSquad.Nextframe_Squad_Delta_Morale-=10000;
+		NpcSquad.Nextframe_Squad_Delta_Morale-=/*1000*/0;
 		/* So, warn the squad? */
 		ZoneAlert(3,sbPtr->containingModule->m_aimodule);
 	}
 
 	Marine_MuteVoice(sbPtr);
+
+	/* 10% that this guy drops something useful.. yay! */
+	/* Disable this, did not work. The item cannot be picked up. */
+	//if ((FastRandom()%100) <= 100)
+	//{
+	//	DropWeapon(&sbPtr->DynPtr->Position, marineStatusPointer->My_Weapon->Ammo_Type, NULL);
+	//}
 
 	/*notify death target ,if marine has one*/
 	if(marineStatusPointer->death_target_sbptr)
@@ -5263,9 +5365,9 @@ void KillMarine(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int multiple, int 
 		if (damage->ExplosivePower==1) {
 			if (MUL_FIXED(tkd,(multiple&((ONE_FIXED<<1)-1)))>20) {
 				/* Okay, you can gibb now. */
-				marineStatusPointer->GibbFactor=ONE_FIXED>>1;
+				marineStatusPointer->GibbFactor=0;//ONE_FIXED>>1;
 				marineStatusPointer->mtracker_timer=-1;
-				deathtype=2;
+				deathtype=3;
 			}
 		} else if ((tkd>60)&&((multiple>>16)>1)) {
 			int newmult;
@@ -5273,7 +5375,7 @@ void KillMarine(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int multiple, int 
 			newmult=DIV_FIXED(multiple,NormalFrameTime);
 			if (MUL_FIXED(tkd,newmult)>(500)) {
 				/* Loadsabullets! */
-				marineStatusPointer->GibbFactor=-(ONE_FIXED>>2);
+				marineStatusPointer->GibbFactor=0;//-(ONE_FIXED>>2);
 				marineStatusPointer->mtracker_timer=-1;
 				deathtype=2;
 			}
@@ -5281,11 +5383,14 @@ void KillMarine(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int multiple, int 
 
 		if ((damage->ExplosivePower==2)||(damage->ExplosivePower==6)) {
 			/* Basically SADARS only. */
-			marineStatusPointer->GibbFactor=ONE_FIXED;
+			marineStatusPointer->GibbFactor=0;//ONE_FIXED;
 			marineStatusPointer->mtracker_timer=-1;
 			deathtype=3;
 		}
 	}
+	if (damage->ExplosivePower)
+		marineStatusPointer->GibbFactor = ONE_FIXED>>4;
+
 	gibbFactor=marineStatusPointer->GibbFactor;
 
 	if (damage->ForceBoom) {
@@ -5425,13 +5530,13 @@ void KillMarine(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int multiple, int 
 			/* Did you see that? */
 			if (NPCCanSeeTarget(candidate,sbPtr,MARINE_NEAR_VIEW_WIDTH)) {
 
-				if (marineStatusPointer->Android==0) {
+				if (marineStatusPointer->Android==1) {
 					if (gibbFactor) {
-						marineStatusPointer->Courage-=20000;
+						marineStatusPointer->Courage-=0;//20000;
 					} else if (head==NULL) {
-						marineStatusPointer->Courage-=15000;
+						marineStatusPointer->Courage-=0;//15000;
 					} else {
-						marineStatusPointer->Courage-=10000;
+						marineStatusPointer->Courage-=0;//10000;
 					}
 				}
 
@@ -5515,7 +5620,42 @@ void MarineIsDamaged(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int multiple,
 			sbPtr->SBDamageBlock.Health=0;
 		}
 	}
+	/* Knockback from explosives */
+	if ((damage->ExplosivePower) && (incoming))
+	{
+		if (damage->ExplosivePower == 1 || damage->ExplosivePower == 3)
+		{
+			sbPtr->DynPtr->LinImpulse.vx+=MUL_FIXED(incoming->vx,-6000);
+			sbPtr->DynPtr->LinImpulse.vy+=MUL_FIXED(incoming->vy,-6000);
+			sbPtr->DynPtr->LinImpulse.vz+=MUL_FIXED(incoming->vz,-6000);
+		} else 
+		if (damage->ExplosivePower == 2)
+		{
+			sbPtr->DynPtr->LinImpulse.vx+=MUL_FIXED(incoming->vx,-12000);
+			sbPtr->DynPtr->LinImpulse.vy+=MUL_FIXED(incoming->vy,-12000);
+			sbPtr->DynPtr->LinImpulse.vz+=MUL_FIXED(incoming->vz,-12000);
+		}
+	}
+	if ((damage->Id == AMMO_FRISBEE_FIRE) && (incoming))
+	{
+		VECTORCH x;//={incoming->vx,incoming->vy,incoming->vz};
 
+		RotateAndCopyVector(incoming,&x,&sbPtr->DynPtr->OrientMat);
+
+		sbPtr->DynPtr->LinImpulse.vx+=MUL_FIXED(x.vx,-2000);
+		sbPtr->DynPtr->LinImpulse.vy+=MUL_FIXED(x.vy,-2000);
+		sbPtr->DynPtr->LinImpulse.vz+=MUL_FIXED(x.vz,-2000);
+	}
+	if ((damage->Id == AMMO_CUDGEL) && (incoming))
+	{
+		VECTORCH x;//={incoming->vx,incoming->vy,incoming->vz};
+
+		RotateAndCopyVector(incoming,&x,&sbPtr->DynPtr->OrientMat);
+
+		sbPtr->DynPtr->LinImpulse.vx+=MUL_FIXED(x.vx,6000);
+		sbPtr->DynPtr->LinImpulse.vy+=MUL_FIXED(x.vy,6000);
+		sbPtr->DynPtr->LinImpulse.vz+=MUL_FIXED(x.vz,10000);
+	}
 	/* reduce marine health */
 	if(sbPtr->SBDamageBlock.Health <= 0) {
 		/* marine experiences death */
@@ -5956,8 +6096,7 @@ static STATE_RETURN_CONDITION Execute_MFS_Hunt(STRATEGYBLOCK *sbPtr)
 			
 	/* check for state changes */
 	
-	if ((!MarineIsAwareOfTarget(sbPtr))
-		||(marineStatusPointer->Target!=Player->ObStrategyBlock))
+	if (!MarineIsAwareOfTarget(sbPtr))
 	{
 		/* we should be wandering... can't hunt other NPCs */
 		return(SRC_Request_Wander);
@@ -5999,7 +6138,8 @@ static STATE_RETURN_CONDITION Execute_MFS_Approach(STRATEGYBLOCK *sbPtr) {
 
 	/* See if we can fire? */
 
-	if (marineStatusPointer->Target) {
+	if (marineStatusPointer->Target)
+	{
 		if (marineStatusPointer->Target->containingModule) {
 			if (IsModuleVisibleFromModule(marineStatusPointer->Target->containingModule,sbPtr->containingModule)) {
 				/* Take the shot? */
@@ -6055,7 +6195,7 @@ static STATE_RETURN_CONDITION Execute_MFS_Respond(STRATEGYBLOCK *sbPtr)
 		if (marineStatusPointer->destinationmodule==NULL) {
 			PrintDebuggingText("Target module is NULL\n");
 		} else {
-			PrintDebuggingText("Target module is %s\n",(*(marineStatusPointer->destinationmodule->m_module_ptrs))->name);
+//			PrintDebuggingText("Target module is %s\n",(*(marineStatusPointer->destinationmodule->m_module_ptrs))->name);
 		}
 	}
 
@@ -6538,7 +6678,17 @@ void Marine_Enter_Firing_State(STRATEGYBLOCK *sbPtr) {
 
 	LOCALASSERT(sbPtr);
 	marineStatusPointer = (MARINE_STATUS_BLOCK *)(sbPtr->SBdataptr);    
-	LOCALASSERT(marineStatusPointer);	          		
+	LOCALASSERT(marineStatusPointer);
+	
+	/* If we're following the player, do that */
+	if (!marineStatusPointer->My_Weapon->ARealMarine)
+	{
+		if (marineStatusPointer->Target == Player->ObStrategyBlock)
+		{
+			Marine_Enter_Approach_State(sbPtr);
+			return;
+		}
+	}
 
 	marineStatusPointer->gotapoint=0;
 	range=VectorDistance((&marineStatusPointer->Target->DynPtr->Position),(&sbPtr->DynPtr->Position));
@@ -6622,7 +6772,8 @@ void Marine_Enter_Firing_State(STRATEGYBLOCK *sbPtr) {
 		}
 	}
 
-	if (marineStatusPointer->My_Weapon->id==MNPCW_PulseRifle) {
+	if (marineStatusPointer->My_Weapon->id==MNPCW_PulseRifle ||
+		marineStatusPointer->My_Weapon->id==MNPCW_Minigun) {
 		if ((marineStatusPointer->FiringAnim==0)&&(marineStatusPointer->IAmCrouched==0)) {
 			/* Wink 2. */
 			Marine_QueueWink2Expression(sbPtr);
@@ -6642,13 +6793,13 @@ void Marine_Enter_Firing_State(STRATEGYBLOCK *sbPtr) {
 		marineStatusPointer->HModelController.Looped=0;
 		marineStatusPointer->HModelController.LoopAfterTweening=0;
 		
-		/* Put loft in now? */
+		/* Put loft in now?
 		{
 			int range;
 			range=VectorDistance((&marineStatusPointer->weaponTarget),(&sbPtr->DynPtr->Position));
 
 			marineStatusPointer->weaponTarget.vy-=(range/8);
-		}
+		}*/
 	}
 
 	if ((marineStatusPointer->My_Weapon->id==MNPCW_MShotgun)
@@ -7284,6 +7435,11 @@ void Marine_Enter_PullPistol_State(STRATEGYBLOCK *sbPtr) {
 	/* Now, try to be clever... */
 	/* Turn into a pistol guy! */
 	pistol_data=GetThisNPCMarineWeapon(MNPCW_PistolMarine);
+
+	/* Expansion for civvies... */
+	if (!marineStatusPointer->My_Weapon->ARealMarine)
+		pistol_data = GetThisNPCMarineWeapon(MNPCW_MPistol);
+
 	GLOBALASSERT(pistol_data);
 
 	root=GetNamedHierarchyFromLibrary(pistol_data->Riffname,pistol_data->HierarchyName);
@@ -7531,7 +7687,6 @@ static STATE_RETURN_CONDITION Execute_MNS_Approach(STRATEGYBLOCK *sbPtr)
 		if(range < marineStatusPointer->My_Weapon->ForceFireRange)
 		{	
 			/* switch directly to firing, at this distance */
-		
 			return(SRC_Request_Fire);
 		}
 		
@@ -7545,8 +7700,7 @@ static STATE_RETURN_CONDITION Execute_MNS_Approach(STRATEGYBLOCK *sbPtr)
 			   ||(range<marineStatusPointer->My_Weapon->MaxRange))) {
 
 				/* we are going to fire then */		
-		
-				return(SRC_Request_Fire);  		
+				return(SRC_Request_Fire); 
 			}
 			else
 			{
@@ -7807,52 +7961,27 @@ static void MaintainMarineGunFlash(STRATEGYBLOCK *sbPtr)
 		 &marineStatusPointer->My_Gunflash_Section->SecMat);
 }
 
-/* NB this shouldn't be called if :
-1. we are close to the target
-2. we are crouched */
+/* NB this shouldn't be called if we are close to the target */
 static void LobAGrenade(STRATEGYBLOCK *sbPtr)
 {
 	MARINE_STATUS_BLOCK *marineStatusPointer;    	
-	//VECTORCH firingPoint;
-	//VECTORCH firingDirn;
 
 	LOCALASSERT(sbPtr);
 	marineStatusPointer = (MARINE_STATUS_BLOCK *)(sbPtr->SBdataptr);    	
 	LOCALASSERT(marineStatusPointer);	
-	
-	/* first, find the firing direction */
-	//firingDirn.vx = marineStatusPointer->weaponTarget.vx - sbPtr->DynPtr->Position.vx;
-	//firingDirn.vy = marineStatusPointer->weaponTarget.vy - sbPtr->DynPtr->Position.vz;
-	//firingDirn.vz = marineStatusPointer->weaponTarget.vz - sbPtr->DynPtr->Position.vz;
-	//Normalise(&firingDirn);
-	
+
+	/* 25% to throw a handgrenade instead */
+	if (FastRandom()%4 == 0)
+	{
+		GLOBALASSERT(marineStatusPointer->My_Gunflash_Section);
+		CreateGrenadeKernel(I_BehaviourClusterGrenade, &marineStatusPointer->My_Gunflash_Section->World_Offset, &marineStatusPointer->My_Gunflash_Section->SecMat,0);
+		return;
+	}
 	if((sbPtr->DynPtr->Position.vy - marineStatusPointer->weaponTarget.vy) > 2500)
 	{
 		/* too high */
 		return;
 	}
-	
-	#if 0
-	{
-		VECTORCH yNormal = {0,-65536,0};
-		VECTORCH tempDirn;
-		VECTORCH acrossDirn;
-
-		/* now find firing point (conceptually, the end of the weapon muzzle + a bit)... */
-		firingPoint = sbPtr->DynPtr->Position;		
-		firingPoint.vx += MUL_FIXED(firingDirn.vx,(MARINE_FIRINGPOINT_INFRONT+400));
-		firingPoint.vz += MUL_FIXED(firingDirn.vz,(MARINE_FIRINGPOINT_INFRONT+400));		
-
-		tempDirn = firingDirn;
-		tempDirn.vy = 0;
-		Normalise(&tempDirn);
-		CrossProduct(&tempDirn,&yNormal,&acrossDirn);		
-		Normalise(&acrossDirn);
-		firingPoint.vx += MUL_FIXED(tempDirn.vx,MARINE_FIRINGPOINT_ACROSS);
-		firingPoint.vz += MUL_FIXED(tempDirn.vz,MARINE_FIRINGPOINT_ACROSS);
-		firingPoint.vy += MUL_FIXED(yNormal.vy,MARINE_FIRINGPOINT_UP);
-	}
-	#endif
 
 	/* this bit nicked from player grenade creation	fn. in bh_weap.c :
 	actually, it is now a pulse rifle grenade */
@@ -9193,9 +9322,8 @@ static STATE_RETURN_CONDITION Execute_MNS_SentryMode(STRATEGYBLOCK *sbPtr) {
 			
 				if ((marineStatusPointer->My_Weapon->MaxRange==-1) ||
 					(range<marineStatusPointer->My_Weapon->MaxRange)) {
-			
-				   return(SRC_Request_Fire);	
-			
+
+					return(SRC_Request_Fire);	
 				}
 			} else {
 				/* Eh? */
@@ -9681,6 +9809,23 @@ static void CreateMarineGunFlash(STRATEGYBLOCK *sbPtr)
  							&marineStatusPointer->My_Gunflash_Section->SecMat,
  							marineStatusPointer->My_Weapon->SfxID
  						  );
+	/* Pistol marines spawn empty shells */
+	if (marineStatusPointer->My_Weapon->id == MNPCW_PistolMarine ||
+		marineStatusPointer->My_Weapon->id == MNPCW_MPistol ||
+		marineStatusPointer->My_Weapon->id == MNPCW_Android_Pistol_Special) {
+
+		if (LocalDetailLevels.Shells)
+			MakeAIPistolCasing(&marineStatusPointer->My_Gunflash_Section->World_Offset,&marineStatusPointer->My_Gunflash_Section->SecMat);
+	}
+	/* Shotgun marines spawn empty shells */
+	if (marineStatusPointer->My_Weapon->id == MNPCW_GrenadeLauncher ||
+		marineStatusPointer->My_Weapon->id == MNPCW_MShotgun ||
+		marineStatusPointer->My_Weapon->id == MNPCW_Android ||
+		marineStatusPointer->My_Weapon->id == MNPCW_AndroidSpecial) {
+
+		if (LocalDetailLevels.Shells)
+			MakeShotgunShell(&marineStatusPointer->My_Gunflash_Section->World_Offset,&marineStatusPointer->My_Gunflash_Section->SecMat);
+	}
 }
 
 /* Add a gun flash at the given position & orientation */
@@ -9700,6 +9845,24 @@ DISPLAYBLOCK* AddNPCGunFlashEffect(VECTORCH *position, MATRIXCH* orientation, en
 		AddLightingEffectToObject(dPtr,LFX_MUZZLEFLASH);
 		GLOBALASSERT(dPtr->SfxPtr);
 		dPtr->SfxPtr->EffectDrawnLastFrame=0;
+
+		/* Add some muzzle smoke particles as well... */
+		if (LocalDetailLevels.MuzzleSmoke)
+		{
+			int i = 1;
+			VECTORCH velocity = *position;
+			velocity.vx >>= 9;
+			velocity.vy >>= 9;
+			velocity.vz >>= 9;
+			do
+			{
+				position->vx += (FastRandom()&15)-8;
+				position->vy += (FastRandom()&15)-8;
+				position->vz += (FastRandom()&15)-8;
+				MakeParticle(position,&velocity,PARTICLE_GUNMUZZLE_SMOKE);
+			}
+			while(--i);
+		}
 	}
 	return dPtr;
 }
@@ -9718,9 +9881,105 @@ void MaintainNPCGunFlashEffect(DISPLAYBLOCK* dPtr, VECTORCH *position, MATRIXCH*
 
 	/* oh, oh, and re-add the lighting effect  */	
 	AddLightingEffectToObject(dPtr,LFX_MUZZLEFLASH);
+
+	/* Add some muzzle smoke particles as well... */
+	if (LocalDetailLevels.MuzzleSmoke)
+	{
+		int i = 1;
+		VECTORCH velocity = *position;
+		velocity.vx >>= 9;
+		velocity.vy >>= 9;
+		velocity.vz >>= 9;
+		do
+		{
+			position->vx += (FastRandom()&15)-8;
+			position->vy += (FastRandom()&15)-8;
+			position->vz += (FastRandom()&15)-8;
+			MakeParticle(position,&velocity,PARTICLE_GUNMUZZLE_SMOKE);
+		}
+		while(--i);
+	}
 }
 
+DISPLAYBLOCK *MakeAIPistolCasing(VECTORCH *position,MATRIXCH *orient) 
+{
+	DISPLAYBLOCK *dispPtr;
+	STRATEGYBLOCK *sbPtr;
+	MODULEMAPBLOCK *mmbptr;
+	MODULE m_temp;
 
+	if ((AvP.Network == I_No_Network) && (AvP.PlayerType != I_Marine))
+		return (DISPLAYBLOCK *)0;
+
+	if( (NumActiveBlocks > maxobjects-5) || (NumActiveStBlocks > maxstblocks-5)) return NULL;
+
+	mmbptr = &TempModuleMap;
+
+	CreateShapeInstance(mmbptr,"Pistol case");
+
+	LOCALASSERT(mmbptr);
+
+	m_temp.m_numlights = 0;
+	m_temp.m_lightarray = NULL;
+	m_temp.m_mapptr = mmbptr;
+	m_temp.m_sbptr = (STRATEGYBLOCK*)NULL;
+	m_temp.m_dptr = NULL;
+	AllocateModuleObject(&m_temp);    
+	dispPtr = m_temp.m_dptr;
+	if(dispPtr==NULL) return (DISPLAYBLOCK *)0; /* patrick: cannot create displayblock, so just return 0 */
+
+	dispPtr->ObMyModule = NULL;     /* Module that created us */
+	dispPtr->ObWorld = *position;
+
+	sbPtr = AttachNewStratBlock((MODULE*)NULL, mmbptr, dispPtr);
+  
+	if (sbPtr == 0) return (DISPLAYBLOCK *)0; // Failed to allocate a strategy block
+
+	sbPtr->I_SBtype = I_BehaviourFragment;
+
+	{
+		DYNAMICSBLOCK *dynPtr;
+		VECTORCH impulse;
+
+		sbPtr->SBdataptr = (ONE_SHOT_BEHAV_BLOCK *) AllocateMem(sizeof(ONE_SHOT_BEHAV_BLOCK ));
+		if (sbPtr->SBdataptr == 0) 
+		{	
+			// Failed to allocate a strategy block data pointer
+			RemoveBehaviourStrategy(sbPtr);
+			return(DISPLAYBLOCK*)NULL;
+		}
+
+
+		((ONE_SHOT_BEHAV_BLOCK * ) sbPtr->SBdataptr)->counter = ALIEN_DYINGTIME;
+
+		dynPtr = sbPtr->DynPtr = AllocateDynamicsBlock(DYNAMICS_TEMPLATE_DEBRIS);
+
+		if (dynPtr == 0)
+		{
+			// Failed to allocate a dynamics block
+			RemoveBehaviourStrategy(sbPtr);
+			return(DISPLAYBLOCK*)NULL;
+		}
+
+		dynPtr->Position = *position;
+		dynPtr->OrientMat= *orient;
+
+		dynPtr->AngVelocity.EulerX = 0;
+		dynPtr->AngVelocity.EulerY = ((FastRandom()&4095)<<2);
+		dynPtr->AngVelocity.EulerZ = 0;
+
+		impulse.vx=5000;
+		impulse.vy=0;
+		impulse.vz=6000;
+	
+		RotateVector(&impulse,orient);
+
+		dynPtr->LinImpulse = impulse;
+
+		sbPtr->SBflags.not_on_motiontracker=1;
+	}
+    return dispPtr;
+}
 
 /* Patrick: 2/7/97 --------------------------------------------------------
    Some marine support functions
@@ -9913,7 +10172,7 @@ static int MarineCanSeeTarget(STRATEGYBLOCK *sbPtr)
 		if (dist<16834) {
 			dist=16384-dist;
 			dist<<=2;
-			marineStatusPointer->Courage-=MUL_FIXED((NormalFrameTime<<1),dist);
+			marineStatusPointer->Courage-=0;//MUL_FIXED((NormalFrameTime<<1),dist);
 		}
 	}
 	return(1);
@@ -10082,7 +10341,7 @@ static int MarineCanSeeObject(STRATEGYBLOCK *sbPtr,STRATEGYBLOCK *target)
 		if (dist<16834) {
 			dist=16384-dist;
 			dist<<=2;
-			marineStatusPointer->Courage-=MUL_FIXED((NormalFrameTime<<1),dist);
+			marineStatusPointer->Courage-=0;//MUL_FIXED((NormalFrameTime<<1),dist);
 		}
 	}
 	return(1);
@@ -10500,8 +10759,6 @@ static STATE_RETURN_CONDITION Execute_MNS_DischargeFlamethrower(STRATEGYBLOCK *s
 	and our state timer is set to marine_near_firetime then we have either
 	just started firing, or have become dis-orienated between bursts. This is a good
 	time to consider firing a grenade... */
-
-	/* No grenades with FT. */
 		
 	/* look after the sound */
 	if(marineStatusPointer->soundHandle!=SOUND_NOACTIVEINDEX) Sound_Update3d(marineStatusPointer->soundHandle,&(sbPtr->DynPtr->Position));
@@ -10893,24 +11150,17 @@ static STATE_RETURN_CONDITION Execute_MNS_DischargeLOSWeapon(STRATEGYBLOCK *sbPt
 	{
 
 		/* NB don't fire grenades in air ducts */
-		if ((FastRandom()&MARINE_CHANCEOFGRENADE) == 0) {
-			if (!(marineStatusPointer->IAmCrouched)) {
-				if (range > MARINE_TOO_CLOSE_TO_GRENADE_FOOL) {
-					if (marineStatusPointer->My_Weapon->EnableGrenades) {
-
-						GLOBALASSERT(marineStatusPointer->Target);
-						NPCGetTargetPosition(&(marineStatusPointer->weaponTarget),marineStatusPointer->Target);
-						LobAGrenade(sbPtr);
-						marineStatusPointer->stateTimer = MARINE_NEAR_TIMEBETWEENFIRING;
-						marineStatusPointer->volleySize = 0;
-
+		if ((FastRandom()&MARINE_CHANCEOFGRENADE) <= 1) {
+			if (range > 15000) {
+				if (marineStatusPointer->My_Weapon->EnableGrenades) 
+				{
+					GLOBALASSERT(marineStatusPointer->Target);
+					NPCGetTargetPosition(&(marineStatusPointer->weaponTarget),marineStatusPointer->Target);
+					LobAGrenade(sbPtr);
+					marineStatusPointer->stateTimer = MARINE_NEAR_TIMEBETWEENFIRING;
+					marineStatusPointer->volleySize = 0;
 					
-						#if MARINE_STATE_PRINT
-						textprint("fired a grenade.\n");
-						#endif
-					
-						return(SRC_Request_Approach);
-					}
+					return(SRC_Request_Approach);
 				}
 			}
 		}
@@ -10985,7 +11235,7 @@ static STATE_RETURN_CONDITION Execute_MNS_DischargeLOSWeapon(STRATEGYBLOCK *sbPt
 		#endif
 
 		if (marineStatusPointer->Android==0) {
-			marineStatusPointer->Courage-=(ONE_FIXED>>3);
+			marineStatusPointer->Courage-=0;//(ONE_FIXED>>3);
 		}
 		return(SRC_Request_Fire);
 	}
@@ -11097,33 +11347,16 @@ int Validate_Strategy(STRATEGYBLOCK *target,char *SBname) {
 	}
 }
 
-int Marine_TargetFilter(STRATEGYBLOCK *candidate) {
+int Marine_TargetFilter(STRATEGYBLOCK *candidate, STRATEGYBLOCK *me)
+{
+	MARINE_STATUS_BLOCK *marinePtr = (MARINE_STATUS_BLOCK *) (me->SBdataptr);
+	int isMarine=0, ifMarine=0;
 
-	switch (candidate->I_SBtype) {
-		case I_BehaviourMarinePlayer:
-		case I_BehaviourAlienPlayer:
-		case I_BehaviourPredatorPlayer:
-			{
-				if (Observer) {
-					return(0);
-				}
+	if (marinePtr->My_Weapon->ARealMarine)
+		isMarine=1;
 
-				switch(AvP.PlayerType)
-				{
-					case I_Alien:
-					case I_Predator:
-						return(1);
-						break;
-					case I_Marine:
-						return(0);
-						break;
-					default:
-						GLOBALASSERT(0);
-						return(0);
-						break;
-				}
-				break;
-			}
+	switch (candidate->I_SBtype)
+	{
 		case I_BehaviourDummy:
 			{
 				DUMMY_STATUS_BLOCK *dummyStatusPointer;    
@@ -11135,7 +11368,7 @@ int Marine_TargetFilter(STRATEGYBLOCK *candidate) {
 						return(1);
 						break;
 					case I_Marine:
-						return(0);
+						return(1);
 						break;
 					default:
 						GLOBALASSERT(0);
@@ -11157,7 +11390,7 @@ int Marine_TargetFilter(STRATEGYBLOCK *candidate) {
 				} else {
 					if ((alienStatusPointer->BehaviourState==ABS_Dormant)||
 						(alienStatusPointer->BehaviourState==ABS_Awakening)) {
-						return(0);
+						return(1);
 					} else {
 						return(1);
 					}
@@ -11174,12 +11407,48 @@ int Marine_TargetFilter(STRATEGYBLOCK *candidate) {
 			return(1);
 			break;
 		case I_BehaviourMarine:
-			#if ANARCHY
-			return(1);
-			#else
+		{
+			MARINE_STATUS_BLOCK *otherPtr = (MARINE_STATUS_BLOCK *) (candidate->SBdataptr);
+
+			if (otherPtr->My_Weapon->ARealMarine)
+				ifMarine=1;
+
+			if ((!isMarine) && (ifMarine)) // Civ vs Marine
+				return(1);
+			
+			if ((isMarine) && (!ifMarine)) // Marine vs Civ
+				return(1);
+			
 			return(0);
-			#endif
-			break;
+		}
+		break;
+		case I_BehaviourMarinePlayer:
+		case I_BehaviourAlienPlayer:
+		case I_BehaviourPredatorPlayer:
+			{
+				if (Observer) {
+					return(0);
+				}
+
+				switch(AvP.PlayerType)
+				{
+					case I_Alien:
+					case I_Predator:
+						return(1);
+						break;
+					case I_Marine:
+						if (isMarine)
+							return(1);
+						else
+							return(0);
+						break;
+					default:
+						GLOBALASSERT(0);
+						return(0);
+						break;
+				}
+				break;
+			}
 	#if SupportWindows95
 		case I_BehaviourNetGhost:
 			{
@@ -11271,7 +11540,7 @@ STRATEGYBLOCK *Marine_GetNewTarget(VECTORCH *marinepos, STRATEGYBLOCK *me) {
 						}
 					}
 					
-					if (Marine_TargetFilter(candidate)) {
+					if (Marine_TargetFilter(candidate, me)) {
 					
 						dist=Approximate3dMagnitude(&offset);
 					
@@ -12118,7 +12387,7 @@ static STATE_RETURN_CONDITION Execute_MNS_DischargeShotgun(STRATEGYBLOCK *sbPtr)
 		textprint("Returning too close renewal at range %d.\n",range);
 		#endif
 		if (marineStatusPointer->Android==0) {
-			marineStatusPointer->Courage-=(ONE_FIXED>>3);
+			marineStatusPointer->Courage-=0;//(ONE_FIXED>>3);
 		}
 		return(SRC_No_Change);
 	}
@@ -12288,7 +12557,7 @@ static STATE_RETURN_CONDITION Execute_MNS_DischargePistol(STRATEGYBLOCK *sbPtr)
 		and our state timer is set to marine_near_firetime then we have either
 		just started firing, or have become dis-orienated between bursts. This is a good
 		time to consider firing a grenade... */
-		
+
 		#if 1
 		/* look after the gun flash */
 		if(marineStatusPointer->myGunFlash) MaintainMarineGunFlash(sbPtr);
@@ -12429,7 +12698,7 @@ static STATE_RETURN_CONDITION Execute_MNS_DischargePistol(STRATEGYBLOCK *sbPtr)
 		textprint("Returning too close renewal at range %d.\n",range);
 		#endif
 		if (marineStatusPointer->Android==0) {
-			marineStatusPointer->Courage-=(ONE_FIXED>>3);
+			marineStatusPointer->Courage-=0;//(ONE_FIXED>>3);
 		}
 		return(SRC_No_Change);
 	}
@@ -12793,11 +13062,22 @@ static STATE_RETURN_CONDITION Execute_MNS_DischargeGL(STRATEGYBLOCK *sbPtr)
 	
 	
 		{
+			int i;
 			LOCALASSERT(marineStatusPointer->My_Gunflash_Section);
 			//LOCALASSERT(marineStatusPointer->internalState==0);
 			
-			CreateGrenadeKernel(I_BehaviourGrenade, &marineStatusPointer->My_Gunflash_Section->World_Offset, &marineStatusPointer->My_Gunflash_Section->SecMat,0);
-		
+			//CreateGrenadeKernel(I_BehaviourGrenade, &marineStatusPointer->My_Gunflash_Section->World_Offset, &marineStatusPointer->My_Gunflash_Section->SecMat,0);
+			
+			i=0;
+			while (ShotgunBlast[i].vz>0) {
+			VECTORCH world_vec;
+			
+			RotateAndCopyVector(&ShotgunBlast[i],&world_vec,&marineStatusPointer->My_Gunflash_Section->SecMat);
+			CastLOSProjectile(sbPtr,&marineStatusPointer->My_Gunflash_Section->World_Offset,&world_vec, marineStatusPointer->My_Weapon->Ammo_Type, 1,0);
+	
+			i++;
+		}
+
 			if (marineStatusPointer->clipammo>0) {
 				marineStatusPointer->clipammo--;
 			}
@@ -12945,10 +13225,10 @@ static STATE_RETURN_CONDITION Execute_MNS_NewDischargeGL(STRATEGYBLOCK *sbPtr)
 				marineStatusPointer->My_Weapon->TargetCallibrationShift);
 		}
 
-		/* Aim up a little? */
+		/* Aim up a little? No WAY!!
 		range=VectorDistance((&marineStatusPointer->weaponTarget),(&sbPtr->DynPtr->Position));
-
-		marineStatusPointer->weaponTarget.vy-=(range/8);
+		
+		marineStatusPointer->weaponTarget.vy+=(range/8);*/
 		
 		/* orientate to firing point first */
 		orientationDirn.vx =  marineStatusPointer->weaponTarget.vx - sbPtr->DynPtr->Position.vx;
@@ -13027,10 +13307,25 @@ static STATE_RETURN_CONDITION Execute_MNS_NewDischargeGL(STRATEGYBLOCK *sbPtr)
 	
 		/* Now fire a grenade. */
 		{
+			VECTORCH NewPos={0,0,0};
+			int i;
 			LOCALASSERT(marineStatusPointer->My_Gunflash_Section);
+
+			i=0;
+			while (ShotgunBlast[i].vz>0) 
+			{
+				VECTORCH world_vec;
+
+				NewPos=ShotgunBlast[i];
+				NewPos.vx += ((FastRandom()%6)-3);
+				NewPos.vy += ((FastRandom()%6)-3);
+				NewPos.vz += ((FastRandom()%6)-3);
 			
-			CreateGrenadeKernel(I_BehaviourGrenade, &marineStatusPointer->My_Gunflash_Section->World_Offset, &marineStatusPointer->My_Gunflash_Section->SecMat,0);
-		
+				RotateAndCopyVector(&NewPos,&world_vec,&marineStatusPointer->My_Gunflash_Section->SecMat);
+				CastLOSProjectile(sbPtr,&marineStatusPointer->My_Gunflash_Section->World_Offset,&world_vec, marineStatusPointer->My_Weapon->Ammo_Type, 1,0);
+				NewPos.vx=NewPos.vy=NewPos.vz=0;
+				i++;
+			}
 			if (marineStatusPointer->clipammo>0) {
 				marineStatusPointer->clipammo--;
 			}
@@ -13566,7 +13861,7 @@ void RunAroundOnFireMission_Control(STRATEGYBLOCK *sbPtr) {
 			case(MBS_Dying):
 			{
 				if ((ShowSquadState)||((sbPtr->SBdptr)&&(ShowNearSquad))) {
-					PrintDebuggingText("RAOF marine dying in %s\n",sbPtr->containingModule->name);
+//					PrintDebuggingText("RAOF marine dying in %s\n",sbPtr->containingModule->name);
 				}
 
 				if (marineIsNear) {
@@ -13579,7 +13874,7 @@ void RunAroundOnFireMission_Control(STRATEGYBLOCK *sbPtr) {
 			default:
 			{
 				if ((ShowSquadState)||((sbPtr->SBdptr)&&(ShowNearSquad))) {
-					PrintDebuggingText("RAOF marine running in %s\n",sbPtr->containingModule->name);
+//					PrintDebuggingText("RAOF marine running in %s\n",sbPtr->containingModule->name);
 				}
 
 				if (marineIsNear) {
@@ -14911,7 +15206,7 @@ static STATE_RETURN_CONDITION Execute_MNS_DischargeMinigun(STRATEGYBLOCK *sbPtr)
 			Sound_Play(marineStatusPointer->My_Weapon->EndSound,"d",&(sbPtr->DynPtr->Position));
 		}
 		if (marineStatusPointer->Android==0) {
-			marineStatusPointer->Courage-=(ONE_FIXED>>3);
+			marineStatusPointer->Courage-=0;//(ONE_FIXED>>3);
 		}
 		return(SRC_Request_Fire);
 	}
@@ -15583,8 +15878,8 @@ static STATE_RETURN_CONDITION Execute_MNS_PanicFireFlamethrower(STRATEGYBLOCK *s
 
 }
 
-void Marine_SwitchExpression(STRATEGYBLOCK *sbPtr,int state) {
-
+void Marine_SwitchExpression(STRATEGYBLOCK *sbPtr,int state)
+{
 	MARINE_STATUS_BLOCK *marineStatusPointer;
 	SECTION_DATA *head;
 	TXACTRLBLK *tacb;
@@ -15857,6 +16152,7 @@ static STATE_RETURN_CONDITION Execute_MNS_PanicFireGL(STRATEGYBLOCK *sbPtr)
 
 	/* I know there are only four firing points... */
 	for (a=0; a<4; a++) {
+		int i;
 		if (keyframeflags&1) {
 			/* Fire a grenade! */
 
@@ -15872,7 +16168,17 @@ static STATE_RETURN_CONDITION Execute_MNS_PanicFireGL(STRATEGYBLOCK *sbPtr)
 			}
 
 			LOCALASSERT(marineStatusPointer->My_Gunflash_Section);
-			CreateGrenadeKernel(I_BehaviourGrenade, &marineStatusPointer->My_Gunflash_Section->World_Offset, &marineStatusPointer->My_Gunflash_Section->SecMat,0);
+			
+			i=0;
+			while (ShotgunBlast[i].vz>0) 
+			{
+				VECTORCH world_vec;
+			
+				RotateAndCopyVector(&ShotgunBlast[i],&world_vec,&marineStatusPointer->My_Gunflash_Section->SecMat);
+				CastLOSProjectile(sbPtr,&marineStatusPointer->My_Gunflash_Section->World_Offset,&world_vec, marineStatusPointer->My_Weapon->Ammo_Type, 1,0);
+	
+				i++;
+			}
 			if (marineStatusPointer->clipammo>0) {
 				marineStatusPointer->clipammo--;
 			}
@@ -16838,7 +17144,7 @@ static STATE_RETURN_CONDITION Execute_MNS_PanicFireUnarmed(STRATEGYBLOCK *sbPtr)
 				if ((MarineRetreatsInTheFaceOfDanger(sbPtr))||(range<3000)) {
 					if (range<3000) {
 						if (marineStatusPointer->Android==0) {
-							marineStatusPointer->Courage-=5000;
+							marineStatusPointer->Courage-=0;//5000;
 						}
 					}
 					Marine_EnterExtremePanicAnimation(sbPtr);
@@ -16988,7 +17294,7 @@ static STATE_RETURN_CONDITION Execute_MNS_PanicFireUnarmed(STRATEGYBLOCK *sbPtr)
 					marineStatusPointer->internalState=1;
 					/* This is a bit pre-emptive, but never mind. */
 					if (marineStatusPointer->Android==0) {
-						marineStatusPointer->Courage-=5000;
+						marineStatusPointer->Courage-=0;//5000;
 					}
 					return(SRC_No_Change);
 				} else {
@@ -17249,7 +17555,7 @@ void Marine_SurpriseSound(STRATEGYBLOCK *sbPtr) {
 		PlayMarineScream(marineStatusPointer->Voice,SC_Surprise,marineStatusPointer->VoicePitch,
 			&marineStatusPointer->soundHandle2,&sbPtr->DynPtr->Position);
 		if (marineStatusPointer->Android==0) {
-			marineStatusPointer->Courage-=5000;
+			marineStatusPointer->Courage-=0;//5000;
 		}
 	}
 	
@@ -17987,7 +18293,7 @@ static STATE_RETURN_CONDITION Execute_MNS_DischargeSmartgun(STRATEGYBLOCK *sbPtr
 			Sound_Play(marineStatusPointer->My_Weapon->EndSound,"d",&(sbPtr->DynPtr->Position));
 		}
 		if (marineStatusPointer->Android==0) {
-			marineStatusPointer->Courage-=(ONE_FIXED>>3);
+			marineStatusPointer->Courage-=0;//(ONE_FIXED>>3);
 		}
 		return(SRC_Request_Fire);
 	}
@@ -18804,7 +19110,7 @@ static STATE_RETURN_CONDITION Execute_MNS_DischargeSkeeter(STRATEGYBLOCK *sbPtr)
 {
 	MARINE_STATUS_BLOCK *marineStatusPointer;    
 	VECTORCH orientationDirn,relPos,relPos2;
-	int correctlyOrientated,range;
+	int correctlyOrientated,range=0;
 
 	LOCALASSERT(sbPtr);
 	marineStatusPointer = (MARINE_STATUS_BLOCK *)(sbPtr->SBdataptr);    
@@ -18989,7 +19295,9 @@ static STATE_RETURN_CONDITION Execute_MNS_DischargeSkeeter(STRATEGYBLOCK *sbPtr)
 
 			LOCALASSERT(rocket_section);
 			
-			CreateFrisbeeKernel(&rocket_section->World_Offset, &rocket_section->SecMat,0);
+			InitialiseEnergyBoltBehaviourKernel(&rocket_section->World_Offset,&rocket_section->SecMat,0,&TemplateAmmo[AMMO_FRISBEE].MaxDamage[AvP.Difficulty],65536);
+
+			//CreateFrisbeeKernel(&rocket_section->World_Offset, &rocket_section->SecMat,0);
 
 			if (marineStatusPointer->clipammo>0) {
 				marineStatusPointer->clipammo--;
@@ -19110,4 +19418,55 @@ void Marine_Activate_AcidAvoidance_State(STRATEGYBLOCK *sbPtr, VECTORCH *inciden
 
 	HandleMovingAnimations(sbPtr);
 
+}
+
+void ConvertToArmedCivvie(STRATEGYBLOCK *sbPtr, int weapon)
+{
+	SECTION *root;
+	MARINE_WEAPON_DATA *piece;
+	MARINE_STATUS_BLOCK *msPtr = (MARINE_STATUS_BLOCK *) sbPtr->SBdataptr;
+
+	/* Pistol */
+	if (weapon == WEAPON_MARINE_PISTOL)
+	{
+		piece = GetThisNPCMarineWeapon(MNPCW_MPistol);
+	} else
+	/* Shotgun */
+	if (weapon == WEAPON_GRENADELAUNCHER)
+	{
+		piece = GetThisNPCMarineWeapon(MNPCW_MShotgun);
+	} else
+	/* Flamethrower */
+	if (weapon == WEAPON_FLAMETHROWER)
+	{
+		piece = GetThisNPCMarineWeapon(MNPCW_MFlamer);
+	} else
+		return;	// No legal weapon? Cancel!
+
+	/* Possible solve to crash-bug */
+
+	/* Remove hitdelta, if there is one. */
+	{
+		DELTA_CONTROLLER *delta;
+		delta=Get_Delta_Sequence(&msPtr->HModelController,"HitDelta");
+		if (delta)
+		{
+			Remove_Delta_Sequence(&msPtr->HModelController,"HitDelta");
+		}
+	}
+
+	root = GetNamedHierarchyFromLibrary(piece->Riffname, piece->HierarchyName);
+	Transmogrify_HModels(sbPtr, &msPtr->HModelController, root, 1, 0, 0);
+	msPtr->My_Weapon = piece;
+	msPtr->Mission = MM_LocalGuard;
+
+	/* Another possible solve */
+
+	/* Attempt to put the hitdelta back? */
+	if (HModelSequence_Exists(&msPtr->HModelController,(int)HMSQT_MarineStand,(int)MSSS_HitChestFront))
+	{
+		DELTA_CONTROLLER *delta;
+		delta=Add_Delta_Sequence(&msPtr->HModelController,"HitDelta",(int)HMSQT_MarineStand,(int)MSSS_HitChestFront,(ONE_FIXED>>2));
+		delta->Playing=0;
+	}
 }

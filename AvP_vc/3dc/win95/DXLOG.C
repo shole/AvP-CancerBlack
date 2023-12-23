@@ -338,7 +338,7 @@ int GlobalAssertFired(char * Filename, int LineNum,char * Condition)
 	lfprintf(dxlog,"Line %d of %s:\nGAF: %s\n",LineNum,Filename,Condition);
 	lfclose(dxlog);
 	closed_once = 1;
-	textprint("Line %d of %s:\nGAF: %s\n",LineNum,Filename,Condition);
+	//textprint("Line %d of %s:\nGAF: %s\n",LineNum,Filename,Condition);
 	WaitForReturn();
 
 	ExitSystem();
@@ -355,7 +355,7 @@ int LocalAssertFired(char * Filename, int LineNum,char * Condition)
 	lfprintf(dxlog,"Line %d of %s:\nLAF: %s\n",LineNum,Filename,Condition);
 	lfclose(dxlog);
 	closed_once = 1;
-	textprint("Line %d of %s:\nLAF: %s\n",LineNum,Filename,Condition);
+	//textprint("Line %d of %s:\nLAF: %s\n",LineNum,Filename,Condition);
 	WaitForReturn();
 
 	ExitSystem();

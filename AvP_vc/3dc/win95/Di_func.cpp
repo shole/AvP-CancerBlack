@@ -1,6 +1,9 @@
 // Interface  functions (written in C++) for
 // Direct3D immediate mode system
 
+/* Bugfix - Since I am using DX8 now, things did not work like I'd hoped */
+#define DIRECTINPUT_VERSION 0x0700
+
 // Must link to C code in main engine system
 
 extern "C" {
@@ -113,7 +116,6 @@ extern "C"
 // There's probably a more efficient way of getting it direct from DirectInput
 // but it's getting late and I can't face reading any more Microsoft documentation...
 static unsigned char LastFramesKeyboardInput[MAX_NUMBER_OF_INPUT_KEYS];
-
 
 extern int NormalFrameTime;
 
@@ -1320,11 +1322,13 @@ BOOL CALLBACK EnumJoysticksCallback( LPCDIDEVICEINSTANCE pInst,
 extern IngameKeyboardInput_KeyDown(unsigned char key)
 {
 	IngameKeyboardInput[key] = 1;
+	return 1;
 }
 
 extern IngameKeyboardInput_KeyUp(unsigned char key)
 {
 	IngameKeyboardInput[key] = 0;
+	return 1;
 }
 
 extern IngameKeyboardInput_ClearBuffer(void)
@@ -1335,6 +1339,7 @@ extern IngameKeyboardInput_ClearBuffer(void)
 	{
 		IngameKeyboardInput[i] = 0;
 	}
+	return 1;
 }
 
 // For extern "C"

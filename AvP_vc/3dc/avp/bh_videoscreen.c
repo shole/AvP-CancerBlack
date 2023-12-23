@@ -14,7 +14,8 @@
 
 #include "pvisible.h"
 
-
+extern void SetupPolygonFlagAccessForShape(SHAPEHEADER *shape);
+extern int Request_PolyFlags(void *polygon);
 
 void* InitVideoScreen(void* bhdata,STRATEGYBLOCK *sbPtr)
 {

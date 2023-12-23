@@ -38,7 +38,6 @@
 #define USE_REBSND_LOADERS  (LOAD_USING_FASTFILES||PREDATOR_DEMO||MARINE_DEMO||ALIEN_DEMO||DEATHMATCH_DEMO)
 #define USE_COMMON_FLL_FILE  (LOAD_USING_FASTFILES||PREDATOR_DEMO||MARINE_DEMO||ALIEN_DEMO||DEATHMATCH_DEMO)
 
-
 /* Andy 9/6/97 ----------------------------------------------------------------
   Internal globals  
 -----------------------------------------------------------------------------*/
@@ -93,7 +92,7 @@ void DoPlayerSounds(void)
 {
 	PLAYER_STATUS *playerStatusPtr;
 	PLAYER_WEAPON_DATA *weaponPtr;
-	VECTORCH *playerPos;
+	//VECTORCH *playerPos;
 
 	#if CDDA_TEST
 	if (doneCDDA == 0)
@@ -218,74 +217,114 @@ void DoPlayerSounds(void)
 			{
 		 		if(weaponHandle == SOUND_NOACTIVEINDEX) 
 				{
-		 		  //Sound_Play(SID_PULSE_START,"hp",-PRED_PISTOL_PITCH_CHANGE);	  
-				  //Sound_Play(SID_PULSE_LOOP,"elhp",&weaponHandle,-PRED_PISTOL_PITCH_CHANGE);					
-			   	  //weaponPitchTimer=ONE_FIXED>>3;
-				  Sound_Play(SID_PRED_PISTOL,"h");					
+					Sound_Play(SID_PRED_PISTOL,"h");					
 					playerNoise=1;
 			  	}
-				else
-				{
-					//weaponPitchTimer-=NormalFrameTime;
-					//if (weaponPitchTimer<=0)
-					//{
-					//	weaponPitchTimer=ONE_FIXED>>3;
-					//	Sound_ChangePitch(weaponHandle,(FastRandom()&63)-(32+PRED_PISTOL_PITCH_CHANGE));
-					//}
-				}
 			}
-	   		else
+			else 
 			{
-				//if(weaponHandle != SOUND_NOACTIVEINDEX)
-				//{
-		          //if (ActiveSounds[weaponHandle].soundIndex == SID_PULSE_LOOP)
-		          //{
-			      //    Sound_Play(SID_PULSE_END,"hp",-PRED_PISTOL_PITCH_CHANGE);
-				  //	  Sound_Stop(weaponHandle);
-			 	  //}
-			 	//}
+				if(weaponHandle != SOUND_NOACTIVEINDEX)
+				{
+					Sound_Stop(weaponHandle);
+		 		}
 			}
   		break;
    	}
 
-		case(WEAPON_PULSERIFLE):
+	case(WEAPON_SONICCANNON):
+	{
+		if(weaponPtr->CurrentState == WEAPONSTATE_FIRING_PRIMARY)
 		{
-			if(weaponPtr->CurrentState == WEAPONSTATE_FIRING_PRIMARY)			
+			if(weaponHandle == SOUND_NOACTIVEINDEX)
 			{
-		 		if(weaponHandle == SOUND_NOACTIVEINDEX) 
-				{
-		 		  Sound_Play(SID_PULSE_START,"h");	  
-			   	Sound_Play(SID_PULSE_LOOP,"elh",&weaponHandle);					
-					playerNoise=1;
-			   	weaponPitchTimer=ONE_FIXED>>3;
-			  }
-				else
-				{
-					weaponPitchTimer-=NormalFrameTime;
-					if (weaponPitchTimer<=0)
-					{
-						weaponPitchTimer=ONE_FIXED>>3;
-						Sound_ChangePitch(weaponHandle,(FastRandom()&63)-32);
-						playerNoise=1;
-					}
+				Sound_Play(SID_STOMP,"h");
+				playerNoise=1;
+			}
+		} else {
+			if (weaponHandle != SOUND_NOACTIVEINDEX)
+			{
+				Sound_Stop(weaponHandle);
+			}
+		}
+		break;
+	}
+
+	case(WEAPON_BEAMCANNON):
+	{
+		if(weaponPtr->CurrentState == WEAPONSTATE_FIRING_PRIMARY)
+		{
+			if(weaponHandle == SOUND_NOACTIVEINDEX)
+			{
+				Sound_Play(SID_FRAG_RICOCHETS,"h");
+				playerNoise=1;
+			}
+		} else {
+			if (weaponHandle != SOUND_NOACTIVEINDEX)
+			{
+				Sound_Stop(weaponHandle);
+			}
+		}
+		break;
+	}
+
+	case(WEAPON_MYSTERYGUN):
+	{
+		if(weaponPtr->CurrentState == WEAPONSTATE_FIRING_PRIMARY)
+		{
+			if(weaponHandle == SOUND_NOACTIVEINDEX)
+			{
+				Sound_Play(SID_GRAPPLE_HIT_WALL,"h");
+				playerNoise=1;
+			}
+		} else {
+			if (weaponHandle != SOUND_NOACTIVEINDEX)
+			{
+				Sound_Stop(weaponHandle);
+			}
+		}
+		break;
+	}
+
+	case(WEAPON_PULSERIFLE):
+	{
+		if(weaponPtr->CurrentState == WEAPONSTATE_FIRING_PRIMARY)			
+		{
+			if(weaponHandle == SOUND_NOACTIVEINDEX) 
+			{
+				unsigned int rand=FastRandom() % 3;
+         		if (rand == oldRandomValue) rand=(rand + 1) % 3;
+         		oldRandomValue = rand;
+				playerNoise=1;
+         		switch (rand)
+         		{
+         			case 0:
+         			{
+          			Sound_Play(SID_PULSE_START,"ehp",&weaponHandle,(FastRandom()&255)-128);					
+          			break;
+         			}
+        			case 1:
+         			{
+          			Sound_Play(SID_PULSE_LOOP,"ehp",&weaponHandle,(FastRandom()&255)-128);					
+          			break;
+         			}
+        			case 2:
+         			{
+          			Sound_Play(SID_PULSE_END,"ehp",&weaponHandle,(FastRandom()&255)-128);					
+          			break;
+         			}
+			 		default:
+				 	{
+				 	break;
+				 	}
 				}
 			}
-   		else if (weaponPtr->CurrentState == WEAPONSTATE_FIRING_SECONDARY)
-   		{
+		} else if (weaponPtr->CurrentState == WEAPONSTATE_FIRING_SECONDARY) {
    			if (weaponHandle == SOUND_NOACTIVEINDEX)
    			{
      			Sound_Play(SID_NADEFIRE,"h");
 				playerNoise=1;
    			}
-	 		}
-   		else
-			{
-				if(weaponHandle != SOUND_NOACTIVEINDEX)
-				{
-         	Sound_Play(SID_PULSE_END,"h");
-				  Sound_Stop(weaponHandle);
-			 	}
-			}
+	 	}
    		break;
    	}
 
@@ -340,16 +379,6 @@ void DoPlayerSounds(void)
 		#endif
      	break;
    	}  
-
-   	case (WEAPON_AUTOSHOTGUN):
-   	{
-     	if (weaponPtr->CurrentState == WEAPONSTATE_FIRING_PRIMARY)
-     	{
-	   		Sound_Play(SID_SHOTGUN,"h");
-			playerNoise=1;
-	 	}
-     	break;
-   	}           
 
    	case (WEAPON_MARINE_PISTOL):
    	case (WEAPON_TWO_PISTOLS):
@@ -608,7 +637,7 @@ void DoPlayerSounds(void)
 			{
 				if(playOneShotWS) 
 				{
-					//Sound_Play(SID_PRED_LAUNCHER,"hp",(FastRandom()&255)-128);
+					Sound_Play(SID_PRED_LAUNCHER,"hp",(FastRandom()&255)-128);
 					playOneShotWS = 0;
 				}
 			}
@@ -696,16 +725,16 @@ void MakeRicochetSound(VECTORCH *position)
 	switch(NormalFrameTime&0x3)
 	{
 		case(0):
-			Sound_Play(SID_RICOCH1,"pd",((FastRandom()&255)-128),position);	 
+			Sound_Play(SID_RICOCH1,"pdv",((FastRandom()&255)-128),position,64);	 
 			break;
 		case(1):
-			Sound_Play(SID_RICOCH2,"pd",((FastRandom()&255)-128),position);	 
+			Sound_Play(SID_RICOCH2,"pdv",((FastRandom()&255)-128),position,64);	 
 			break;
 		case(2):
-			Sound_Play(SID_RICOCH3,"pd",((FastRandom()&255)-128),position);	 
+			Sound_Play(SID_RICOCH3,"pdv",((FastRandom()&255)-128),position,64);	 
 			break;
 		case(3):
-			Sound_Play(SID_RICOCH4,"pd",((FastRandom()&255)-128),position);	 
+			Sound_Play(SID_RICOCH4,"pdv",((FastRandom()&255)-128),position,64);	 
 			break;
 		default:
 			break;
@@ -805,8 +834,8 @@ void PlayPredSlashSound(void) {
 	 	}
 	}
 	#else
-	PlayPredatorSound(0,PSC_Swipe,((FastRandom()&255)-128),
-		&weaponHandle,NULL);
+	int Pitch = ((FastRandom()&255)-128);
+	PlayPredatorSound(0,PSC_Swipe,Pitch,&weaponHandle,NULL);
 	#endif
 }
 
@@ -898,7 +927,31 @@ int FindAndLoadWavFile(int soundNum,char* wavFileName)
 #endif
 }
 
+/* AMP's radio messages */
+int AMPLoadSounds(int soundNum,char *wavFileName)
+{
+	static char sound_name[200];
+	sprintf(sound_name, "%s", /*"SOUND\\RADIO\\",*/ wavFileName);
 
+	if (!wavFileName)
+	{
+		db_logf3(("AMP ERROR::Failed to find AMP sound %s.", wavFileName));
+		return 0;
+	}
+
+	// Look for sound locally
+	{
+		FILE *wavFile = fopen(sound_name,"rb");
+    
+		if (!wavFile)
+		{
+			db_logf3(("AMP ERROR::Failed to AMPload %s.", wavFileName));
+			return 0;
+		}
+		fclose(wavFile);
+	}
+	return LoadWavFile(soundNum,sound_name);
+}
 
 /* Patrick 5/6/97 -------------------------------------------------------------
   Sound data loaders 
@@ -969,7 +1022,7 @@ void LoadSounds(char *soundDirectory)
 		strcat(filename, "\\");
 //		strcat(filename, soundDirectory);
 //		strcat(filename, ".RebSnd");
-		strcat(filename, "common.ffl");
+		strcat(filename, "cb_common.ffl");//"common.ffl");
 
 		rebSndBuffer = LoadRebSndFile(filename);
 
@@ -1036,7 +1089,7 @@ void LoadSounds(char *soundDirectory)
 	strcat((char*)&soundFileName, soundDirectory);
 	strcat((char*)&soundFileName, ".SL");
 	myFile = fopen(soundFileName,"rt");
-	LOCALASSERT(myFile!=NULL);
+ //	LOCALASSERT(myFile!=NULL);   Eldritch
 	
 	/* just return if we can't find the file */
 	if(!myFile)	return;

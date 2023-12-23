@@ -61,7 +61,7 @@ void UpdateGammaSettings(void)
 void UpdateGammaSettings(void)
 {
 	LPDIRECTDRAWGAMMACONTROL handle=NULL;
-	DDGAMMARAMP gammaValues;
+	//DDGAMMARAMP gammaValues;
 
 	if (RequestedGammaSetting==ActualGammaSetting) return;
 

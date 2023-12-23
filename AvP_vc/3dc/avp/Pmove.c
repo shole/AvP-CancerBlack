@@ -39,6 +39,7 @@
 #include "lighting.h"
 #include "scream.h"
 #include "avp_userprofile.h"
+#include "Pldghost.h"
 
 
 #define ALIEN_CONTACT_WEAPON 0
@@ -52,14 +53,13 @@ static void AlienContactWeapon(void);
 	#ifdef AVP_DEBUG_FOR_FOX
 		#define FLY_MODE_CHEAT_ON 1
 	#else
-		#define FLY_MODE_CHEAT_ON 0
+		#define FLY_MODE_CHEAT_ON 1
 	#endif
 #endif
 //!(PREDATOR_DEMO||MARINE_DEMO||ALIEN_DEMO||DEATHMATCH_DEMO)
-#if FLY_MODE_CHEAT_ON
-extern unsigned char KeyboardInput[];
-#endif
 extern int DebouncedGotAnyKey;
+extern int GrabAttackInProgress;
+extern int RamAttackInProgress;
 
 /*KJL*****************************************************
 * If the define below is set to non-zero then the player *
@@ -86,9 +86,17 @@ static void LoadInMovementValues(void);
 #endif
 
 /* Globals */
-int CrouchIsToggleKey;
+extern int CrouchIsToggleKey;
 char CrouchKeyDebounced;
 int executeDemo;
+int ZeroG;
+int Underwater;
+int Surface;
+int Fog;
+int CurrentSpeed;
+int StrugglePool;
+extern int OnLadder;
+extern int Operable;
 
 /* Global Externs */
 extern DISPLAYBLOCK* Player;
@@ -97,6 +105,9 @@ extern int cosine[], sine[];
 extern int predHUDSoundHandle;
 extern int predOVision_SoundHandle;
 extern int TauntSoundPlayed;
+
+extern DPID GrabPlayer;
+extern DPID HuggedBy;
 
 #if SupportWindows95
 extern unsigned char GotAnyKey;
@@ -115,6 +126,15 @@ extern VIEWDESCRIPTORBLOCK *Global_VDB_Ptr;
 // DISPLAYBLOCK *playerdb;
 
 extern void DeInitialisePlayer(void);
+extern int MeleeWeapon_90Degree_Front_Core(DAMAGE_PROFILE *damage, int multiple, int range);
+extern void ChangeToMarine(void);
+extern void ChangeToAlien(void);
+extern void ChangeToPredator(void);
+extern STRATEGYBLOCK *CreateGrenadeKernel(AVP_BEHAVIOUR_TYPE behaviourID, VECTORCH *position, MATRIXCH *orient, int fromplayer);
+extern int DetermineMarineVoice(unsigned int Class);
+extern void BinocularsZoom(void);
+extern void IronSightsZoom(void);
+extern DPID GrabbedPlayer;
 
 /* some prototypes for this source file */
 static void MakePlayerCrouch(STRATEGYBLOCK* sbPtr);
@@ -126,6 +146,7 @@ static void CorpseMovement(STRATEGYBLOCK *sbPtr);
 extern SECTION * GetNamedHierarchyFromLibrary(const char * rif_name, const char * hier_name);
 extern void NewOnScreenMessage(unsigned char *messagePtr);
 extern void RemoveAllThisPlayersDiscs(void);
+extern int CarryingTooMuch(void);
 void NetPlayerRespawn(STRATEGYBLOCK *sbPtr);
 
 int timeInContactWithFloor;
@@ -178,6 +199,9 @@ void StartPlayerTaunt(void) {
 	if (playerStatusPtr->tauntTimer) {
 		return;
 	}
+	if (Underwater) {
+		return;
+	}
 
 	playerStatusPtr->tauntTimer=-1; /* Cue to start. */
 	TauntSoundPlayed=0;
@@ -196,6 +220,8 @@ void PlayerBehaviour(STRATEGYBLOCK* sbPtr)
     /* KJL 18:05:55 03/10/97 - is anybody there? */
     if (playerStatusPtr->IsAlive)
 	{
+		if (playerStatusPtr->MyFaceHugger!=NULL) return;
+
 		if (playerStatusPtr->tauntTimer>0) {
 			playerStatusPtr->tauntTimer-=NormalFrameTime;
 			if (playerStatusPtr->tauntTimer<0) {
@@ -243,25 +269,92 @@ void PlayerBehaviour(STRATEGYBLOCK* sbPtr)
 
 }
 
+/* Struggle() :: Try to escape from a grab */
+void Struggle()
+{
+	PLAYER_STATUS *psPtr = Player->ObStrategyBlock->SBdataptr;
+	int Class = psPtr->Class;
+	int chance = FastRandom()%100;
 
+	if (chance <= 20)
+	{
+		StrugglePool++;
+	}
 
+	if (StrugglePool >= 10)
+	{
+		StrugglePool = 0;
+		GrabbedPlayer = 0;
+
+		//reset dynamics
+		{
+			EULER zeroEuler = {0,0,0};
+			VECTORCH zeroVec = {0,0,0};
+			DYNAMICSBLOCK *dynPtr = Player->ObStrategyBlock->DynPtr;
+
+			dynPtr->Position = zeroVec;
+			dynPtr->OrientEuler = zeroEuler;
+			dynPtr->LinVelocity = zeroVec;
+			dynPtr->LinImpulse = zeroVec;
+
+			CreateEulerMatrix(&dynPtr->OrientEuler, &dynPtr->OrientMat);
+			TransposeMatrixCH(&dynPtr->OrientMat);
+		}
+	}
+}
+
+/* ThrowHugger() :: Try to throw away a facehugger */
+void ThrowHugger()
+{
+  if (HuggedBy)
+  {
+	  extern int NumActiveStBlocks;
+	  extern STRATEGYBLOCK *ActiveStBlockList[];
+	  STRATEGYBLOCK *sbPtr;
+	  int sbIndex = 0;
+
+	  /* Search all active Strategyblocks for the player hugging us */
+	  while(sbIndex < NumActiveStBlocks)
+	  {
+		  sbPtr = ActiveStBlockList[sbIndex++];
+
+		  if (sbPtr && sbPtr->I_SBtype && sbPtr->DynPtr)
+		  {
+			  if (sbPtr->I_SBtype == I_BehaviourNetGhost)
+			  {
+				  NETGHOSTDATABLOCK *ghostData = sbPtr->SBdataptr;
+
+				  /* Found him! */
+				  if (ghostData->playerId == HuggedBy)
+				  {
+					  CauseDamageToObject(sbPtr, &TemplateAmmo[AMMO_CUDGEL].MaxDamage[AvP.Difficulty], ONE_FIXED, NULL);
+  					  HuggedBy = 0;
+				  }
+			  }
+		  }
+	  }
+  }
+}
 
 /*------------------------Patrick 21/10/96------------------------
   Newer cleaned up version, supporting new input functions
   ----------------------------------------------------------------*/
-#define ALIEN_MOVESCALE 18000
-#define PREDATOR_MOVESCALE 16000
-#define MARINE_MOVESCALE 15000
+/* Tweaked movementrates, Eldritch */
+#define ALIEN_MOVESCALE    6000
+#define PREDATOR_MOVESCALE 4000
+#define MARINE_MOVESCALE   3000
 
 #define TURNSCALE 2000
-#define JUMPVELOCITY 9000
+#define JUMPVELOCITY 7200
+#define ALIEN_JUMPVELOCITY 9000
+#define PREDATOR_JUMPVELOCITY 8100
 
-#define FASTMOVESCALE 12000
-#define SLOWMOVESCALE 8000
-#define FASTTURNSCALE 2000
-#define SLOWTURNSCALE 1000
-#define FASTSTRAFESCALE 10000
-#define SLOWSTRAFESCALE 6000
+#define FASTMOVESCALE 6000
+#define SLOWMOVESCALE 4000
+#define FASTTURNSCALE 1700
+#define SLOWTURNSCALE 1700
+#define FASTSTRAFESCALE 5000
+#define SLOWSTRAFESCALE 3000
 
 /* KJL 14:39:45 01/14/97 - Camera stuff */
 #define	PANRATESHIFT 6	
@@ -326,6 +419,10 @@ void ExecuteFreeMovement(STRATEGYBLOCK* sbPtr)
 			{
 				ChangePredatorVisionMode();
 			}
+			if (playerStatusPtr->Mvt_InputRequests.Flags.Rqst_ReverseCycleVisionMode)
+			{
+				ReverseChangePredatorVisionMode();
+			}
 			if (playerStatusPtr->Mvt_InputRequests.Flags.Rqst_GrapplingHook && 
 				playerStatusPtr->GrapplingHookEnabled)
 			{
@@ -339,7 +436,75 @@ void ExecuteFreeMovement(STRATEGYBLOCK* sbPtr)
 	}
 
 	if (playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Operate)
-		OperateObjectInLineOfSight();
+	{
+		// Medikit, Repair-Kit and Tech-Kit class abilities
+		if (AvP.Network != I_No_Network)
+		{
+			if (GrabbedPlayer)
+			{
+				Struggle();
+				return;
+			}
+
+			if (HuggedBy)
+			{
+				ThrowHugger();
+				return;
+			}
+
+			if (playerStatusPtr->Class == CLASS_COM_TECH ||
+				playerStatusPtr->Class == CLASS_SMARTGUNNER ||
+				playerStatusPtr->Class == CLASS_INC_SPEC)
+			{
+				if (Operable == 2)
+					OperateObjectInLineOfSight();
+			}
+			if (playerStatusPtr->Class == CLASS_MEDIC_PR ||
+				playerStatusPtr->Class == CLASS_MEDIC_FT)
+			{
+				if (Operable == 2)
+					OperateObjectInLineOfSight();
+				else 
+				{
+					if (playerStatusPtr->Medikit) {
+						Sound_Play(SID_PICKUP,"h");
+						MeleeWeapon_90Degree_Front_Core(&TemplateAmmo[AMMO_SONIC_PULSE].MaxDamage[AvP.Difficulty],0,TemplateAmmo[AMMO_SONIC_PULSE].MaxRange);
+						playerStatusPtr->Medikit--;
+					}
+				}
+			}
+			if (playerStatusPtr->Class == CLASS_ENGINEER)
+			{
+				if (Operable == 2)
+					OperateObjectInLineOfSight();
+				else 
+				{
+					if (playerStatusPtr->Medikit) {
+						Sound_Play(SID_MARINE_PICKUP_ARMOUR,"h");
+						MeleeWeapon_90Degree_Front_Core(&TemplateAmmo[AMMO_FLARE_GRENADE].MaxDamage[AvP.Difficulty],0,TemplateAmmo[AMMO_FLARE_GRENADE].MaxRange);
+						playerStatusPtr->Medikit--;
+					}
+				}
+			}
+			// Remaining class abilities: Iron Sights, Binoculars..etc.
+			if (playerStatusPtr->Class == CLASS_RIFLEMAN)
+			{
+				if (Operable == 2)
+					OperateObjectInLineOfSight();
+				else 
+					IronSightsZoom();
+			}
+			if (playerStatusPtr->Class == CLASS_AA_SPEC)
+			{
+				if (Operable == 2)
+					OperateObjectInLineOfSight();
+				else
+					BinocularsZoom();
+			}
+		} else {
+			OperateObjectInLineOfSight();
+		}
+	}
 			
 	/* patrick 9/7/97: these are for testing AI pre-calculated values... */
 	#if PATTEST_EPS
@@ -368,6 +533,7 @@ void ExecuteFreeMovement(STRATEGYBLOCK* sbPtr)
 		int strafeSpeed; 
 		int turnSpeed; 	
 		int jumpSpeed;
+		int Running=0;
 
 		#if SupportWindows95 && LOAD_IN_MOVEMENT_VALUES	
 		switch (AvP.PlayerType)
@@ -400,13 +566,13 @@ void ExecuteFreeMovement(STRATEGYBLOCK* sbPtr)
 				forwardSpeed = ALIEN_MOVESCALE;
 				strafeSpeed = ALIEN_MOVESCALE;
 				turnSpeed =	TURNSCALE;
-				jumpSpeed = JUMPVELOCITY;
+				jumpSpeed = ALIEN_JUMPVELOCITY;
 				break;
 			case I_Predator:
 				forwardSpeed = PREDATOR_MOVESCALE;
 				strafeSpeed = PREDATOR_MOVESCALE;
 				turnSpeed =	TURNSCALE;
-				jumpSpeed = JUMPVELOCITY;
+				jumpSpeed = PREDATOR_JUMPVELOCITY;
 				break;
 			case I_Marine:
 				forwardSpeed = MARINE_MOVESCALE;
@@ -444,32 +610,289 @@ void ExecuteFreeMovement(STRATEGYBLOCK* sbPtr)
 				playerStatusPtr->Mvt_PitchIncrement >>= CameraZoomLevel;
 			}
 		}
-		
-		if( ((AvP.PlayerType == I_Alien) || (playerStatusPtr->ShapeState == PMph_Standing))
-			&& (playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Faster) && (playerStatusPtr->Encumberance.CanRun) )
-		{	
-			/* Test - half backward speed for predators */
-			if (AvP.PlayerType==I_Predator) {
-				if (playerStatusPtr->Mvt_MotionIncrement<0) {
-					forwardSpeed = (forwardSpeed)/2;
+
+		{
+			extern float CameraZoomScale;
+			if ((AvP.PlayerType == I_Marine) && (CameraZoomScale != 1.0f))
+			{
+				if (CameraZoomScale != 0.2f)
+				{
+					turnSpeed >>= 1;
+					playerStatusPtr->Mvt_PitchIncrement >>= 1;
+				} else {
+					turnSpeed >>= 2;
+					playerStatusPtr->Mvt_PitchIncrement >>= 2;
 				}
 			}
 		}
-		else 
-		{
-			/* walk = half speed */
-			strafeSpeed = (strafeSpeed)/2;
-			forwardSpeed = (forwardSpeed)/2;
-			turnSpeed = (turnSpeed)/2;
-		}	
 		
+		if (playerStatusPtr->Honor)
+		{
+			/* Brake! */
+			if (playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Jump)
+			{
+				CurrentSpeed = CurrentSpeed-1000;
+				if (CurrentSpeed < 0) CurrentSpeed=0;
+				forwardSpeed = CurrentSpeed;
+				if (forwardSpeed < 0) forwardSpeed=0;
+				return;
+			}
+			/* Forward */
+			if (playerStatusPtr->Mvt_MotionIncrement > 0)
+			{
+				if (CurrentSpeed < 0)
+				{
+					CurrentSpeed = CurrentSpeed+200;
+
+					if (!stricmp("apclevel2",&LevelName))
+					{
+						CurrentSpeed = CurrentSpeed+300;
+						if (CurrentSpeed > 22500) CurrentSpeed=22500;
+							forwardSpeed = CurrentSpeed;
+						if (forwardSpeed > 22500) forwardSpeed=22500;
+							forwardSpeed = CurrentSpeed;
+					}
+					else 
+					{
+						if (CurrentSpeed > 15000) CurrentSpeed=15000;
+							forwardSpeed = CurrentSpeed;
+						if (forwardSpeed > 15000) forwardSpeed=15000;
+							forwardSpeed = CurrentSpeed;
+						return;
+					}
+				}
+				if (playerStatusPtr->Mvt_TurnIncrement !=0) {
+					if (playerStatusPtr->Mvt_TurnIncrement > 0)
+						turnSpeed = CurrentSpeed/10;
+					else
+						turnSpeed = -CurrentSpeed/10;
+					if (turnSpeed > 700) turnSpeed = 700;
+					if (turnSpeed < -700) turnSpeed = -700;
+				}
+				if (CurrentSpeed < 15000)
+				{
+					if (!stricmp("apclevel2", &LevelName))
+					{
+						CurrentSpeed = CurrentSpeed+75;
+						if (CurrentSpeed > 22500)
+							CurrentSpeed = 22500;
+					}
+					else
+					{
+						CurrentSpeed = CurrentSpeed+50;
+						if (CurrentSpeed > 15000)
+							CurrentSpeed = 15000;
+					}
+				}
+				forwardSpeed = CurrentSpeed;
+			}
+			/* Backward */
+			else if (playerStatusPtr->Mvt_MotionIncrement < 0)
+			{
+				if (CurrentSpeed > 0)
+				{
+					if (!stricmp("apclevel2", &LevelName))
+						CurrentSpeed = CurrentSpeed-300;
+					else
+						CurrentSpeed = CurrentSpeed-200;
+
+					if (CurrentSpeed < 0) CurrentSpeed=0;
+						forwardSpeed = CurrentSpeed;
+					if (forwardSpeed < 0) forwardSpeed=0;
+						forwardSpeed = CurrentSpeed;
+					return;
+				}
+				if (playerStatusPtr->Mvt_TurnIncrement !=0) {
+					if (playerStatusPtr->Mvt_TurnIncrement > 0)
+						turnSpeed = -CurrentSpeed/10;
+					else
+						turnSpeed = CurrentSpeed/10;
+					if (turnSpeed > 700) turnSpeed = 700;
+					if (turnSpeed < -700) turnSpeed = -700;
+				}
+				if (CurrentSpeed > -7000)
+				{
+					if (!stricmp("apclevel2", &LevelName))
+						CurrentSpeed = CurrentSpeed-60;
+					else
+						CurrentSpeed = CurrentSpeed-40;
+				}
+				if (CurrentSpeed < -7000)
+					CurrentSpeed = -7000;
+				forwardSpeed = CurrentSpeed;
+			} else {
+				/* Just letting it roll baby... */
+				if (playerStatusPtr->Mvt_TurnIncrement !=0) {
+					if (playerStatusPtr->Mvt_TurnIncrement > 0)
+						turnSpeed = CurrentSpeed/10;
+					else
+						turnSpeed = -CurrentSpeed/10;
+					if (turnSpeed > 700) turnSpeed = 700;
+					if (turnSpeed < -700) turnSpeed = -700;
+				}
+				CurrentSpeed = CurrentSpeed-200;
+				if (CurrentSpeed < 0) CurrentSpeed=0;
+				forwardSpeed = CurrentSpeed;
+				if (forwardSpeed < 0) forwardSpeed=0;
+				forwardSpeed = CurrentSpeed;
+			}
+		}
+
+		// Slow! and Fast! class abilities
+		if ((AvP.Network != I_No_Network) && (playerStatusPtr->Mvt_MotionIncrement != 0) &&
+			(!playerStatusPtr->Honor))
+		{
+			if (playerStatusPtr->Class == CLASS_PRED_HUNTER ||
+				playerStatusPtr->Class == CLASS_TANK_ALIEN)
+			{
+				forwardSpeed = ((forwardSpeed)+500);
+			}
+			if (playerStatusPtr->Class == CLASS_ALIEN_DRONE)
+			{
+				forwardSpeed = ((forwardSpeed)+1000);
+			}
+			if (playerStatusPtr->Class == CLASS_EXF_SNIPER)
+			{
+				forwardSpeed = ((forwardSpeed)-2000);
+			}
+			if (playerStatusPtr->Class == CLASS_PRED_WARRIOR)
+			{
+				forwardSpeed = ((forwardSpeed)-500);
+			}
+			if (playerStatusPtr->Class == CLASS_ELDER)
+			{
+				forwardSpeed = ((forwardSpeed)-1000);
+			}
+			if (playerStatusPtr->Immobilized)
+			{
+				forwardSpeed = 0;
+				strafeSpeed = 0;
+				turnSpeed = 0;
+				jumpSpeed = 0;
+			}
+			if (playerStatusPtr->Destr)
+			{
+				forwardSpeed = ((forwardSpeed)-1000);
+			}
+			if ((AvP.PlayerType == I_Alien) && (GrabPlayer))
+			{
+				forwardSpeed = (forwardSpeed)/2;
+			}
+		}
+		// No network...
+		if ((AvP.Network == I_No_Network) && (playerStatusPtr->Mvt_MotionIncrement != 0) &&
+			(!playerStatusPtr->Honor))
+		{
+			if ((Underwater==1) || (ZeroG==1) || (playerStatusPtr->IsMovingInWater))
+			{
+				forwardSpeed = ((forwardSpeed)-500);
+				strafeSpeed = ((strafeSpeed)-500);
+			}
+			// HEP-Suits are encumbering
+			if (playerStatusPtr->ArmorType==1)
+			{
+				forwardSpeed = ((forwardSpeed)-600);
+			}
+			if ((AvP.PlayerType == I_Alien) && (GrabAttackInProgress))
+			{
+				forwardSpeed = (forwardSpeed)/2;
+			}
+		}
+
+#if 1
+		// Standing...
+		if (playerStatusPtr->ShapeState == PMph_Standing)
+		{
+			// ... and Running...
+			if (playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Faster)
+			{
+				// ... Forwards...
+				if (playerStatusPtr->Mvt_MotionIncrement >= 0)
+				{
+					// ... in other env's than Underwater, Zero-G and Ladders...
+					if ((!Underwater) && (!ZeroG) && (!OnLadder))
+					{
+						// Will cause humans to run 75% faster, aliens 120% and preds 90%.
+						if (AvP.PlayerType == I_Alien)
+							forwardSpeed = (forwardSpeed)*2.2;
+						else if (AvP.PlayerType == I_Marine)
+							forwardSpeed = (forwardSpeed)*1.75;
+						else
+							forwardSpeed = (forwardSpeed)*1.9;
+					}
+					// ... in water, zero-G and/or ladders does nothing.
+				}
+				// ... backwards decreases speed by 100mm/s.
+				forwardSpeed = (forwardSpeed)-100;
+			}
+			else	// ... and Walking...
+			{
+				// ... forwards...
+				if (playerStatusPtr->Mvt_MotionIncrement >= 0)
+				{
+					// ...does nothing.
+				}
+				else // ... backwards
+				{
+					// ... decreases speed by 100mm/s.
+					forwardSpeed = (forwardSpeed)-100;
+				}
+			}
+			// Crouching...
+		} 
+		else if (playerStatusPtr->ShapeState == PMph_Crouching)
+		{
+			// ... forwards...
+			if (playerStatusPtr->Mvt_MotionIncrement >= 0)
+			{
+				// ... will cause aliens to increase speed by 75%....
+				if (AvP.PlayerType == I_Alien)
+					forwardSpeed = (forwardSpeed)*1.75;
+			}
+			else	// ... backwards... 
+			{
+				// ... will cause aliens to get a decreament by 50%.
+				if (AvP.PlayerType == I_Alien)
+					forwardSpeed = (forwardSpeed)/2;
+			}
+			// ... while the rest (preds and humans) will gain a decrease by 50%.
+			if (AvP.PlayerType != I_Alien)
+			{
+				strafeSpeed = (strafeSpeed)/2;
+				forwardSpeed = (forwardSpeed)/2;
+			}
+		}
+#else
+		if (((AvP.PlayerType == I_Alien) || (playerStatusPtr->ShapeState == PMph_Standing)) && 
+			(playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Faster == 0))
+		{
+
+		} else 
+		{
+			if ((playerStatusPtr->ShapeState == PMph_Standing)) {
+				/* run = 50% more speed */
+				if ((playerStatusPtr->Mvt_MotionIncrement >= 0) &&
+					(!Underwater) && (!ZeroG) && (!OnLadder))
+					forwardSpeed = (forwardSpeed)*1.75;
+			} else {
+				if (AvP.PlayerType != I_Alien) {
+					/* crouching = half speed */
+					strafeSpeed = (strafeSpeed)/2;
+					forwardSpeed = (forwardSpeed)/2;
+				} else {
+					forwardSpeed = (forwardSpeed)*2;
+				}
+			}
+		}
+#endif
 		/* Marker */
 
-		strafeSpeed=MUL_FIXED(strafeSpeed,playerStatusPtr->Encumberance.MovementMultiple);
-		forwardSpeed=MUL_FIXED(forwardSpeed,playerStatusPtr->Encumberance.MovementMultiple);
-		turnSpeed=MUL_FIXED(turnSpeed,playerStatusPtr->Encumberance.TurningMultiple);
-		jumpSpeed=MUL_FIXED(jumpSpeed,playerStatusPtr->Encumberance.JumpingMultiple);
-		
+		if (!playerStatusPtr->Honor) {
+			strafeSpeed=MUL_FIXED(strafeSpeed,playerStatusPtr->Encumberance.MovementMultiple);
+			forwardSpeed=MUL_FIXED(forwardSpeed,playerStatusPtr->Encumberance.MovementMultiple);
+			turnSpeed=MUL_FIXED(turnSpeed,playerStatusPtr->Encumberance.TurningMultiple);
+			jumpSpeed=MUL_FIXED(jumpSpeed,playerStatusPtr->Encumberance.JumpingMultiple);
+		}
 		/* KJL 17:45:03 9/9/97 - inertia means it's difficult to stop */			
 	  	if (forwardSpeed*playerStatusPtr->ForwardInertia<0) playerStatusPtr->ForwardInertia = 0;
 	  	if (strafeSpeed*playerStatusPtr->StrafeInertia<0) playerStatusPtr->StrafeInertia = 0;
@@ -570,6 +993,7 @@ void ExecuteFreeMovement(STRATEGYBLOCK* sbPtr)
 		}
 		#endif
 		
+		#if 0	//No Jetpack in AMP build
 		if (playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Jetpack &&
 			playerStatusPtr->JetpackEnabled)
 		{
@@ -591,25 +1015,24 @@ void ExecuteFreeMovement(STRATEGYBLOCK* sbPtr)
 				Sound_Stop(playerStatusPtr->soundHandle5);
 			}
 		}
+		#endif
 
 		#if FLY_MODE_CHEAT_ON
 		dynPtr->GravityOn=1;
-		if (KeyboardInput[KEY_F6]&&(!(playerStatusPtr->DemoMode)))
+		if ((ZeroG==1) || (Underwater==1) || (OnLadder==1))
 		{
-			if(FlyModeDebounced)
-			{
-				FlyModeOn = !FlyModeOn;			
-				FlyModeDebounced = 0;
-			}
+			FlyModeOn = 1;
+		} else {
+			FlyModeOn = 0;
 		}
-		else FlyModeDebounced = 1;
 
 		if(FlyModeOn)
 		{
 			dynPtr->LinVelocity.vx = 0;
 			dynPtr->LinVelocity.vy = 0;
 			dynPtr->LinVelocity.vz = forwardSpeed;
-//			dynPtr->IsNetGhost=1;
+			playerStatusPtr->Encumberance.CanCrouch = 0;
+			playerStatusPtr->Encumberance.CanRun = 0;
 			if(playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Strafe)
 			{
 				dynPtr->LinVelocity.vx = strafeSpeed;
@@ -618,6 +1041,14 @@ void ExecuteFreeMovement(STRATEGYBLOCK* sbPtr)
 				|| (playerStatusPtr->Mvt_InputRequests.Flags.Rqst_SideStepRight))
 			{
 				dynPtr->LinVelocity.vx = strafeSpeed;
+			}
+			else if(playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Jump)
+			{
+				dynPtr->LinVelocity.vy = -1500;
+			}
+			else if(playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Crouch)
+			{
+				dynPtr->LinVelocity.vy = 1500;
 			}
 
 		   	/* rotate LinVelocity along camera view */
@@ -735,6 +1166,26 @@ void ExecuteFreeMovement(STRATEGYBLOCK* sbPtr)
 						}
 						dynPtr->TimeNotInContactWithFloor = -1;
 					}
+					else if (AvP.PlayerType == I_Predator)
+					{
+						VECTORCH viewDir;
+
+						viewDir.vx = Global_VDB_Ptr->VDB_Mat.mat13;
+						viewDir.vy = Global_VDB_Ptr->VDB_Mat.mat23;
+						viewDir.vz = Global_VDB_Ptr->VDB_Mat.mat33;
+
+						if ((playerStatusPtr->ShapeState == PMph_Crouching) && (DotProduct(&viewDir,&dynPtr->GravityDirection)<-32768)) {
+							dynPtr->LinImpulse.vx += MUL_FIXED(viewDir.vx,jumpSpeed*2.3);
+							dynPtr->LinImpulse.vy += MUL_FIXED(viewDir.vy,jumpSpeed*2.3);
+							dynPtr->LinImpulse.vz += MUL_FIXED(viewDir.vz,jumpSpeed*2.3);
+							dynPtr->TimeNotInContactWithFloor = 0;
+						} else {
+							dynPtr->LinImpulse.vx -= MUL_FIXED(dynPtr->GravityDirection.vx,jumpSpeed);
+							dynPtr->LinImpulse.vy -= MUL_FIXED(dynPtr->GravityDirection.vy,jumpSpeed);
+							dynPtr->LinImpulse.vz -= MUL_FIXED(dynPtr->GravityDirection.vz,jumpSpeed);
+							dynPtr->TimeNotInContactWithFloor = 0;
+						}
+					}
 					else
 					{
 						dynPtr->LinImpulse.vx -= MUL_FIXED(dynPtr->GravityDirection.vx,jumpSpeed);
@@ -768,7 +1219,7 @@ void ExecuteFreeMovement(STRATEGYBLOCK* sbPtr)
 							}
 							#else
 							if (playerStatusPtr->soundHandle==SOUND_NOACTIVEINDEX) {
-								PlayMarineScream(0,SC_Jump,0,&playerStatusPtr->soundHandle,NULL);
+								PlayMarineScream((DetermineMarineVoice(playerStatusPtr->Class)),SC_Jump,0,&playerStatusPtr->soundHandle,NULL);
 								if(AvP.Network!=I_No_Network) netGameData.myLastScream=SC_Jump;
 							}
 							#endif
@@ -873,9 +1324,6 @@ void ExecuteFreeMovement(STRATEGYBLOCK* sbPtr)
 			dynPtr->UseStandardGravity=1;
 		}
 	}
-
-
-	
 
     /*------------------------------------------------------ 
 	WEAPON FIRING
@@ -1042,7 +1490,7 @@ static void MaintainPlayerShape(STRATEGYBLOCK* sbPtr)
 				//cancel request if the crouch key is pressed again
 				if (playerStatusPtr->Encumberance.CanCrouch)
 				{
-					if(playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Crouch) 
+					if(playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Crouch)
 					{
 						if (CrouchKeyDebounced)
 						{
@@ -1064,7 +1512,7 @@ static void MaintainPlayerShape(STRATEGYBLOCK* sbPtr)
 					sbPtr->DynPtr->RequestsToStandUp=1;
 				}
 			
-				if (CrouchIsToggleKey)
+				if (!CrouchIsToggleKey)
 				{
 					if(playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Crouch)
 					{
@@ -1174,7 +1622,7 @@ static void CorpseMovement(STRATEGYBLOCK *sbPtr)
   ------------------------------------------------------*/
 static void NetPlayerDeadProcessing(STRATEGYBLOCK *sbPtr)
 {
-	SECTION *root_section;
+	//SECTION *root_section;
 
 	#if SupportWindows95
 	PLAYER_STATUS *psPtr= (PLAYER_STATUS *) (sbPtr->SBdataptr);
@@ -1183,10 +1631,32 @@ static void NetPlayerDeadProcessing(STRATEGYBLOCK *sbPtr)
 	ReadPlayerGameInput(sbPtr);
 
 	/* check for re-spawn */
-	if(psPtr->Mvt_InputRequests.Flags.Rqst_Operate)
+	if(psPtr->Mvt_InputRequests.Flags.Rqst_FirePrimaryWeapon || (RamAttackInProgress))
 	{
 		if(AreThereAnyLivesLeft())
 		{
+			/* We opted to change our class after respawn, so do that now */
+			if (psPtr->Class != psPtr->Cocoons)
+			{
+				psPtr->Class = psPtr->Cocoons;
+			}
+
+			/* If alien lifecycle is enabled, respawn as a hugger, unless we have
+			   just hugged someone */
+			if (netGameData.LifeCycle && AvP.PlayerType == I_Alien)
+			{
+				if (!psPtr->ChestbursterTimer)
+				{
+					psPtr->Class = CLASS_EXF_W_SPEC;
+					psPtr->Cocoons = CLASS_EXF_W_SPEC;
+				}
+				else
+				{
+					psPtr->ChestbursterTimer = 0;
+					psPtr->Cocoons = CLASS_EXF_W_SPEC;
+				}
+			}
+
 			//check for change of character
 			if(netGameData.myCharacterType!=netGameData.myNextCharacterType)
 			{
@@ -1246,7 +1716,7 @@ static void NetPlayerDeadProcessing(STRATEGYBLOCK *sbPtr)
 			GetNextMultiplayerObservedPlayer();
 
 			//The player's dropped weapon (if there was one) can now be drawn
-			MakePlayersWeaponPickupVisible();
+			//MakePlayersWeaponPickupVisible();
 			
 		}
 	}
@@ -1258,7 +1728,7 @@ extern void InitPlayerCloakingSystem(void);
 void NetPlayerRespawn(STRATEGYBLOCK *sbPtr)
 {
 	extern int LeanScale;
-	SECTION *root_section;
+	//SECTION *root_section;
 
 	#if SupportWindows95
 	PLAYER_STATUS *psPtr= (PLAYER_STATUS *) (sbPtr->SBdataptr);
@@ -1446,7 +1916,7 @@ void NetPlayerRespawn(STRATEGYBLOCK *sbPtr)
 	TurnOffMultiplayerObserveMode();
 	
 	//The player's dropped weapon (if there was one) can now be drawn
-	MakePlayersWeaponPickupVisible();
+	//MakePlayersWeaponPickupVisible();
 #endif
 }
 
@@ -1592,7 +2062,6 @@ void AuxLocationTest(void)
    scaled by the alien's experience points, the relative velocities of the
    objects, and so on.
 */
-#define ALIEN_CONTACT_WEAPON_DAMAGE 50
 #define ALIEN_CONTACT_WEAPON_DELAY 65536
 
 #if ALIEN_CONTACT_WEAPON
@@ -1600,6 +2069,9 @@ static void AlienContactWeapon(void)
 {
 	COLLISIONREPORT *reportPtr = Player->ObStrategyBlock->DynPtr->CollisionReportPtr;
 	static int contactWeaponTimer = 0;
+	static int Speed;
+
+	Speed = Approximate3dMagnitude(&Player->ObStrategyBlock->DynPtr->LinVelocity);
 
 	if (contactWeaponTimer<=0)
 	{
@@ -1612,18 +2084,21 @@ static void AlienContactWeapon(void)
 				switch(reportPtr->ObstacleSBPtr->I_SBtype)
 				{
 					case I_BehaviourMarinePlayer:
-					case I_BehaviourAlienPlayer:
 					case I_BehaviourPredatorPlayer:
 					case I_BehaviourPredator:
 					case I_BehaviourMarine:
 					case I_BehaviourSeal:
 					case I_BehaviourNetGhost:
 					{
-						/* make alienesque noise */
-						Sound_Play(SID_HIT_FLESH,"h");
+						// Must at least be running to cause damage
+						if (Speed > 10000)
+						{
+							/* make alienesque noise */
+							Sound_Play(SID_BODY_BEING_HACKED_UP_0,"h");
 
-						/* damage unfortunate object */
-						CauseDamageToObject(reportPtr->ObstacleSBPtr,ALIEN_CONTACT_WEAPON_DAMAGE,NULL);
+							/* damage unfortunate object */
+							CauseDamageToObject(reportPtr->ObstacleSBPtr,&TemplateAmmo[AMMO_ALIEN_TAIL].MaxDamage[AvP.Difficulty],ONE_FIXED,NULL);
+						}
 						break;
 					}
 					default:
@@ -1684,35 +2159,27 @@ static void LoadInMovementValues(void)
 }
 #endif
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 extern void ThrowAFlare(void)
 {
-	extern int NumberOfFlaresActive;
-	
-	if (NumberOfFlaresActive<4)
-	{
-		extern VECTORCH CentreOfMuzzleOffset;
-		extern VIEWDESCRIPTORBLOCK *ActiveVDBList[];
-		VIEWDESCRIPTORBLOCK *VDBPtr = ActiveVDBList[0];
- 		MATRIXCH mat = VDBPtr->VDB_Mat;
-		VECTORCH position = VDBPtr->VDB_World;
+  PLAYER_STATUS *playerStatusPtr;
+  extern int NumberOfFlaresActive;
+  playerStatusPtr = (PLAYER_STATUS *) (Player->ObStrategyBlock->SBdataptr);
+  GLOBALASSERT(playerStatusPtr);
 
-		TransposeMatrixCH(&mat);
+  if (NumberOfFlaresActive<4) {
+	extern VECTORCH CentreOfMuzzleOffset;
+	extern VIEWDESCRIPTORBLOCK *ActiveVDBList[];
+	VIEWDESCRIPTORBLOCK *VDBPtr = ActiveVDBList[0];
+	MATRIXCH mat = VDBPtr->VDB_Mat;
+	VECTORCH position = VDBPtr->VDB_World;
 
-		CreateGrenadeKernel(I_BehaviourFlareGrenade,&position,&mat,1);
-	   	Sound_Play(SID_THROW_FLARE,"h");
-	}
+	TransposeMatrixCH(&mat);
 
+	if (!playerStatusPtr->FlaresLeft) return;
+	if (playerStatusPtr->OnSurface) return;
+
+	CreateGrenadeKernel(I_BehaviourFlareGrenade,&position,&mat,0);
+	Sound_Play(SID_THROW_FLARE,"d",&(Player->ObStrategyBlock->DynPtr->Position));
+	playerStatusPtr->FlaresLeft--;
+  }
 }

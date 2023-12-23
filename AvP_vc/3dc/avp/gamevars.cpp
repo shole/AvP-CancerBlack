@@ -50,7 +50,6 @@ extern int TimeScale;
 extern int MotionTrackerScale;
 extern int LeanScale;
 
-extern int CrouchIsToggleKey;
 extern int CloakingMode;
 extern int LogConsoleTextToFile;
 
@@ -90,6 +89,14 @@ extern int DebuggingCommandsActive;
 
 extern int AutoWeaponChangeOn;
 
+// Temp!!
+extern int AMPGunX;
+extern int AMPGunY;
+extern int AMPGunZ;
+extern int AMPGunEX;
+extern int AMPGunEY;
+extern int AMPGunEZ;
+
 void CreateGameSpecificConsoleVariables(void)
 {
 	TimeScale = 65536;
@@ -101,7 +108,6 @@ void CreateGameSpecificConsoleVariables(void)
 	{
 		LeanScale=ONE_FIXED;
 	}
-	CrouchIsToggleKey = 0;
 	CloakingMode=0;
 	LogConsoleTextToFile=0;
 	JoystickEnabled=0;
@@ -111,6 +117,14 @@ void CreateGameSpecificConsoleVariables(void)
 	DopplerShiftIsOn=1;
 	PlaySounds=1;
 	DrawFullBright=0;
+
+	//Temp!!
+	AMPGunX=0;
+	AMPGunY=0;
+	AMPGunZ=0;
+	AMPGunEX=0;
+	AMPGunEY=0;
+	AMPGunEZ=0;
 
 	#ifndef AVP_DEBUG_VERSION // allow debug commands without -debug
 	BOOL IsACheat = TRUE;
@@ -130,8 +144,7 @@ void CreateGameSpecificConsoleVariables(void)
 			"TIMESCALE", // ProjChar* pProjCh_ToUse,
 			"1.0 IS NORMAL", // ProjChar* pProjCh_Description_ToUse
 			655, // int MinVal_New,
-			65536*4, // int MaxVal_New
-			IsACheat
+			65536*4 // int MaxVal_New
 		);
 		ConsoleVariable :: MakeSimpleConsoleVariable_FixP
 		(
@@ -446,25 +459,56 @@ void CreateGameSpecificConsoleVariables(void)
 		 0, // int MinVal_New,
 		 1 // int MaxVal_New
 	);
+
+	//Temp!!
 	ConsoleVariable :: MakeSimpleConsoleVariable_Int
 	(
-		CrouchIsToggleKey, // int& Value_ToUse,
-		"CROUCHMODE", // ProjChar* pProjCh_ToUse,
-		"0 MEANS HOLD DOWN MODE, 1 MEANS TOGGLE MODE", // ProjChar* pProjCh_Description_ToUse
-		0, // int MinVal_New,
-		1  // int MaxVal_New
+		AMPGunX,
+		"AGX",
+		"Temporary",
+		-2000,
+		2000
 	);
-
 	ConsoleVariable :: MakeSimpleConsoleVariable_Int
 	(
-		AutoWeaponChangeOn,
-		"AUTOWEAPONCHANGE",
-		"SET TO 0 IF YOU DON'T WANT TO CHANGE TO NEWLY GAINED WEAPONS AUTOMATICALLY. OTHERWISE SET TO 1.",
-		0,
-		1
+		AMPGunY,
+		"AGY",
+		"Temporary",
+		-2000,
+		2000
 	);
-	
-
+	ConsoleVariable :: MakeSimpleConsoleVariable_Int
+	(
+		AMPGunZ,
+		"AGZ",
+		"Temporary",
+		-2000,
+		2000
+	);
+	ConsoleVariable :: MakeSimpleConsoleVariable_Int
+	(
+		AMPGunEX,
+		"AGEX",
+		"Temporary",
+		-2000,
+		2000
+	);
+	ConsoleVariable :: MakeSimpleConsoleVariable_Int
+	(
+		AMPGunEY,
+		"AGEY",
+		"Temporary",
+		-2000,
+		2000
+	);
+	ConsoleVariable :: MakeSimpleConsoleVariable_Int
+	(
+		AMPGunEZ,
+		"AGEZ",
+		"Temporary",
+		-2000,
+		2000
+	);
 }
 
 }; // extern "C"

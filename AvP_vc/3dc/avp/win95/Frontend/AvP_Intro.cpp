@@ -6,6 +6,7 @@ extern "C"
 	#include "inline.h"
 	#include "smacker.h"
 	#include "AvP_Menus.h"
+	#include "shellapi.h"
 	extern int NormalFrameTime;
 	extern SCREENDESCRIPTORBLOCK ScreenDescriptorBlock;
 	extern DDPIXELFORMAT DisplayPixelFormat;
@@ -24,7 +25,7 @@ void Show_CopyrightInfo(void);
 void Show_Presents(void);
 void Show_ARebellionGame(void);
 void Show_AvPLogo(void);
-extern void ShowSplashScreens(void);
+extern void ShowSplashScreens(unsigned int screen);
 extern void Show_WinnerScreen(void);
 extern void PlayBinkedFMV(char *filenamePtr);
 extern void DrawMainMenusBackdrop(void);
@@ -53,7 +54,7 @@ extern void PlayIntroSequence(void)
 	FlipBuffers();
 	ClearScreenToBlack();
 
-	PlayBinkedFMV("FMVs/logos.bik");
+	//PlayBinkedFMV("FMVs/logos.bik");
 	//PlayFMV("FMVs/rebellion.smk");
 
 	StartMenuMusic();
@@ -69,48 +70,50 @@ extern void PlayIntroSequence(void)
 	#endif
 
 }
-extern void ShowSplashScreens(void)
+extern void ShowSplashScreens(unsigned int screen)
 {
 	LoadAllSplashScreenGfx();
-	int i;
 	enum AVPMENUGFX_ID graphic[] = 
 	{
-		AVPMENUGFX_SPLASH_SCREEN1,AVPMENUGFX_SPLASH_SCREEN2,AVPMENUGFX_SPLASH_SCREEN3,
-		AVPMENUGFX_SPLASH_SCREEN4,AVPMENUGFX_SPLASH_SCREEN5,
+		AVPMENUGFX_SPLASH_SCREEN1,
+	    AVPMENUGFX_SPLASH_SCREEN2,
+		AVPMENUGFX_SPLASH_SCREEN3,
+		AVPMENUGFX_SPLASH_SCREEN4,
+		AVPMENUGFX_SPLASH_SCREEN5,
 	};
-	for (i=0; i<5; i++)
-	{
+
+	/*{
 		int timeRemaining = 5*ONE_FIXED;
 		do
 		{
 			int a = timeRemaining*2;
 			if (a>ONE_FIXED) a=ONE_FIXED;
 			
-			if (i!=4)
+			if (screen!=4)
 			{
-			  	DrawAvPMenuGfx_CrossFade(graphic[i],graphic[i+1], a);
+			  	DrawAvPMenuGfx_CrossFade(graphic[screen],graphic[screen+1], a);
 				timeRemaining-=NormalFrameTime;
 			}
 			else
 			{
 				if (a==ONE_FIXED)
-				{
-				  	DrawAvPMenuGfx(graphic[i], 0, 0, ONE_FIXED+1,AVPMENUFORMAT_LEFTJUSTIFIED);
-				}
+				{*/
+				  	DrawAvPMenuGfx(graphic[screen], 0, 0, ONE_FIXED+1,AVPMENUFORMAT_LEFTJUSTIFIED);
+				/*}
 				else
 				{
-				  	DrawAvPMenuGfx_Faded(graphic[i], 0, 0, a,AVPMENUFORMAT_LEFTJUSTIFIED);
+				  	DrawAvPMenuGfx_Faded(graphic[screen], 0, 0, a,AVPMENUFORMAT_LEFTJUSTIFIED);
 				}
 				timeRemaining-=NormalFrameTime/2;
-			}
+			}*/
 			CheckForWindowsMessages();
 			FlipBuffers();
 			
 		  	DirectReadKeyboard();	
 			FrameCounterHandler();
-		}
+		/*}
 		while(timeRemaining>=0 && !DebouncedGotAnyKey);
-	}
+	}*/
 	ClearScreenToBlack();
 	FlipBuffers();
 	ClearScreenToBlack();

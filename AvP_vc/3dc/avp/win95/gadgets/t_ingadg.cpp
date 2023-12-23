@@ -221,12 +221,12 @@ void TextEntryGadget :: Render
 		if (translucency<0) translucency = 0;
 		if (translucency>255) translucency = 255;
 
-		R2Rect_Area . AlphaFill
+		R2Rect_Area . AlphaFill_New
 		(
-			0xbf, // unsigned char R,
-			0xbf, // unsigned char G,
-			0, // unsigned char B,
-			translucency
+			64, // unsigned char R,
+			64, // unsigned char G,
+			64, // unsigned char B,
+			128//translucency
 		);
 	}
 

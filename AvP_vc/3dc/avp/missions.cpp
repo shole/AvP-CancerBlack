@@ -16,6 +16,7 @@
 #include "gamedef.h"
 #include "missions.hpp"
 #include "gadget.h"
+#include "bh_types.h"
 
 	#define UseLocalAssert Yes
 	#include "ourasert.h"
@@ -25,6 +26,8 @@ extern "C"
 	#include "paintball.h"
 	extern PAINTBALLMODE PaintBallMode;
 	extern void MessageHistory_Add(enum TEXTSTRING_ID stringID);
+	extern void CompleteSPlevel();
+	extern void WriteCharacter(void);
 };
 
 /* Version settings ************************************************/
@@ -161,7 +164,6 @@ void SetMissionStateFromLoad(void* mission_objective,int state)
 	GLOBALASSERT(mission_objective);
 	((MissionObjective*)mission_objective)->SetMOS_Public((MissionObjectiveState)state);
 }
-
 void PrintStringTableEntryInConsole(enum TEXTSTRING_ID string_id)
 {
 	#if UseGadgets
@@ -172,6 +174,7 @@ void PrintStringTableEntryInConsole(enum TEXTSTRING_ID string_id)
 	pSCString -> SendToScreen();
 	pSCString -> R_Release();
 	#endif // UseGadgets
+
 	/* KJL 99/2/5 - play 'incoming message' sound */
 	switch(AvP.PlayerType)
 	{
@@ -196,6 +199,7 @@ void PrintStringTableEntryInConsole(enum TEXTSTRING_ID string_id)
 	// add to message history
 	MessageHistory_Add(string_id);
 }
+
 };
 
 void MissionObjective :: OnTriggering(void)
@@ -254,10 +258,24 @@ void MissionObjective :: OnTriggering(void)
 				case MissionFX_CompletesLevel:
 				{
 					//complete level unless we are in paintball mode
+					//tweak (Eldritch), pass to wait-for-host in multi
 					if(!PaintBallMode.IsOn)
 					{
-						AvP.LevelCompleted = 1;
-			  //		AvP.MainLoopRunning = 0;
+						if (AvP.Network) {
+							CompleteSPlevel();
+						} else {
+							PLAYER_STATUS *psPtr = (PLAYER_STATUS *) Player->ObStrategyBlock->SBdataptr;
+
+							// Cannot complete level when impregnated with chestburster...
+							if (psPtr->ChestbursterTimer)
+								return;
+
+							if (AvP.PlayerType == I_Marine) {
+								WriteCharacter();
+							}
+							AvP.LevelCompleted = 1;
+				  //		AvP.MainLoopRunning = 0;
+						}
 					}
 					break;
 				}

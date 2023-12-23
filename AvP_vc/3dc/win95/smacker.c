@@ -3,12 +3,22 @@
  * smacker.c - functions to handle FMV playback
  *
  */
+
+// RXP - now use ALLOW_BINK_SMACKER compiler switch ro remove
+// all use of bink/smacker
+
+// **********************
+//#ifdef ALLOW_BINK_SMACKER	// Covers entire module
+#if 0
+// **********************
+
 #include "3dc.h"
 #include "module.h"
 #include "inline.h"
 #include "stratdef.h"
 #include "gamedef.h"
 #include "smacker.h"
+
 #include "avp_menus.h"
 #include "avp_userprofile.h"
 #include "d3_func.h"
@@ -31,10 +41,13 @@ extern int NumImages;
 #endif
 
 void PlayFMV(char *filenamePtr);
+
+int MusicHandle;
+
 static int NextSmackerFrame(Smack *smackHandle);
 static UpdatePalette(Smack *smackHandle);
-
 static int GetSmackerPixelFormat(DDPIXELFORMAT *pixelFormatPtr);
+
 void FindLightingValueFromFMV(unsigned short *bufferPtr);
 void FindLightingValuesFromTriggeredFMV(unsigned char *bufferPtr, FMVTEXTURE *ftPtr);
 
@@ -258,20 +271,9 @@ static int GetSmackerPixelFormat(DDPIXELFORMAT *pixelFormatPtr)
 	}
 }
 
-
-
-
-
-
-
-
-
-
-
 void StartMenuMusic(void)
 {
-	char *filenamePtr = "fmvs/introsound.smk";
-
+	char *filenamePtr = "fmvs/introsound.smk";	
 	/* use Direct sound */
 	SmackSoundUseDirectSound(DSObject);
 
@@ -773,3 +775,196 @@ int GetVolumeOfNearestVideoScreen(void)
 	PrintDebuggingText("Volume: %d, Pan %d\n",VolumeOfNearestVideoScreen,PanningOfNearestVideoScreen);
 	return VolumeOfNearestVideoScreen;
 }
+
+#else	// #ifdef ALLOW_BINK_SMACKER
+
+// If we are not using bink/smacker then provide stub functions instead.
+// If this wasn't done we'd have to go round the source removing all
+// references to them...it's crap, but it will work :)
+
+#include "3dc.h"
+#include "module.h"
+#include "inline.h"
+#include "stratdef.h"
+#include "gamedef.h"
+#include "avp_menus.h"
+#include "avp_userprofile.h"
+#include "d3_func.h"
+#include "smacker.h"
+
+int IntroOutroMoviesAreActive = 0;
+int MoviesAreActive = 0;
+int SmackerSoundVolume = 0;
+int FmvColourRed = 0;
+int FmvColourGreen = 0;
+int FmvColourBlue = 0;
+
+int MusicHandle;
+
+void PlayFMV(char *filenamePtr)
+{
+	return;
+}
+
+void InitFMV(void)
+{
+	return;
+}
+
+int NextFMVFrame(void*bufferPtr, int x, int y, int w, int h, int fmvNumber)
+{
+	return 1;
+}
+
+void UpdateFMVPalette(PALETTEENTRY *FMVPalette, int fmvNumber)
+{
+	return;	
+}
+
+void CloseFMV(void)
+{
+	return;
+}
+
+void StartMenuMusic(void)
+{
+	if (MusicHandle != SOUND_NOACTIVEINDEX)
+		Sound_Stop(MusicHandle);
+
+	MusicHandle = SOUND_NOACTIVEINDEX;
+
+	// AMP Music
+	//
+	// Load Menu track here.
+
+	GetAMPSound(SID_MENU_MUSIC,"Music/mainmenu.wav");
+	return;
+}
+
+void PlayMenuMusic(void)
+{
+	if (MusicHandle == SOUND_NOACTIVEINDEX)
+		Sound_Play(SID_MENU_MUSIC,"erv",&MusicHandle,127);
+	return;
+}
+
+void EndMenuMusic(void)
+{
+	if (MusicHandle != SOUND_NOACTIVEINDEX)
+		Sound_Stop(MusicHandle);
+	return;	
+}
+
+void LoadRadioMessages(void)
+{
+	if (AvP.Network == I_No_Network)
+		return;
+
+	GetAMPSound(SID_ATTACK_ASSAULT,"Sound/Radio/attack_assault.wav");
+	GetAMPSound(SID_ATTACK_ENGAGE,"Sound/Radio/attack_engage.wav");
+	GetAMPSound(SID_ATTENTION_FROSTY,"Sound/Radio/attention_frosty.wav");
+	GetAMPSound(SID_ATTENTION_SHARP,"Sound/Radio/attention_sharp.wav");
+	GetAMPSound(SID_CONVERGE_STICK,"Sound/Radio/converge_stick.wav");
+	GetAMPSound(SID_CONVERGE_TIGHT,"Sound/Radio/converge_tight.wav");
+	GetAMPSound(SID_DEFEND_FORMATION,"Sound/Radio/defend_formation.wav");
+	GetAMPSound(SID_DEFEND_POSITIONS,"Sound/Radio/defend_positions.wav");
+	GetAMPSound(SID_DISPERSE_DISPERSE,"Sound/Radio/disperse_disperse.wav");
+	GetAMPSound(SID_DISPERSE_SPREAD,"Sound/Radio/disperse_spread.wav");
+	GetAMPSound(SID_ENGAGE_COVER,"Sound/Radio/engage_cover.wav");
+	GetAMPSound(SID_ENGAGE_SPOTTED,"Sound/Radio/engage_spotted.wav");
+
+	GetAMPSound(SID_HELP_ASSISTANCE,"Sound/Radio/help_assistance.wav");
+	GetAMPSound(SID_HELP_HELP,"Sound/Radio/help_help.wav");
+	GetAMPSound(SID_KILL_DOWN,"Sound/Radio/kill_down.wav");
+	GetAMPSound(SID_KILL_SECURED,"Sound/Radio/kill_secured.wav");
+	GetAMPSound(SID_NO_NEGATIVE,"Sound/Radio/no_negative.wav");
+	GetAMPSound(SID_NO_NOWAY,"Sound/Radio/no_noway.wav");
+	GetAMPSound(SID_REQUEST_BYPASS,"Sound/Radio/request_bypass.wav");
+	GetAMPSound(SID_REQUEST_GRENADES,"Sound/Radio/request_grenades.wav");
+	GetAMPSound(SID_REQUEST_TRACKERS,"Sound/Radio/request_trackers.wav");
+	GetAMPSound(SID_TRACKER_MOVEMENT,"Sound/Radio/tracker_movement.wav");
+	GetAMPSound(SID_TRACKER_MOVING,"Sound/Radio/tracker_moving.wav");
+	GetAMPSound(SID_YES_AFFIRMATIVE,"Sound/Radio/yes_affirmative.wav");
+	GetAMPSound(SID_YES_ROGER,"Sound/Radio/yes_roger.wav");
+
+	GetAMPSound(SID_SPEC_FIREHOLE,"Sound/Radio/spec_firehole.wav");
+	GetAMPSound(SID_SPEC_MEDIC,"Sound/Radio/spec_medic.wav");
+	GetAMPSound(SID_TAUNT_BADASS,"Sound/Radio/taunt_badass.wav");
+	GetAMPSound(SID_TAUNT_ROCK,"Sound/Radio/taunt_rock.wav");
+	return;
+}
+
+void LoadMusic(void)
+{
+	extern char LevelName[];
+	char music_name[100];
+
+	sprintf(music_name, "Music/%s.wav", LevelName);
+
+	GetAMPSound(SID_MUSIC,music_name);
+	return;
+}
+
+void PlayBackgroundMusic(void)
+{
+	if (!MoviesAreActive)
+	{
+		MusicHandle = SOUND_NOACTIVEINDEX;
+		return;
+	}
+
+	if (MusicHandle == SOUND_NOACTIVEINDEX)
+	{
+		Sound_Play(SID_MUSIC,"erhv",&MusicHandle,SmackerSoundVolume);
+	}
+	return;
+}
+
+void ScanImagesForFMVs(void)
+{
+	return;
+}
+
+void UpdateAllFMVTextures(void)
+{	
+	return;
+}
+
+void ReleaseAllFMVTextures(void)
+{	
+	return;
+}
+
+int NextFMVTextureFrame(FMVTEXTURE *ftPtr, void *bufferPtr)
+{
+	return 1;
+}
+
+void UpdateFMVTexturePalette(FMVTEXTURE *ftPtr)
+{
+	return;
+}
+
+extern void StartTriggerPlotFMV(int number)
+{
+	return;
+}
+
+extern void StartFMVAtFrame(int number, int frame)
+{
+	return;
+}
+
+extern void GetFMVInformation(int *messageNumberPtr, int *frameNumberPtr)
+{
+	*messageNumberPtr = 0;
+	*frameNumberPtr = 0;
+	return;
+}
+
+extern void InitialiseTriggeredFMVs(void)
+{
+	return;
+}
+
+#endif	// #ifdef ALLOW_BINK_SMACKER

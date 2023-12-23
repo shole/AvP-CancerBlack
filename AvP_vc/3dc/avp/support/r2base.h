@@ -360,6 +360,13 @@
 			unsigned char translucency
 		) const;
 
+		void AlphaFill_New
+		(
+			unsigned char R,
+			unsigned char G,
+			unsigned char B,
+			unsigned char translucency
+		) const;
 
 	private:
 		static r2rect R2Rect_PhysicalScreen;

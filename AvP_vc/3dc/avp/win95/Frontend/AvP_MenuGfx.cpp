@@ -90,28 +90,12 @@ AVPMENUGFX AvPMenuGfxStorage[MAX_NO_OF_AVPMENUGFXS] =
 	{"Menus\\bonus.rim"},
 
 	// Splash screens
-	#if MARINE_DEMO
-	{"MarineSplash\\splash00.rim"},
-	{"MarineSplash\\splash01.rim"},
-	{"MarineSplash\\splash02.rim"},
-	{"MarineSplash\\splash03.rim"},
-	{"MarineSplash\\splash04.rim"},
-	{"MarineSplash\\splash05.rim"},
-	#elif ALIEN_DEMO
-	{"AlienSplash\\splash00.rim"},
-	{"AlienSplash\\splash01.rim"},
-	{"AlienSplash\\splash02.rim"},
-	{"AlienSplash\\splash03.rim"},
-	{"AlienSplash\\splash04.rim"},
-	{"AlienSplash\\splash05.rim"},
-	#else
-	{"PredatorSplash\\splash00.rim"},
-	{"PredatorSplash\\splash01.rim"},
-	{"PredatorSplash\\splash02.rim"},
-	{"PredatorSplash\\splash03.rim"},
-	{"PredatorSplash\\splash04.rim"},
-	{"PredatorSplash\\splash05.rim"},
-	#endif
+	{"Menus\\biomechmenu.rim"},
+	{"Menus\\AliensVsPredator.rim"},
+	{"Menus\\Copyright.rim"},
+	{"Menus\\Loading.rim"},
+	{"Menus\\Starfield.rim"},
+	{"Menus\\biomechmenu.rim"},
 };
 
 static void LoadMenuFont(void);
@@ -1013,6 +997,7 @@ extern void LoadAllAvPMenuGfx(void)
 		ddsdimage.dwSize = sizeof(ddsdimage);
 
 		/* lock the image */
+
 		while (surface->Lock(NULL, &ddsdimage, DDLOCK_WAIT, NULL) == DDERR_WASSTILLDRAWING);
 
 		srcPtr = (unsigned short *)ddsdimage.lpSurface;
@@ -1044,10 +1029,11 @@ extern void LoadAllAvPMenuGfx(void)
 	}
 	CalculateWidthsOfAAFont();
 }
-extern void LoadAllSplashScreenGfx(void)
+extern void LoadAllSplashScreenGfx()
 {
 	int i = AVPMENUGFX_SPLASH_SCREEN1;
-	while(i<MAX_NO_OF_AVPMENUGFXS)
+	
+	while (i<MAX_NO_OF_AVPMENUGFXS)
 	{
 		LoadAvPMenuGfx((enum AVPMENUGFX_ID)i++);
 	}

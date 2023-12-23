@@ -149,7 +149,10 @@ void ScreenShot()
 	h.WinInfo.ClrUsed       = 0;
 	h.WinInfo.ClrImportant  = 0;
 
-	h.Header.FileSize  = h.WinInfo.SizeImage + h.Header.Offset + 8;
+
+	// RXP - Why add 8 on the end?
+	h.Header.FileSize  = h.WinInfo.SizeImage + h.Header.Offset;
+	//h.Header.FileSize  = h.WinInfo.SizeImage + h.Header.Offset + 8;
 
 	// write header
 
@@ -176,8 +179,10 @@ void ScreenShot()
     PutDword(h.WinInfo.ClrImportant, fp);
 
 	
-	int red_shift,red_scale,green_shift,green_scale,blue_shift,blue_scale;
-	if(VideoModeTypeScreen==VideoModeType_15)
+	int red_shift,red_scale,green_shift,green_scale,blue_shift,blue_scale;	
+
+	if (   ( VideoModeTypeScreen==VideoModeType_15 )
+		|| ( VideoModeTypeScreen==VideoModeType_24 ))
 	{
     	int m;
     	for (red_shift = 0, m = DisplayPixelFormat.dwRBitMask; 
@@ -193,14 +198,25 @@ void ScreenShot()
     	blue_scale=255/m;
 		
 	}
+
+	// RXP - Fix for screenshots taken in 32 bit display mode. We need the 
+	// number of bytes per pixel, which may not be 4.
+	DWORD	dwBytesPerPixel;
+	
+	if ( VideoModeTypeScreen == VideoModeType_24 )
+	{
+		dwBytesPerPixel = DisplayPixelFormat.dwRGBBitCount >> 3;		
+	}
 	
 	// write 24 bit image
 
 	LockSurfaceAndGetBufferPointer();
+
 	unsigned char* BufferPtr=ScreenBuffer+BackBufferPitch*(h.WinInfo.Height-1);
+
 	for (i=h.WinInfo.Height-1; i>=0; --i)
 	{
-		int j;
+		unsigned int j;
 		if(VideoModeTypeScreen==VideoModeType_8)
 		{
 			for (j=0; j<h.WinInfo.Width; ++j)
@@ -221,24 +237,27 @@ void ScreenShot()
 				PutByte((BYTE)(((colour & DisplayPixelFormat.dwRBitMask)>>red_shift)*red_scale),fp);  //r
 			}
 		}
-		else if(VideoModeTypeScreen==VideoModeType_24)
+		else if ( VideoModeTypeScreen == VideoModeType_24 )
 		{
-			for (j=0; j<h.WinInfo.Width; ++j)
-			{
-				PutByte((BYTE)BufferPtr[j*3+2],fp);  //b
-				PutByte((BYTE)BufferPtr[j*3+1],fp);  //g
-				PutByte((BYTE)BufferPtr[j*3],fp);  //r
-			}
+			// RXP - Fixed screenshots taken in 32 bit display mode.			
+			DWORD colour;		
 			
+			for ( j = 0; j < h.WinInfo.Width; ++j )
+			{
+				colour = *(DWORD*)&BufferPtr [j*dwBytesPerPixel];
+
+				PutByte ((BYTE)(((colour & DisplayPixelFormat.dwBBitMask)>>blue_shift)*blue_scale),fp);		// b
+				PutByte ((BYTE)(((colour & DisplayPixelFormat.dwGBitMask)>>green_shift)*green_scale),fp);	// g
+				PutByte ((BYTE)(((colour & DisplayPixelFormat.dwRBitMask)>>red_shift)*red_scale),fp);		// r
+			}
 		}
+
 		// pad to 4 byte boundary
 		for (j=~(h.WinInfo.Width*3-1) & 3; j; --j) PutByte(0,fp);
 		BufferPtr-=BackBufferPitch;
 	}
+
 	UnlockSurface();
 
 	fclose(fp);
-	
 }
-
-

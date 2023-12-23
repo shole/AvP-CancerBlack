@@ -11,12 +11,12 @@
 #include "progress_bar.h"
 #include "scream.h"
 #include "avp_menus.h"
-
+#include "jsndsup.h"
 
 #if ALIEN_DEMO
 #define DIRECTORY_FOR_RIFS "alienavp_huds\\"
 #else
-#define DIRECTORY_FOR_RIFS "avp_huds\\"
+#define DIRECTORY_FOR_RIFS "cb_huds\\" //"avp_huds\\"
 #endif
 #define FIRST_FREE_IMAGE_GROUP 3 // 0 for char,1 for weapon rif ,2 for env
 
@@ -28,11 +28,11 @@ extern "C"
 	BOOL ForceLoad_Predator=FALSE;
 	BOOL ForceLoad_Hugger=FALSE;
 	BOOL ForceLoad_Queen=FALSE;
-	BOOL ForceLoad_Civvie=FALSE;
+	BOOL ForceLoad_Civvie=TRUE;
 	BOOL ForceLoad_PredAlien=FALSE;
 	BOOL ForceLoad_Xenoborg=FALSE;
 	BOOL ForceLoad_Pretorian=FALSE;
-	BOOL ForceLoad_SentryGun=FALSE;
+	BOOL ForceLoad_SentryGun=TRUE;
 
 	extern BOOL KeepMainRifFile;
 
@@ -348,7 +348,24 @@ void InitNPCs(RIFFHANDLE h)
 		}
 	}
 
-	
+	/* Eld: 3rd-person test */
+
+	switch(AvP.PlayerType)
+	{
+		case I_Marine :
+			Load_HNPC[HNPC_Marine]=TRUE;
+			break;
+
+		case I_Alien :
+			Load_HNPC[HNPC_Alien]=TRUE;
+			break;
+			
+		case I_Predator :
+			Load_HNPC[HNPC_Predator]=TRUE;
+			break;
+	}
+
+	/* Eld: 3rd-person test */
 
 	if(AvP.Network != I_No_Network)
 	{
@@ -356,6 +373,9 @@ void InitNPCs(RIFFHANDLE h)
 		Load_HNPC[HNPC_Alien]=TRUE;
 		Load_HNPC[HNPC_Predator]=TRUE;
 		Load_HNPC[HNPC_Marine]=TRUE;
+		Load_HNPC[HNPC_PredAlien]=TRUE; // Plus these ones... -- ELD
+		//Load_HNPC[HNPC_AlienQueen]=TRUE;
+		Load_HNPC[HNPC_Hugger]=TRUE;
 	}
 	
 	
@@ -368,6 +388,9 @@ void InitNPCs(RIFFHANDLE h)
 	Load_HNPC[HNPC_Marine]=TRUE;
 	Load_HNPC[HNPC_PredAlien] =TRUE;
 	#endif
+
+	/* Always load Facehuggers */
+	Load_HNPC[HNPC_Hugger]=TRUE;
 
 	Special_Objects_Chunk * soc = 0;
  	soc = (Special_Objects_Chunk *)((Chunk_With_Children*)h->envd)->lookup_single_child ("SPECLOBJ");

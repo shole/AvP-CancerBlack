@@ -64,6 +64,17 @@ extern int Resolution;
 extern void SetupVision(void);
 extern void ReInitHUD(void);
 extern void CheckCDStatus(void);
+extern void InitSquad();
+extern void InitialiseParticleSystem();
+extern void InitialiseSfxBlocks();
+extern void InitialiseLightElementSystem();
+extern void InitialiseTriggeredFMVs();
+extern void CurrentGameStats_Initialise();
+extern void MessageHistory_Initialise();
+extern void TeleportNetPlayerToAStartingPosition(STRATEGYBLOCK *playerSbPtr, int startOfGame);
+extern void AllNewModuleHandler();
+extern void CDDA_Stop();
+extern void TimeStampedMessage(char *stringPtr);
 
 extern void DeallocateSoundsAndPoolAllocatedMemory();
 
@@ -385,7 +396,6 @@ void InitCharacter()
 	
 	Start_Progress_Bar();
 
-	
 	Set_Progress_Bar_Position(PBAR_HUD_START);
 
 	switch(AvP.Network)
@@ -399,16 +409,16 @@ void InitCharacter()
 				{
 					case I_Marine:
 						{
-							marine_weapon_rif = avp_load_rif("avp_huds\\marwep.rif");
+							marine_weapon_rif = avp_load_rif("cb_huds\\marwep.rif");
 							Set_Progress_Bar_Position(PBAR_HUD_START+PBAR_HUD_INTERVAL*.25);
-							player_rif = avp_load_rif("avp_huds\\marine.rif");
+							player_rif = avp_load_rif("cb_huds\\marine.rif");
 							break;
 						}
 					case I_Predator:
 						{
-							predator_weapon_rif = avp_load_rif("avp_huds\\pred_hud.rif");
+							predator_weapon_rif = avp_load_rif("cb_huds\\pred_hud.rif");
 							Set_Progress_Bar_Position(PBAR_HUD_START+PBAR_HUD_INTERVAL*.25);
-							player_rif = avp_load_rif("avp_huds\\predator.rif");
+							player_rif = avp_load_rif("cb_huds\\predator.rif");
 							break;
 						}
 
@@ -419,9 +429,9 @@ void InitCharacter()
 							Set_Progress_Bar_Position(PBAR_HUD_START+PBAR_HUD_INTERVAL*.25);
 							player_rif = avp_load_rif("alienavp_huds\\alien.rif");
 							#else
-							alien_weapon_rif = avp_load_rif("avp_huds\\alien_hud.rif");
+							alien_weapon_rif = avp_load_rif("cb_huds\\alien_hud.rif");
 							Set_Progress_Bar_Position(PBAR_HUD_START+PBAR_HUD_INTERVAL*.25);
-							player_rif = avp_load_rif("avp_huds\\alien.rif");
+							player_rif = avp_load_rif("cb_huds\\alien.rif");
 							#endif
 							break;
 						}
@@ -440,12 +450,12 @@ void InitCharacter()
 				// set up a multiplayer game - here becuse we might end
 				// up with a cooperative game
 				//load all weapon rifs
-				marine_weapon_rif = avp_load_rif("avp_huds\\marwep.rif");
-				predator_weapon_rif = avp_load_rif("avp_huds\\pred_hud.rif");
-				alien_weapon_rif = avp_load_rif("avp_huds\\alien_hud.rif");
+				marine_weapon_rif = avp_load_rif("cb_huds\\marwep.rif");
+				predator_weapon_rif = avp_load_rif("cb_huds\\pred_hud.rif");
+				alien_weapon_rif = avp_load_rif("cb_huds\\alien_hud.rif");
 				
 				Set_Progress_Bar_Position(PBAR_HUD_START+PBAR_HUD_INTERVAL*.25);
-				player_rif = avp_load_rif("avp_huds\\multip.rif");
+				player_rif = avp_load_rif("cb_huds\\multip.rif");
 			}
 	}
 	Set_Progress_Bar_Position(PBAR_HUD_START+PBAR_HUD_INTERVAL*.5);

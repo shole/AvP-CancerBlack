@@ -47,12 +47,14 @@ extern ACTIVESOUNDSAMPLE ActiveSounds[];
 
 extern SECTION * GetNamedHierarchyFromLibrary(const char * rif_name, const char * hier_name);
 extern void StartAlienAttackSequence(STRATEGYBLOCK *sbPtr);
+extern void SetAlternateAlienSkin(HMODELCONTROLLER *HModelController,unsigned int Class);
 
 extern int NearAliens;
 extern int Alt_NearAliens;
 extern int FarAliens;
 extern int Alt_FarAliens;
 extern int ShowHiveState;
+extern int ERE_Broken(void);
 
 /* prototypes for this file */
 
@@ -312,6 +314,7 @@ void CreateAlienBot(VECTORCH *Position,int type)
 			return;
 		}
 		Create_HModel(&alienStatus->HModelController,root_section);
+
 		InitHModelSequence(&alienStatus->HModelController,0,0,ONE_FIXED);
 
 		if (SLUGTRAIL_MODE) {
@@ -546,6 +549,11 @@ void CreateAlienDynamic(STRATEGYBLOCK *Generator, ALIEN_TYPE type_of_alien)
 		Create_HModel(&alienStatus->HModelController,root_section);
 		InitHModelSequence(&alienStatus->HModelController,0,0,ONE_FIXED);
 
+		// Level-specific changes to the Alien skin.
+		
+		if ((AvP.NetworkAIServer) && (FastRandom()%10 < 5))
+			SetAlternateAlienSkin(&alienStatus->HModelController,CLASS_ALIEN_DRONE);
+
 		if (SLUGTRAIL_MODE) {
 			SECTION_DATA *leg;
 			/* Blow off a leg? */
@@ -767,6 +775,10 @@ void InitAlienBehaviour(void* bhdata, STRATEGYBLOCK *sbPtr)
 			InitHModelSequence(&alienStatus->HModelController,0,0,ONE_FIXED);
 		}
 
+		// Level-specific changes to the Alien skin.
+		if ((AvP.NetworkAIServer) && (FastRandom()%10 < 5))
+			SetAlternateAlienSkin(&alienStatus->HModelController,CLASS_ALIEN_DRONE);
+
 		if (SLUGTRAIL_MODE) {
 			SECTION_DATA *leg;
 			/* Blow off a leg? */
@@ -942,7 +954,7 @@ void AlienBehaviour(STRATEGYBLOCK *sbPtr)
 	/* check if we've been killed */
 	if ( (sbPtr->SBDamageBlock.Health <= 0)&&(alienStatusPointer->BehaviourState!=ABS_Dying) )
 	{
-		textprint("Zombie Alien!!! State is %d.\n",alienStatusPointer->BehaviourState);
+//		textprint("Zombie Alien!!! State is %d.\n",alienStatusPointer->BehaviourState);
 		return;
 	}
 
@@ -1346,7 +1358,7 @@ void AlienIsDamaged(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int multiple, 
 	alienStatusPointer->Wounds|=wounds;
 
 	if (incoming) {
-		textprint("Alien hit from %d %d %d\n",incoming->vx,incoming->vy,incoming->vz);
+//		textprint("Alien hit from %d %d %d\n",incoming->vx,incoming->vy,incoming->vz);
 		/* Knockback effects? */
 	}
 	
@@ -1369,6 +1381,23 @@ void AlienIsDamaged(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int multiple, 
 	
 	if (alienStatusPointer->BehaviourState==ABS_Dormant) {
 		Alien_Awaken(sbPtr);
+	}
+
+	/* Knockback from explosives */
+	if (damage->ExplosivePower)
+	{
+		if (damage->ExplosivePower == 1 || damage->ExplosivePower == 3)
+		{
+			sbPtr->DynPtr->LinImpulse.vx+=MUL_FIXED(incoming->vx,-6000);
+			sbPtr->DynPtr->LinImpulse.vy+=MUL_FIXED(incoming->vy,-6000);
+			sbPtr->DynPtr->LinImpulse.vz+=MUL_FIXED(incoming->vz,-6000);
+		} else 
+		if (damage->ExplosivePower == 2)
+		{
+			sbPtr->DynPtr->LinImpulse.vx+=MUL_FIXED(incoming->vx,-12000);
+			sbPtr->DynPtr->LinImpulse.vy+=MUL_FIXED(incoming->vy,-12000);
+			sbPtr->DynPtr->LinImpulse.vz+=MUL_FIXED(incoming->vz,-12000);
+		}
 	}
 
 	/* Speaking of which... */
@@ -1552,7 +1581,7 @@ void KillAlien(STRATEGYBLOCK *sbPtr,int wounds,DAMAGE_PROFILE *damage, int multi
 	 	/* Explosion case. */
 	 	if (MUL_FIXED(tkd,(multiple&((ONE_FIXED<<1)-1)))>20) {
 	 		/* Okay, you can gibb now. */
-	 		alienStatusPointer->GibbFactor=ONE_FIXED>>1;
+	 		alienStatusPointer->GibbFactor=0;//ONE_FIXED>>1;
 			deathtype=2;
 	 	}
 	} else if ((tkd<40)&&((multiple>>16)>1)) {
@@ -1561,11 +1590,11 @@ void KillAlien(STRATEGYBLOCK *sbPtr,int wounds,DAMAGE_PROFILE *damage, int multi
 	 	newmult=DIV_FIXED(multiple,NormalFrameTime);
 	 	if (MUL_FIXED(tkd,newmult)>700) {
 	 		/* Excessive bullets case 1. */
-	 		alienStatusPointer->GibbFactor=ONE_FIXED>>2;
+	 		alienStatusPointer->GibbFactor=0;//ONE_FIXED>>2;
 			deathtype=2;
 	 	} else if (MUL_FIXED(tkd,newmult)>250) {
 	 		/* Excessive bullets case 2. */
-	 		alienStatusPointer->GibbFactor=ONE_FIXED>>3;
+	 		alienStatusPointer->GibbFactor=0;//ONE_FIXED>>3;
 			deathtype=1;
 	 	}
 	}
@@ -1579,12 +1608,15 @@ void KillAlien(STRATEGYBLOCK *sbPtr,int wounds,DAMAGE_PROFILE *damage, int multi
 	if ((damage->ExplosivePower==2)||(damage->ExplosivePower==6)) {
 		/* Basically SADARS only. */
 		if (alienStatusPointer->Type==AT_Standard) {
-			alienStatusPointer->GibbFactor=ONE_FIXED;
+			alienStatusPointer->GibbFactor=0;//ONE_FIXED;
 		} else {
-			alienStatusPointer->GibbFactor=ONE_FIXED>>2;
+			alienStatusPointer->GibbFactor=0;//ONE_FIXED>>2;
 		}
 		deathtype=3;
 	}
+
+	if (damage->ExplosivePower)
+		alienStatusPointer->GibbFactor=ONE_FIXED>>6;
 
 	if (damage->ForceBoom) {
 		deathtype+=damage->ForceBoom;
@@ -1598,15 +1630,15 @@ void KillAlien(STRATEGYBLOCK *sbPtr,int wounds,DAMAGE_PROFILE *damage, int multi
 	   &&(damage->Acid==0))
 	{
 		/* that sounds like the flamethrower... */
-		alienStatusPointer->GibbFactor=ONE_FIXED>>2;
+		alienStatusPointer->GibbFactor=0;//ONE_FIXED>>2;
 		/* Gibb just a little for now. */
 	}
 	
 	if (damage->Id==AMMO_PREDPISTOL_STRIKE) {
 		/* Blow up if hit by the bolt. */
-		alienStatusPointer->GibbFactor=ONE_FIXED>>3;
+		alienStatusPointer->GibbFactor=0;//ONE_FIXED>>3;
 	} else if (damage->Id==AMMO_FLECHETTE_POSTMAX) {
-		alienStatusPointer->GibbFactor=ONE_FIXED>>2;
+		alienStatusPointer->GibbFactor=0;//ONE_FIXED>>2;
 	}
 
 	{
@@ -1772,6 +1804,12 @@ void RecomputeAlienSpeed(STRATEGYBLOCK *sbPtr) {
 				basespeed=MUL_FIXED(ALIEN_FORWARDVELOCITY,MUL_FIXED(PRAETORIAN_WALKSPEED_FACTOR,PRAETORIAN_SPEED_FACTOR));
 			}
 			break;
+	}
+
+	/* Burning aliens move slower, about 50% -- Eld */
+	if (sbPtr->SBDamageBlock.IsOnFire)
+	{
+		basespeed = basespeed >> 1;
 	}
 
 	alienStatusPointer->MaxSpeed=MUL_FIXED(factor,basespeed);
@@ -2031,7 +2069,19 @@ int Alien_TargetFilter(STRATEGYBLOCK *candidate) {
 				if (Observer) {
 					return(0);
 				}
-				
+				if (AvP.Network == I_No_Network) {
+					PLAYER_STATUS *playerStatusPtr= (PLAYER_STATUS *) (candidate->SBdataptr);
+					PLAYER_WEAPON_DATA *weaponPtr;
+
+					weaponPtr = &(playerStatusPtr->WeaponSlot[playerStatusPtr->SelectedWeaponSlot]);
+
+					if (playerStatusPtr->MyFaceHugger) {
+						return(0);
+					}
+					if (playerStatusPtr->ChestbursterTimer) {
+						return(0);
+					}
+				}
 				if(AvP.Network != I_No_Network)
 				{
 					//In multiplayer games we don't want the aliens to be going after
@@ -2067,7 +2117,7 @@ int Alien_TargetFilter(STRATEGYBLOCK *candidate) {
 				switch (dummyStatusPointer->PlayerType) {
 					case I_Marine:
 					case I_Predator:
-						return(1);
+						return(0);
 						break;
 					case I_Alien:
 						return(0);
@@ -2082,6 +2132,7 @@ int Alien_TargetFilter(STRATEGYBLOCK *candidate) {
 		case I_BehaviourQueenAlien:
 		case I_BehaviourFaceHugger:
 		case I_BehaviourAlien:
+		case I_BehaviourPredatorAlien:
 			{
 				return(0);
 				break;
@@ -2090,9 +2141,11 @@ int Alien_TargetFilter(STRATEGYBLOCK *candidate) {
 		case I_BehaviourXenoborg:
 		case I_BehaviourMarine:
 		case I_BehaviourSeal:
-		case I_BehaviourPredatorAlien:
 			/* Valid. */
-			return(1);
+			if (NPC_IsDead(candidate))
+				return(0);
+			else
+				return(1);
 			break;
 	#if SupportWindows95
 		case I_BehaviourNetGhost:
@@ -2113,6 +2166,14 @@ int Alien_TargetFilter(STRATEGYBLOCK *candidate) {
 			}
 			break;
 	#endif
+		// A small test.. so Officers' Smoke Grenades confuse Alien AI.
+		case I_BehaviourFragmentationGrenade:
+			return(1);
+			break;
+		// Another test.. Aliens breaking down doors.
+		case I_BehaviourPlatform:
+			return(1);
+			break;
 		default:
 			return(0);
 			break;
@@ -2149,8 +2210,16 @@ STRATEGYBLOCK *Alien_GetNewTarget(VECTORCH *alienpos, STRATEGYBLOCK *me) {
 			
 					dist=Approximate3dMagnitude(&offset);
 					/* Preferentially ignore predators? */
-					if (candidate->I_SBtype==I_BehaviourPredator) {
-						dist<<=2;
+					//if (candidate->I_SBtype==I_BehaviourPredator) {
+					//	dist<<=2;
+					//}
+					/* No, do not ignore predators.. way more dangerous! -- Eldritch */
+
+					/* But, Facehuggers should ignore corpses due to annoying bug! */
+					if (me->I_SBtype == I_BehaviourFaceHugger) {
+						if (candidate->I_SBtype == I_BehaviourNetCorpse) {
+							dist<<=4;
+						}
 					}
 		
 					if (dist<neardist) {

@@ -41,6 +41,9 @@ extern char LevelName[];
 
 extern AvP_Level_Target_Desc LevelStatsTargets[I_MaxDifficulties][AVP_ENVIRONMENT_END_OF_LIST];
 extern void DoStatisticsScreen(int completed_level);
+extern void D3D_FadeDownScreen(int brightness, int colour);
+extern void RenderStringCentred(char *stringPtr, int centreX, int y, int colour);
+extern void RenderString(char *stringPtr, int x, int y, int colour);
 
 /* Default structure: */
 AvP_GameStats_Stored DefaultLevelGameStats = {
@@ -228,8 +231,8 @@ extern void PrintSpottedNumber(void) {
 	
 	/* It must be in this file... */
 
-	textprint("Spotted: %d\n",CurrentGameStatistics.Spotted);
-	textprint("Size %d\n",sizeof(AvP_GameStats_Stored));
+//	textprint("Spotted: %d\n",CurrentGameStatistics.Spotted);
+//	textprint("Size %d\n",sizeof(AvP_GameStats_Stored));
 
 }
 
@@ -836,7 +839,9 @@ extern void CurrentGameStats_CreatureKilled(STRATEGYBLOCK *sbPtr,SECTION_DATA *s
 extern void DoFailedLevelStatisticsScreen(void)
 {
 	extern int deathFadeLevel;
+	extern void ShowSplashScreens(unsigned int screen);
 	D3D_FadeDownScreen(deathFadeLevel,0);
+	//ShowSplashScreens(0);
 	DoStatisticsScreen(0);
 	
 	if (!deathFadeLevel) 
@@ -957,7 +962,9 @@ extern void DoStatisticsScreen(int completed_level)
 	if (PlayerStatusPtr->soundHandle5!=SOUND_NOACTIVEINDEX) {
 		Sound_Stop(PlayerStatusPtr->soundHandle5);
 	}
-
+	if (PlayerStatusPtr->soundHandleForPredatorCloakDamaged!=SOUND_NOACTIVEINDEX) {
+		Sound_Stop(PlayerStatusPtr->soundHandleForPredatorCloakDamaged);
+	}
 	level_num=NumberForCurrentLevel();
 	targets=0;
 	targetspassed=0;

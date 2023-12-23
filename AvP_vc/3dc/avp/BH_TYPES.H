@@ -160,9 +160,7 @@ typedef struct player_input_requests
 	unsigned int Rqst_ZoomIn :1;
 	unsigned int Rqst_ZoomOut :1;
 	unsigned int Rqst_GrapplingHook :1;
-	
-	/* Alien Specific */
-	unsigned int Rqst_Spit :1;
+	unsigned int Rqst_ReverseCycleVisionMode :1;
 
 	/* Marine Specific */
 	unsigned int Rqst_ThrowFlare :1;
@@ -203,16 +201,7 @@ typedef struct player_status
     int	Health;	 /* in 16.16 */
 	int	Energy;	 /* in 16.16 */
 	int	Armour;	 /* in 16.16 */
- 
-    /* general info */
-	/* KJL 17:28:20 09/19/96 - not yet used
-	
-	int	ArmourType;
-	int	HealingRate;
-	int	CloakingType;
-	int	VisionType;
-    */
-		
+ 		
 	/*-----Patrick 15/10/96--------- 
 	Player movement bits...
 	------------------------------*/
@@ -251,16 +240,41 @@ typedef struct player_status
 	unsigned int Absolute_Pitching :1;
 	unsigned int SwappingIsDebounced :1;
 	unsigned int DemoMode :1;
-	unsigned int IHaveAPlacedAutogun :1;
 	unsigned int IsMovingInWater :1;
 	unsigned int JetpackEnabled :1;
 	unsigned int GrapplingHookEnabled :1;
+	unsigned int OnSurface :1;
 
+	unsigned int IHaveAPlacedAutogun;
 	unsigned int MTrackerType;
+	unsigned int FlaresLeft;
+	unsigned int IRGoggles;
+	unsigned int PGC;
+	unsigned int ArmorType;
+	unsigned int Medikit;
+	unsigned int ChestbursterTimer;
+	unsigned int Grenades;
+	unsigned int TrackerTimer;
+	unsigned int PGCStatus;
+	unsigned int AirSupply;
+	unsigned int AirStatus;
+	unsigned int Class;
+	unsigned int Cocoons;
+	unsigned int Immobilized;
+	unsigned int Honor;
+	unsigned int Destr;
+	unsigned int Toxin;
 
 	/* Patrick: 1/7/97 : for predator-type cloaking stuff */
 	unsigned int cloakOn :1;
 	unsigned int cloakPositionGivenAway :1;
+
+	// SHOULDER LAMP IN MULTI
+	unsigned int IAmUsingShoulderLamp:1;
+	// World position of shoulder lamp
+	VECTORCH	ShoulderLampPosition;
+	// END OF SHOULDER LAMP IN MULTI
+
 	int FieldCharge;
 	int cloakPositionGivenAwayTimer;
 	int PlasmaCasterCharge;

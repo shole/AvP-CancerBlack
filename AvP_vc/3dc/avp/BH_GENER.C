@@ -202,7 +202,7 @@ void GeneratorBehaviour(STRATEGYBLOCK *sbPtr)
 			genBlock->GenerationRate=min(genBlock->GenerationRate,GENSPERMINUTE_MAX*100);
 			genBlock->GenerationRate=max(genBlock->GenerationRate,GENSPERMINUTE_MIN*100);
 		}
-	}
+	}	
 		
 	/* check the timer */	
 	if(UseGeneratorBalance && AvP.Network != I_No_Network)
@@ -672,23 +672,23 @@ void DoHive(void)
 
 	if(NPCHive.currentState == HS_Attack) {
 		if (ShowHiveState) {
-			PrintDebuggingText("Hive Attacking %d...\n",NPCHive.hiveStateTimer);
+//			PrintDebuggingText("Hive Attacking %d...\n",NPCHive.hiveStateTimer);
 		}
 	} else {
 		if (ShowHiveState) {
-			PrintDebuggingText("Hive Retreating %d...\n",NPCHive.hiveStateTimer);
+//			PrintDebuggingText("Hive Retreating %d...\n",NPCHive.hiveStateTimer);
 		}
 	}
 	
 	if (ShowHiveState) {
-		PrintDebuggingText("Near Aliens = %d\nFar Aliens = %d\n",NearAliens,FarAliens);
+//		PrintDebuggingText("Near Aliens = %d\nFar Aliens = %d\n",NearAliens,FarAliens);
 	}
 
 	if ((SlackSize)&&(ShowSlack)) {
 		int Slack;
 		
 		Slack=(SlackTotal/SlackSize);
-		PrintDebuggingText("Average Slack %d\n",Slack);
+//		PrintDebuggingText("Average Slack %d\n",Slack);
 	}
 }
 
@@ -1253,7 +1253,7 @@ static void GeneratorBalance_PerFrameMaintenance()
 //	PrintDebuggingText("\n\n\n\n\nAI : %d\n",GeneratorBalance.AIScore);
 //	PrintDebuggingText("Player : %d\n",GeneratorBalance.PlayerScore);
 //	PrintDebuggingText("Counter : %d\n",GeneratorBalance.Counter);
-	PrintDebuggingText("\n\n\nAi Limit Shift : %d\n",GeneratorBalance.MaxAIShift);
+//	PrintDebuggingText("\n\n\nAi Limit Shift : %d\n",GeneratorBalance.MaxAIShift);
 	
 
 	GeneratorBalance.Timer += NormalFrameTime;

@@ -179,7 +179,7 @@
 	#define ALIEN_STATE_PRINT					0
 	#define WOUNDING_SPEED_EFFECTS				1
 
-  	#define ALIEN_STARTING_HEALTH				(30)
+  	#define ALIEN_STARTING_HEALTH				(65)
 	#if PSX||Saturn
   		#define NO_OF_FRAGMENTS_FROM_DEAD_ALIEN (5)
 	#else
@@ -194,7 +194,7 @@
 	/* random time between 1.5 and 2 seconds,in fixed point, with granularity 1/32th second */
   	#define ALIEN_FAR_RETREAT_TIME				((48+(FastRandom()&0xF))*(ONE_FIXED>>5))
 	#define ALIEN_JUMPVELOCITY 					(8000)
-	#define ALIEN_FORWARDVELOCITY 				(12000)
+	#define ALIEN_FORWARDVELOCITY 				(10000)
 	#define ALIEN_CURVEDISTANCE 				(8000)
 	#define ALIEN_ATTACKDISTANCE_MIN			(2000)
 	/* Above (1500) for Ken: reduced from 2000 */
@@ -209,7 +209,7 @@
 	#define PREDALIEN_SPEED_FACTOR				((ONE_FIXED*8)/10)
 	#define PRAETORIAN_SPEED_FACTOR				((ONE_FIXED*8)/10)
 	#define PRAETORIAN_WALKSPEED_FACTOR			((ONE_FIXED*6)/5)
-	#define PRAETORIAN_CRAWLSPEED_FACTOR		(ONE_FIXED*2)
+	#define PRAETORIAN_CRAWLSPEED_FACTOR		(ONE_FIXED)
 
 	#define ALIEN_POUNCE_MAXRANGE 				(12000)
 	#define ALIEN_POUNCE_STARTMAXRANGE 			(8000)

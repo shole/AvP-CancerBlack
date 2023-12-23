@@ -46,7 +46,12 @@ extern enum PARTICLE_ID GetBloodType(STRATEGYBLOCK *sbPtr);
 extern void DoShapeAnimation (DISPLAYBLOCK * dptr);
 extern void RenderThisHierarchicalDisplayblock(DISPLAYBLOCK *dbPtr);
 extern void MakeSprayOfSparks(MATRIXCH *orientationPtr, VECTORCH *positionPtr);
+extern void D3D_DecalSystem_Setup();
+extern void D3D_DecalSystem_End();
+extern int SeededFastRandom();
+
 void MatToQuat (MATRIXCH *m, QUAT *quat);
+void ModExSys(HMODELCONTROLLER *hmodel, char *model1, char *model2);
 
 /* protos for this file */
 void New_Preprocess_Keyframe(KEYFRAME_DATA *this_keyframe, KEYFRAME_DATA *next_keyframe,int one);
@@ -62,6 +67,7 @@ extern int sine[];
 extern int cosine[];
 extern int GlobalFrameCounter;
 extern VIEWDESCRIPTORBLOCK *Global_VDB_Ptr;
+extern int GetLoadedShapeMSL(const char *shapename);
 
 int GlobalGoreRate=NORMAL_GORE_RATE;
 int incIDnum; /* Has to be global. */
@@ -114,6 +120,15 @@ void QNormalise(QUAT *q)
 
 int GetSequenceID(int sequence_type,int sub_sequence) {
 	return( (sub_sequence<<16)+sequence_type);
+}
+
+void ModExSys(HMODELCONTROLLER *hmodel, char *model1, char *model2)
+{
+	SECTION_DATA *sec;
+
+	sec = GetThisSectionData(hmodel->section_data, model1);
+	sec->ShapeNum = GetLoadedShapeMSL(model2);
+	sec->Shape = GetShapeData(sec->ShapeNum);
 }
 
 SEQUENCE *GetSequencePointer(int sequence_type,int sub_sequence,SECTION *this_section) {
@@ -207,7 +222,7 @@ void Preprocess_Section(SECTION *this_section, char *riffname ,VECTORCH* offset_
 	if (this_section->ShapeName!=NULL) {
 		this_section->ShapeNum=GetLoadedShapeMSL(this_section->ShapeName);
 		if (this_section->ShapeNum==-1) {
-			textprint("\n\n\n\nShape has a name! %s\n",this_section->ShapeName);
+//			textprint("\n\n\n\nShape has a name! %s\n",this_section->ShapeName);
 			GLOBALASSERT(0);
 		}
 		this_section->Shape=GetShapeData(this_section->ShapeNum);
@@ -1193,8 +1208,10 @@ SHAPEHEADER *Get_Degraded_Shape(SHAPEHEADER *base_shape)
 	array_ptr=base_shape->shape_degradation_array;
 
 	{
+		// Do not degrade, can severely damage our multiple skins system -- Eld
+		// Actually, do this. The game runs pretty slow as is.
 		lodScale = (float)GlobalLevelOfDetail_Hierarchical*CameraZoomScale;
-
+		//lodScale =   (float)GlobalLevelOfDetail_Hierarchical;
 	}
 	/* Now walk array. */
 	{
@@ -1206,6 +1223,9 @@ SHAPEHEADER *Get_Degraded_Shape(SHAPEHEADER *base_shape)
 			objectDistance = MUL_FIXED(objectDistance,lodScale);
 		}
 		if (objectDistance<=0) objectDistance=1;
+
+		objectDistance=1;
+
 		f2i(viewposition.vz, viewposition.vz*CameraZoomScale);
 
 		/* KJL 12:30:37 09/06/98 - the object distance is scaled by a global variable
@@ -1513,6 +1533,8 @@ void Process_Section(HMODELCONTROLLER *controller,SECTION_DATA *this_section_dat
 		Use_GoreRate/=5;
 	}
 
+	Use_GoreRate = 60000;
+
 	/* A terminator must spray (backwards) from the origin, to be the stump. */
 	
 	if (this_section_data->flags&section_data_terminate_here) {
@@ -1597,6 +1619,10 @@ void Process_Section(HMODELCONTROLLER *controller,SECTION_DATA *this_section_dat
 							final_spray_direction.vy<<=1;
 							final_spray_direction.vz<<=1;
 						}
+
+						/* Make them drip rather than fly. -- Eld */
+						final_spray_direction.vx = 0;
+						final_spray_direction.vz = 0;
 
 						/* Identify spray type. */
 						

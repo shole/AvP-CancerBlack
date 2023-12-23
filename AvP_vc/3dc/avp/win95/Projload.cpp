@@ -368,7 +368,8 @@ void LoadedPlacedHierarchy::load_rif()
 {
 	if(placed_rif!=INVALID_RIFFHANDLE) return;
 	char file_path[100];
-	sprintf(file_path,"avp_huds\\%s.rif",file_name);
+	//sprintf(file_path,"avp_huds\\%s.rif",file_name);
+	sprintf(file_path,"cb_huds\\%s.rif",file_name);
 	
 	placed_rif=avp_load_rif_non_env(file_path);
 	if(placed_rif!=INVALID_RIFFHANDLE)
@@ -2802,6 +2803,11 @@ BOOL copy_rif_data (RIFFHANDLE h, int flags,int progress_start,int progress_inte
 		
 		double env_scale=local_scale;
 		InitNPCs(h);
+
+		/* Take the opportunity to load Music and Radio Messages now */
+		LoadRadioMessages();
+		LoadMusic();
+
 		local_scale=env_scale;
 	
 		while (random_marine_texturings.size())random_marine_texturings.delete_first_entry();

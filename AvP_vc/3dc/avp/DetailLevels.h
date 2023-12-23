@@ -13,6 +13,12 @@ typedef struct
 	unsigned int ExplosionsDeformToEnvironment :1;
 	unsigned int GhostFlameThrowerCollisions :1;
 
+	// Additions by Eldritch
+	unsigned int ExplosionFX;
+	unsigned int WeatherFX;
+	unsigned int MuzzleSmoke;
+	unsigned int Shells;
+
 } DETAIL_LEVELS;
 
 extern DETAIL_LEVELS LocalDetailLevels;
@@ -24,6 +30,11 @@ typedef struct
 	int DeformableExplosions;
 	int CharacterComplexity;
 	int ParticleComplexity;
+
+	// Additions by Eldritch
+	int WeatherFX;
+	int MuzzleSmoke;
+	int Shells;
 
 } MENU_DETAIL_LEVEL_OPTIONS;
 

@@ -46,7 +46,8 @@ static int FindLowerPriorityActiveSound(ACTIVESOUNDPRIORITY testPriority, unsign
   ----------------------------------------------------------------------------*/
 extern int NormalFrameTime;
 extern int GlobalFrameCounter;
-
+extern void CheckCDVolume();
+extern void UpdateSoundFrequencies();
 
 /* Patrick 5/6/97 -------------------------------------------------------------
   Sound system functions
@@ -139,13 +140,13 @@ void SoundSys_Management(void)
 	if (ShowDebuggingText.Sounds)
 	{
 		int i = Sound_MaxActive_HW;
-		PrintDebuggingText("Number of Active Sounds %u \n", SoundNumActiveVoices());
+//		PrintDebuggingText("Number of Active Sounds %u \n", SoundNumActiveVoices());
 		//display a list of all sounds being played as well
 		while(i-- > 0)
 		{
 			if(ActiveSounds[i].soundIndex != SID_NOSOUND)
 			{
-				PrintDebuggingText("%s\n",GameSounds[ActiveSounds[i].soundIndex].wavName);
+//				PrintDebuggingText("%s\n",GameSounds[ActiveSounds[i].soundIndex].wavName);
 			}
 		}
 		
@@ -329,6 +330,7 @@ void SoundSys_ChangeVolume(int volume)
   ----------------------------------------------------------------------------*/
 void Sound_Play(SOUNDINDEX soundNumber, char *format, ...)
 {	
+	extern int Underwater;
 	int newIndex;
 	int loop = 0;
 	int	*externalRef = NULL;
@@ -498,8 +500,26 @@ void Sound_Play(SOUNDINDEX soundNumber, char *format, ...)
 	/* fill out the active sound */
 	ActiveSounds[newIndex].soundIndex = soundNumber;
 	ActiveSounds[newIndex].priority = priority;
-	ActiveSounds[newIndex].volume = volume;
-	ActiveSounds[newIndex].pitch = pitch;
+
+	// Alien Enhanced Hearing
+	if (AvP.MainLoopRunning) {
+		if (AvP.PlayerType == I_Alien) {
+			ActiveSounds[newIndex].volume = 127;
+		} else
+			ActiveSounds[newIndex].volume = volume;
+	} else {
+		ActiveSounds[newIndex].volume = volume;
+	}
+
+	// Underwater pitch
+	if (AvP.MainLoopRunning) {
+		if (Underwater)
+			ActiveSounds[newIndex].pitch = ActiveSounds[newIndex].pitch-400;
+		else
+			ActiveSounds[newIndex].pitch = pitch;
+	} else {
+		ActiveSounds[newIndex].pitch = pitch;
+	}
 	ActiveSounds[newIndex].externalRef = externalRef;
 	ActiveSounds[newIndex].loop = 1;
 	ActiveSounds[newIndex].marine_ignore=marine_ignore;
@@ -513,7 +533,12 @@ void Sound_Play(SOUNDINDEX soundNumber, char *format, ...)
 		ActiveSounds[newIndex].threedeedata.velocity = zeroPosn;
 		ActiveSounds[newIndex].threedeedata.inner_range = 0;
 		ActiveSounds[newIndex].threedeedata.outer_range = 32000;
-		
+
+		if (AvP.PlayerType == I_Alien)
+		{
+			ActiveSounds[newIndex].threedeedata.inner_range = 22000;
+			ActiveSounds[newIndex].threedeedata.outer_range = 32000;
+		}
 		ActiveSounds[newIndex].threedee = 1;
 	}
 	else if (p_3ddata)

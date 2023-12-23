@@ -171,6 +171,8 @@ typedef enum bhvr_type
 	I_BehaviourFrisbee,
 	I_BehaviourFrisbeeEnergyBolt,
 
+	I_BehaviourThrownSpear,
+
 }AVP_BEHAVIOUR_TYPE;
 
 

@@ -67,16 +67,11 @@ static enum AVP_ENVIRONMENT_ID AlienEpisodes[] =
 
 static enum AVP_ENVIRONMENT_ID MultiplayerEpisodes[] =
 {
- #ifndef MPLAYER_DEMO
+#if 0
 	AVP_ENVIRONMENT_SEWER,
-//	AVP_ENVIRONMENT_SCREAM,
 	AVP_ENVIRONMENT_MASSACRE,
-//	AVP_ENVIRONMENT_STATION,
-//	AVP_ENVIRONMENT_DESTRUCTION,
 	AVP_ENVIRONMENT_STATUE,
 	AVP_ENVIRONMENT_JOCKEY,
- #endif
-
 	AVP_ENVIRONMENT_HIVE,
 
 //and now the multipack levels
@@ -89,13 +84,14 @@ static enum AVP_ENVIRONMENT_ID MultiplayerEpisodes[] =
 	AVP_ENVIRONMENT_LAB14_MP,
 	AVP_ENVIRONMENT_COMPOUND_MP,
 	AVP_ENVIRONMENT_OFFICE_MP,
-
+#endif
 	// that's all folks
 	AVP_ENVIRONMENT_END_OF_LIST
 };
 
 static enum AVP_ENVIRONMENT_ID CooperativeEpisodes[] =
 {
+#if 0
 	AVP_ENVIRONMENT_KENS_COOP,
 	AVP_ENVIRONMENT_HIVE_COOP,
 	AVP_ENVIRONMENT_TRAPPED_COOP,
@@ -111,19 +107,19 @@ static enum AVP_ENVIRONMENT_ID CooperativeEpisodes[] =
 	AVP_ENVIRONMENT_ELEVATOR_COOP,
 	AVP_ENVIRONMENT_LAB14_COOP,
 	AVP_ENVIRONMENT_COMPOUND_COOP,
-
+#endif
 	AVP_ENVIRONMENT_END_OF_LIST
 };
 
 static char *RifNamesForEnvironments[] =
 {
 	// primarily Marine
-	"derelict",//AVP_ENVIRONMENT_DERELICT,
-	"genshd1",//AVP_ENVIRONMENT_COLONY,
-	"invasion",//AVP_ENVIRONMENT_INVASION,
-	"odobenus",//AVP_ENVIRONMENT_ORBITAL,
-	"sulaco",//AVP_ENVIRONMENT_TYRARGO,
-	"hangar",//AVP_ENVIRONMENT_TYRARGOHANGAR,
+	"valore",//AVP_ENVIRONMENT_DERELICT,
+	"arrival",//AVP_ENVIRONMENT_COLONY,
+	"mines",//AVP_ENVIRONMENT_INVASION,
+	"outpost",//AVP_ENVIRONMENT_ORBITAL,
+	"detour",//AVP_ENVIRONMENT_TYRARGO,
+	"apclevel2",//AVP_ENVIRONMENT_TYRARGOHANGAR,
 
 	// primarily Predator
 	"fall",//AVP_ENVIRONMENT_WATERFALL,
@@ -135,7 +131,7 @@ static char *RifNamesForEnvironments[] =
 
 	// primarily Alien
 	"nost03",//AVP_ENVIRONMENT_FERARCO,
-	"temple",//AVP_ENVIRONMENT_TEMPLE,
+	"valore",//AVP_ENVIRONMENT_TEMPLE,
 	"stat101",//AVP_ENVIRONMENT_GATEWAY,
 	"escape",//AVP_ENVIRONMENT_ESCAPE,
 	"breakout",//AVP_ENVIRONMENT_EARTHBOUND,
@@ -162,11 +158,11 @@ static char *RifNamesForEnvironments[] =
 	"breakout_p",//AVP_ENVIRONMENT_EARTHBOUND_P,
 	
 	// Marine bonus levels
-	"fall_m",//AVP_ENVIRONMENT_WATERFALL_M,
-	"vaults_m",//AVP_ENVIRONMENT_VAULTS_M,
-	"nost03_m",//AVP_ENVIRONMENT_FERARCO_M,
-	"temple_m",//AVP_ENVIRONMENT_TEMPLE_M,
-	"stat101_m",//AVP_ENVIRONMENT_GATEWAY_M,
+	"final_conflict",//AVP_ENVIRONMENT_WATERFALL_M,
+	"fall_m",//AVP_ENVIRONMENT_VAULTS_M,
+	"fall_m",//AVP_ENVIRONMENT_FERARCO_M,
+	"fall_m",//AVP_ENVIRONMENT_TEMPLE_M,
+	"fall_m",//AVP_ENVIRONMENT_GATEWAY_M,
 
 
 	//cooperative levels
@@ -187,7 +183,7 @@ static char *RifNamesForEnvironments[] =
 	"Meat_Factory",//AVP_ENVIRONMENT_MEATFACTORY_MP,
 	"Nostromo",//AVP_ENVIRONMENT_NOSTROMO_MP,
 	"Subway",//AVP_ENVIRONMENT_SUBWAY_MP,
-	"Elevator",//AVP_ENVIRONMENT_ELEVATOR_MP,
+	"Dome",//AVP_ENVIRONMENT_ELEVATOR_MP,
 	"Lab14",//AVP_ENVIRONMENT_LAB14_MP,
 	"Compound",//AVP_ENVIRONMENT_COMPOUND_MP,
 	"Office",//AVP_ENVIRONMENT_OFFICE_MP,
@@ -5140,9 +5136,16 @@ void SetLevelToLoadForMultiplayer(int episode)
 	//is this a custom level?
 	if(episode>=MAX_NO_OF_MULTIPLAYER_EPISODES)
 	{
-		//it certainly is
-		//(the game type sent passed to the function doesn't really matter , as long as it isn't NGT_COOP)
-		sprintf(LevelName,"Custom\\%s",GetCustomMultiplayerLevelName(episode,NGT_Individual));
+		// ELDRITCH: Change here too!
+		if (netGameData.gameType == NGT_LastManStanding) {
+			sprintf(LevelName,"Custom\\%s",GetCustomMultiplayerLevelName(episode,NGT_LastManStanding));
+		} else if (netGameData.gameType == NGT_PredatorTag) {
+			sprintf(LevelName,"Custom\\%s",GetCustomMultiplayerLevelName(episode,NGT_PredatorTag));
+		} else if (netGameData.gameType == NGT_AlienTag) {
+			sprintf(LevelName,"Custom\\%s",GetCustomMultiplayerLevelName(episode,NGT_AlienTag));
+		} else {
+			sprintf(LevelName,"Custom\\%s",GetCustomMultiplayerLevelName(episode,NGT_Individual));
+		}
 	}
 	else
 	{

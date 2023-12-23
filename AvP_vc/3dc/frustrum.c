@@ -1087,7 +1087,7 @@ static int ObjectCompletelyWithin_Wide_Frustrum(DISPLAYBLOCK *dbPtr)
 
 static int ObjectWithin_Wide_Frustrum(DISPLAYBLOCK *dbPtr)
 {
-	if (dbPtr->ObView.vz+dbPtr->ObShapeData->shaperadius>=ZCLIPPINGVALUE)
+	if (dbPtr && dbPtr->ObView.vz+dbPtr->ObShapeData->shaperadius>=ZCLIPPINGVALUE)
 	{
 		/* scale radius by square root of 5 */
 		int radius = MUL_FIXED(146543,dbPtr->ObShapeData->shaperadius);

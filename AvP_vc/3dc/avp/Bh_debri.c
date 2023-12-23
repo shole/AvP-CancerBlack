@@ -34,6 +34,7 @@
 
 #include "AvP_UserProfile.h"
 #include "savegame.h"
+#include "pvisible.h"
 
 #include <math.h>
 
@@ -295,7 +296,7 @@ void CreateShapeInstance(MODULEMAPBLOCK *mmbptr, char *shapeNamePtr)
 	#if debug
 	if (shapenum<=0)
 	{
-		textprint("Unable to display shape:%s\n",shapeNamePtr);
+//		textprint("Unable to display shape:%s\n",shapeNamePtr);
 		LOCALASSERT(0);
 	}
 	#endif
@@ -700,7 +701,6 @@ void MakeFragments (STRATEGYBLOCK * sbptr)
 	}
 	frags=fragdesc->sh_frags;
 	massfact = ((ONE_FIXED / sbptr->DynPtr->Mass)>>2) + ((ONE_FIXED>>2)*3);
-
 
 	while (frags->ShapeIndex > 0)
 	{
@@ -1402,7 +1402,7 @@ DISPLAYBLOCK *MakeHierarchicalDebris(STRATEGYBLOCK *parent_sbPtr,SECTION_DATA *r
 /* KJL 16:35:13 08/01/99 - make body ripping noises */
 void MakeFleshRippingNoises(VECTORCH *positionPtr)
 {
-	int s = FastRandom()%5;
+	int s = FastRandom()%4;
 
 	Sound_Play(SID_BODY_BEING_HACKED_UP_0+s,"d",positionPtr);
 }

@@ -193,7 +193,7 @@ and is applied relative to the loaded frequency of the sound */
   Global references to sound management data areas, and blank instances of data
   structures storted in those areas    
   ----------------------------------------------------------------------------*/
-extern SOUNDSAMPLEDATA GameSounds[];		   
+extern SOUNDSAMPLEDATA GameSounds[];	   
 extern ACTIVESOUNDSAMPLE ActiveSounds[]; 
 extern SOUNDSAMPLEDATA BlankGameSound;
 extern ACTIVESOUNDSAMPLE BlankActiveSound;

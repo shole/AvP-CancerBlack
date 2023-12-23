@@ -48,7 +48,7 @@ void SweepWaypoints(WAYPOINT_HEADER *waypoints, STRATEGYBLOCK *sbPtr, VECTORCH *
 int FindBestRoute(WAYPOINT_ROUTE *bestroute,WAYPOINT_HEADER *waypoints);
 int NPCContainsPoint(STRATEGYBLOCK *sbPtr,VECTORCH *point);
 void GetTargetPositionInWaypoint(WAYPOINT_VOLUME *waypoint,VECTORCH *output);
-
+int WaypointContainsPoint(WAYPOINT_VOLUME *waypoint, VECTORCH *point);
 
 void InitWaypointSystem(int npctype) {
 
@@ -119,14 +119,14 @@ int NPCGetWaypointDirection(WAYPOINT_HEADER *waypoints, STRATEGYBLOCK *sbPtr, VE
 	/* Return the target direction if the NPC or the target have no containing waypoint. */
 	if ( (NPC_Waypoints==0) || (Num_Target_Waypoints==0) ) {
 		*velocityDirection = targetDirection;
-		textprint("Waypoint dropout: no containing waypoints (%d, %d)\n",NPC_Waypoints,Num_Target_Waypoints);
+//		textprint("Waypoint dropout: no containing waypoints (%d, %d)\n",NPC_Waypoints,Num_Target_Waypoints);
 		InitWaypointManager(manager);
 		return(0);
 	}
 
 	/* Now what?  Compute the best route to the target. */
 
-	textprint("NPC is in %d waypoints.\n",NPC_Waypoints);
+//	textprint("NPC is in %d waypoints.\n",NPC_Waypoints);
 
 	//Base shift value on strategy block so that the aliens don't keep changing their minds
 	//about which route to take
@@ -258,9 +258,9 @@ int NPCGetWaypointDirection(WAYPOINT_HEADER *waypoints, STRATEGYBLOCK *sbPtr, VE
 			}
 		}
 
-		textprint("Destination waypoint: %d\n",b);
+//		textprint("Destination waypoint: %d\n",b);
 	}
-	textprint("Waypoint Generated Velocity = %d %d %d\n",targetDirection.vx,targetDirection.vy,targetDirection.vz);
+//	textprint("Waypoint Generated Velocity = %d %d %d\n",targetDirection.vx,targetDirection.vy,targetDirection.vz);
 
 	*velocityDirection = targetDirection;
 
@@ -639,7 +639,7 @@ int FindBestRoute(WAYPOINT_ROUTE *bestroute,WAYPOINT_HEADER *waypoints) {
 
 		}
 
-		textprint("Waypoint route: %d %d %d\n",start,second,last);
+//		textprint("Waypoint route: %d %d %d\n",start,second,last);
 
 	}
 	return(1);

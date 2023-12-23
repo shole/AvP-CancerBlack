@@ -81,6 +81,8 @@
 /**** extern globals ****/
 
 extern int NormalFrameTime;
+extern void GrapplingHookBehaviour(STRATEGYBLOCK *sbPtr);
+extern void ThrownSpearBehaviour(STRATEGYBLOCK *sbPtr);
 
 // Standard Behaviours - note others are in relevent files
 
@@ -89,6 +91,7 @@ static void DoorProxBehaveFun(STRATEGYBLOCK* sbptr);
 static void* SimpleAnimationBehaveInit(void* bhdata, STRATEGYBLOCK* sbptr);
 static void SimpleAnimBehaveFun(STRATEGYBLOCK* sbptr);
 static void* InitDatabase(void* bhdata, STRATEGYBLOCK* sbptr);
+int ObjIsWater(STRATEGYBLOCK *sbPtr);
 
 // support functions - others are extened in bh_types.h
 
@@ -122,8 +125,8 @@ static NPC_DATA NpcDataList[I_NPC_End]= {
 	{
 		I_NPC_Civilian,
 		{
-			20,	/* Health */
-			0,	/* Armour */
+			100,	/* Health */
+			5,	/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -173,8 +176,8 @@ static NPC_DATA NpcDataList[I_NPC_End]= {
 	{
 		I_NPC_Alien,
 		{
-			30,	/* Health */
-			5,	/* Armour */
+			50,	/* Health */
+			15,	/* Armour */
 			0, /* IsOnFire */
 			{
 				1,	/* Acid Resistant */
@@ -207,8 +210,8 @@ static NPC_DATA NpcDataList[I_NPC_End]= {
 	{
 		I_NPC_Marine,
 		{
-			25,	/* Health */
-			8,	/* Armour */
+			100,	/* Health */
+			30,	/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -241,8 +244,8 @@ static NPC_DATA NpcDataList[I_NPC_End]= {
 	{
 		I_NPC_SFMarine,
 		{
-			40,	/* Health */
-			10,	/* Armour */
+			100,	/* Health */
+			30,	/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -258,8 +261,8 @@ static NPC_DATA NpcDataList[I_NPC_End]= {
 	{
 		I_NPC_Predator,
 		{
-			450,	/* Health */
-			200,	/* Armour */
+			250,	/* Health */
+			0,	/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -326,8 +329,8 @@ static NPC_DATA NpcDataList[I_NPC_End]= {
 	{
 		I_PC_Alien_Easy,
 		{
-			90,	/* Health */
-			30,	/* Armour (was 6) */
+			50,	/* Health */
+			15,	/* Armour (was 6) */
 			0, /* IsOnFire */
 			{
 				1,	/* Acid Resistant */
@@ -344,7 +347,7 @@ static NPC_DATA NpcDataList[I_NPC_End]= {
 		I_PC_Marine_Easy,
 		{
 			100,	/* Health */
-			20,	/* Armour */
+			30,	/* Armour */
 			0, /* IsOnFire */
 			{
 				1,	/* Acid Resistant */
@@ -360,7 +363,7 @@ static NPC_DATA NpcDataList[I_NPC_End]= {
 	{
 		I_PC_Predator_Easy,
 		{
-			450,	/* Health */
+			250,	/* Health */
 			0,	/* Armour */
 			0, /* IsOnFire */
 			{
@@ -377,8 +380,8 @@ static NPC_DATA NpcDataList[I_NPC_End]= {
 	{
 		I_PC_Alien_Medium,
 		{
-			90,	/* Health */
-			30,	/* Armour (was 6) */
+			50,	/* Health */
+			15,	/* Armour (was 6) */
 			0, /* IsOnFire */
 			{
 				1,	/* Acid Resistant */
@@ -395,7 +398,7 @@ static NPC_DATA NpcDataList[I_NPC_End]= {
 		I_PC_Marine_Medium,
 		{
 			100,	/* Health */
-			20,	/* Armour */
+			30,	/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -411,7 +414,7 @@ static NPC_DATA NpcDataList[I_NPC_End]= {
 	{
 		I_PC_Predator_Medium,
 		{
-			450,	/* Health */
+			250,	/* Health */
 			0,	/* Armour */
 			0, /* IsOnFire */
 			{
@@ -428,8 +431,8 @@ static NPC_DATA NpcDataList[I_NPC_End]= {
 	{
 		I_PC_Alien_Hard,
 		{
-			90,	/* Health */
-			30,	/* Armour (was 6) */
+			50,	/* Health */
+			15,	/* Armour (was 6) */
 			0, /* IsOnFire */
 			{
 				1,	/* Acid Resistant */
@@ -446,7 +449,7 @@ static NPC_DATA NpcDataList[I_NPC_End]= {
 		I_PC_Marine_Hard,
 		{
 			100,	/* Health */
-			20,	/* Armour */
+			30,	/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -462,7 +465,7 @@ static NPC_DATA NpcDataList[I_NPC_End]= {
 	{
 		I_PC_Predator_Hard,
 		{
-			450,	/* Health */
+			250,	/* Health */
 			0,	/* Armour */
 			0, /* IsOnFire */
 			{
@@ -479,8 +482,8 @@ static NPC_DATA NpcDataList[I_NPC_End]= {
 	{
 		I_PC_Alien_Impossible,
 		{
-			30,	/* Health */
-			5,	/* Armour */
+			50,	/* Health */
+			15,	/* Armour */
 			0, /* IsOnFire */
 			{
 				1,	/* Acid Resistant */
@@ -496,8 +499,8 @@ static NPC_DATA NpcDataList[I_NPC_End]= {
 	{
 		I_PC_Marine_Impossible,
 		{
-			25,	/* Health */
-			8,	/* Armour */
+			100,	/* Health */
+			30,	/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -513,8 +516,8 @@ static NPC_DATA NpcDataList[I_NPC_End]= {
 	{
 		I_PC_Predator_Impossible,
 		{
-			450,	/* Health */
-			200,	/* Armour */
+			250,	/* Health */
+			0,	/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -530,8 +533,8 @@ static NPC_DATA NpcDataList[I_NPC_End]= {
 	{
 		I_PC_Alien_MaxStats,
 		{
-			180,	/* Health */
-			30,	/* Armour (was 6) */
+			80,	/* Health */
+			20,	/* Armour (was 6) */
 			0, /* IsOnFire */
 			{
 				1,	/* Acid Resistant */
@@ -564,8 +567,8 @@ static NPC_DATA NpcDataList[I_NPC_End]= {
 	{
 		I_NPC_Android,
 		{
-			40,	/* Health */
-			8,	/* Armour */
+			100,	/* Health */
+			15,	/* Armour */
 			0, /* IsOnFire */
 			{
 				0,	/* Acid Resistant */
@@ -1648,6 +1651,10 @@ void ExecuteBehaviour(STRATEGYBLOCK* sbptr)
 			SpeargunBoltBehaviour(sbptr);
 			break;
 
+		case I_BehaviourThrownSpear:
+			ThrownSpearBehaviour(sbptr);
+			break;
+
 		case I_BehaviourPredatorEnergyBolt:
 			PredatorEnergyBoltBehaviour(sbptr); 
 			break;
@@ -2083,6 +2090,7 @@ static int AnythingNearProxDoor(MODULE *doorModulePtr,PROXDOOR_BEHAV_BLOCK *door
 			(sbPtr->I_SBtype ==	I_BehaviourFaceHugger)||
 			(sbPtr->I_SBtype == I_BehaviourGrenade)||
 			(sbPtr->I_SBtype == I_BehaviourRocket)||
+			(sbPtr->I_SBtype == I_BehaviourThrownSpear)||
 			(sbPtr->I_SBtype == I_BehaviourFrisbee)||
 			(sbPtr->I_SBtype == I_BehaviourPulseGrenade)||
 			(sbPtr->I_SBtype == I_BehaviourProximityGrenade)||
@@ -2740,9 +2748,6 @@ BOOL GetState(STRATEGYBLOCK* sbptr)
 	return((BOOL)0);
 }
 
-
-
-
 DISPLAYBLOCK *MakeObject(AVP_BEHAVIOUR_TYPE bhvr, VECTORCH *positionPtr) 
 {
   // This function creates the specified object, fully
@@ -2777,7 +2782,10 @@ DISPLAYBLOCK *MakeObject(AVP_BEHAVIOUR_TYPE bhvr, VECTORCH *positionPtr)
 	
 		case I_BehaviourRocket:
 		{
-			CreateShapeInstance(mmbptr,"missile");
+			if (AvP.Network == I_No_Network)
+				CreateShapeInstance(mmbptr, "net_sp");
+			else
+				CreateShapeInstance(mmbptr,"net");
 		    break;
 		}				
 						
@@ -2791,39 +2799,48 @@ DISPLAYBLOCK *MakeObject(AVP_BEHAVIOUR_TYPE bhvr, VECTORCH *positionPtr)
 		}				
 
 		case I_BehaviourPulseGrenade: /* need a new shape */
+		{
+			CreateShapeInstance(mmbptr,"pulsegrenade");
+			break;
+		}
 		case I_BehaviourGrenade:
 		{
-			CreateShapeInstance(mmbptr,"Shell");
+			CreateShapeInstance(mmbptr,"incen");
 			break;
 		}
 		case I_BehaviourFragmentationGrenade:
 		{
-			CreateShapeInstance(mmbptr,"Frag");
+			CreateShapeInstance(mmbptr,"smoke");
 			break;
 		}
 		case I_BehaviourClusterGrenade:
 		{
-			CreateShapeInstance(mmbptr,"Cluster");
+			CreateShapeInstance(mmbptr,"handgrenade");
 			break;
 		}
 		case I_BehaviourProximityGrenade:
 		{
-			CreateShapeInstance(mmbptr,"Proxmine");
+			CreateShapeInstance(mmbptr,"setcharge");
 			break;
 		}		
 		
     			
 		case I_BehaviourFlareGrenade:
 		{
-			CreateShapeInstance(mmbptr,"Flare");
+			CreateShapeInstance(mmbptr,"newflare");
 			break;
 		}
 
 		case I_BehaviourSpeargunBolt:
 		{
-			CreateShapeInstance(mmbptr,"spear");
+			CreateShapeInstance(mmbptr,"prong");
 			break;
-		}				
+		}
+		case I_BehaviourThrownSpear:
+		{
+			CreateShapeInstance(mmbptr,"combistick_throw");
+			break;
+		}
 		case I_BehaviourPPPlasmaBolt:		
 		case I_BehaviourFrisbeeEnergyBolt:
 		case I_BehaviourPredatorEnergyBolt:
@@ -2922,6 +2939,7 @@ DISPLAYBLOCK *MakeObject(AVP_BEHAVIOUR_TYPE bhvr, VECTORCH *positionPtr)
 		case I_BehaviourClusterGrenade:
 		case I_BehaviourProximityGrenade:
 		case I_BehaviourSpeargunBolt:
+		case I_BehaviourThrownSpear:
 		case I_BehaviourPPPlasmaBolt:		
 		case I_BehaviourFrisbeeEnergyBolt:
 		case I_BehaviourPredatorEnergyBolt:
@@ -3646,9 +3664,6 @@ void RemoveBehaviourStrategy(STRATEGYBLOCK* sbptr)
 	/* Finally remove the StrategyBlock*/
 	DestroyActiveStrategyBlock(sbptr);
 }
-
-
-
 
 /*--------------------**
 ** Loading and Saving **

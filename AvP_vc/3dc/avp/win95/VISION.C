@@ -34,10 +34,29 @@ enum VISION_MODE_ID CurrentVisionMode;
 static visionModeDebounced=0;
 
 extern ACTIVESOUNDSAMPLE ActiveSounds[];
+
+extern void DrawThermalOverlay(float level);
+extern void DrawThermalNoiseOverlay(int t);
+extern void DrawElectricalOverlay(float level);
+extern void DrawPredTechOverlay(float level);
+extern void DrawPredTechNoiseOverlay(int t);
+extern void DrawHelmetNoiseOverlay(int t);
+extern void DrawSmartIROverlay(int t);
+extern void DrawIROverlay(int t);
+extern void DrawUVOverlay(int t);
+extern void DrawZoomOverlay(int t);
+extern void DrawZoom2Overlay(int t);
+extern void D3D_FadeDownScreen(int brightness, int colour);
+extern void D3D_ScreenInversionOverlay();
+extern void D3D_PredatorScreenInversionOverlay();
+extern void D3D_IRScreenInversionOverlay();
+extern void D3D_SiropMode();
+
 int predOVision_SoundHandle;
 
 extern int FMVParticleColour;
 extern int LogosAlphaLevel;
+extern int ERE_Broken(void);
 int PredatorVisionChangeCounter;
 
 static struct PredOVisionDescriptor PredOVision;
@@ -116,6 +135,9 @@ void SetupVision(void)
 	/* KJL 12:01:09 16/02/98 - init visionmode */
 	CurrentVisionMode = VISION_MODE_NORMAL;
 
+	if (AvP.PlayerType == I_Alien)
+		CurrentVisionMode = VISION_MODE_ALIEN_SENSE;
+
 	predOVision_SoundHandle=SOUND_NOACTIVEINDEX;
 	PredatorVisionChangeCounter=0;
 
@@ -151,16 +173,15 @@ void HandlePredOVision(void)
 	if (playerStatusPtr->IsAlive) {
 		CurrentGameStats_VisionMode(CurrentVisionMode);
 	}
-
-	if (playerStatusPtr->cloakOn)
-	{
-		DrawNoiseOverlay(16);
+	if (CurrentVisionMode==VISION_MODE_PRED_THERMAL) {
+		DrawThermalNoiseOverlay(64);
 	}
 	if (CurrentVisionMode==VISION_MODE_PRED_SEEPREDTECH)
 	{
 		D3D_PredatorScreenInversionOverlay();
+		DrawPredTechNoiseOverlay(32);
 	}
-	
+
 	if (CurrentVisionMode==VISION_MODE_NORMAL)
 	{
 		if (predOVision_SoundHandle!=SOUND_NOACTIVEINDEX)
@@ -207,17 +228,17 @@ extern void ChangePredatorVisionMode(void)
 		}
 		case VISION_MODE_PRED_THERMAL:
 		{
-			CurrentVisionMode=VISION_MODE_PRED_SEEALIENS;
+			CurrentVisionMode=VISION_MODE_PRED_SEEPREDTECH;
 			break;
 		}
 		case VISION_MODE_PRED_SEEALIENS:
 		{
-			CurrentVisionMode=VISION_MODE_PRED_SEEPREDTECH;
+			CurrentVisionMode=VISION_MODE_NORMAL;
 			break;
 		}
 		case VISION_MODE_PRED_SEEPREDTECH:
 		{
-			CurrentVisionMode=VISION_MODE_NORMAL;
+			CurrentVisionMode=VISION_MODE_PRED_SEEALIENS;
 			break;
 		}
 	}
@@ -225,6 +246,33 @@ extern void ChangePredatorVisionMode(void)
 	PredatorVisionChangeCounter=ONE_FIXED;
 }
 
+extern void ReverseChangePredatorVisionMode(void)
+{
+  switch (CurrentVisionMode) {
+    case VISION_MODE_NORMAL:
+    {
+      CurrentVisionMode=VISION_MODE_PRED_SEEALIENS;
+      break;
+    }
+    case VISION_MODE_PRED_THERMAL:
+    {
+      CurrentVisionMode=VISION_MODE_NORMAL;
+      break;
+    }
+    case VISION_MODE_PRED_SEEALIENS:
+    {
+      CurrentVisionMode=VISION_MODE_PRED_SEEPREDTECH;
+      break;
+    }
+    case VISION_MODE_PRED_SEEPREDTECH:
+    {
+      CurrentVisionMode=VISION_MODE_PRED_THERMAL;
+      break;
+    }
+  }
+  Sound_Play(SID_VISION_ON,"h");
+  PredatorVisionChangeCounter=ONE_FIXED;
+}
 
 /* Marine-O-Vision */
 
@@ -241,23 +289,80 @@ void SetupMarineOVision(void)
 void HandleMarineOVision(void)
 {
 	PLAYER_STATUS *playerStatusPtr= (PLAYER_STATUS *) (Player->ObStrategyBlock->SBdataptr);
-	
+	extern float CameraZoomScale;
+
 	if (playerStatusPtr->IsAlive) {
 		CurrentGameStats_VisionMode(CurrentVisionMode);
 	}
+	
+	/* Zombie-game Test: "Sirop" Mode */
+	//if (CurrentVisionMode == VISION_MODE_NORMAL)
+	//	D3D_SiropMode();
 
-	if (CurrentVisionMode == VISION_MODE_IMAGEINTENSIFIER)
+	/* #1 Check for existance of ERE Helmet */
+	if ((playerStatusPtr->ArmorType == 1) && (!ERE_Broken()))
 	{
-		DrawNoiseOverlay(64);
+		/* #2 Filter the different suit visual modes */
+
+		/* Normal and Visual-Filter */
+		if ((CurrentVisionMode == VISION_MODE_NORMAL) ||
+			(CurrentVisionMode == VISION_MODE_IMAGEINTENSIFIER)) {
+			DrawHelmetNoiseOverlay(150);
+		}
+	}
+	if (CameraZoomScale != 1.0f) {
+		PLAYER_WEAPON_DATA *weaponPtr = &(playerStatusPtr->WeaponSlot[playerStatusPtr->SelectedWeaponSlot]);
+
+		if (weaponPtr->WeaponIDNumber == WEAPON_FRISBEE_LAUNCHER)
+			DrawZoom2Overlay(255);
 	}
 
 	/* We might have just morphed. */
 	if (predOVision_SoundHandle!=SOUND_NOACTIVEINDEX) {
 		Sound_Stop(predOVision_SoundHandle);
 	}
-
 	if (playerStatusPtr->Mvt_InputRequests.Flags.Rqst_ChangeVision)
 	{
+		/* EVA ERE Stealth Suit code for Thermal vision */
+		if ((playerStatusPtr->ArmorType) && (!ERE_Broken()) && (playerStatusPtr->AirStatus))
+		{
+			if (visionModeDebounced)
+			{
+				visionModeDebounced = 0;
+				switch(CurrentVisionMode) {
+				case VISION_MODE_NORMAL:
+					NewOnScreenMessage("Broad-Spectrum Display activated");
+					NewOnScreenMessage("Visual Filter");
+					CurrentVisionMode = VISION_MODE_IMAGEINTENSIFIER;
+					FMVParticleColour = RGBA_MAKE(0,255,0,128);
+					Sound_Play(SID_IMAGE,"h");
+				break;
+				case VISION_MODE_IMAGEINTENSIFIER:
+					NewOnScreenMessage("Infra-Red Filter");
+					CurrentVisionMode = VISION_MODE_PRED_THERMAL;
+					Sound_Play(SID_IMAGE,"h");
+				break;
+				case VISION_MODE_PRED_THERMAL:
+					if (playerStatusPtr->ArmorType == 1) {
+						NewOnScreenMessage("Broad-Spectrum Display deactivated");
+						CurrentVisionMode = VISION_MODE_NORMAL;
+						FMVParticleColour = RGBA_MAKE(255,255,255,128);
+						Sound_Play(SID_IMAGE_OFF,"h");
+					} else if (playerStatusPtr->ArmorType == 2) {
+						NewOnScreenMessage("Ultra-Violet Filter");
+						CurrentVisionMode = VISION_MODE_PRED_SEEALIENS;
+						Sound_Play(SID_IMAGE,"h");
+					}
+				break;
+				case VISION_MODE_PRED_SEEALIENS:
+					NewOnScreenMessage("Broad-Spectrum Display deactivated");
+					CurrentVisionMode = VISION_MODE_NORMAL;
+					Sound_Play(SID_IMAGE_OFF,"h");
+				break;
+				}
+			}
+			return;
+		}
 		if (visionModeDebounced)
 		{
 			visionModeDebounced = 0;
@@ -271,11 +376,13 @@ void HandleMarineOVision(void)
 			}
 			else																					 
 			{
-				/* then we'll be changing to intensified vision */
-				NewOnScreenMessage(GetTextString(TEXTSTRING_INGAME_INTENSIFIERON));
-				CurrentVisionMode = VISION_MODE_IMAGEINTENSIFIER;
-				FMVParticleColour = RGBA_MAKE(0,255,0,128);
-				Sound_Play(SID_IMAGE,"h");
+				if (playerStatusPtr->IRGoggles == 1) {
+					/* then we'll be changing to intensified vision */
+					NewOnScreenMessage(GetTextString(TEXTSTRING_INGAME_INTENSIFIERON));
+					CurrentVisionMode = VISION_MODE_IMAGEINTENSIFIER;
+					FMVParticleColour = RGBA_MAKE(0,255,0,128);
+					Sound_Play(SID_IMAGE,"h");
+				}
 			}
 		}
 	}	
@@ -283,8 +390,6 @@ void HandleMarineOVision(void)
 	{
 		visionModeDebounced = 1;
 	}
-
-
 }
 
 

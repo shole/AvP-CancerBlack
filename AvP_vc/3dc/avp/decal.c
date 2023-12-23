@@ -23,9 +23,15 @@
 #include "paintball.h"
 #include "detaillevels.h"
 #include "savegame.h"
+#include "psnd.h"
+#include "psndplat.h"
+
+#include "bh_marin.h"
 
 #define UseLocalAssert Yes
 #include "ourasert.h"
+
+extern ACTIVESOUNDSAMPLE ActiveSounds[];
 
 #define MAX_NO_OF_DECALS 1024
 #define MAX_NO_OF_FIXED_DECALS 1024
@@ -37,10 +43,14 @@ this array stores the information required to render the predator players'
 laser sights. */
 THREE_LASER_DOT_DESC PredatorLaserSights[NET_MAXPLAYERS];
 
-
 static DECAL DecalStorage[MAX_NO_OF_DECALS];
 static int NumActiveDecals;
 static int CurrentDecalIndex;
+
+void AddLargeDecal(enum DECAL_ID decalID, VECTORCH *normalPtr, VECTORCH *positionPtr, int moduleIndex);
+void MakeLargeDecal(enum DECAL_ID decalID, VECTORCH *normalPtr, VECTORCH *positionPtr, int moduleIndex);
+void AddSmallDecal(enum DECAL_ID decalID, VECTORCH *normalPtr, VECTORCH *positionPtr, int moduleIndex);
+void MakeSmallDecal(enum DECAL_ID decalID, VECTORCH *normalPtr, VECTORCH *positionPtr, int moduleIndex);
 
 FIXED_DECAL FixedDecalStorage[MAX_NO_OF_FIXED_DECALS];
 int NumFixedDecals;
@@ -131,6 +141,7 @@ DECAL_DESC DecalDescription[MAX_NO_OF_DECAL_IDS] =
 	},
 	/* DECAL_BULLETHOLE */
 	{
+#if 0
 		//int StartU;
 		224<<16,
 		//int StartV;
@@ -144,6 +155,22 @@ DECAL_DESC DecalDescription[MAX_NO_OF_DECAL_IDS] =
 		32,
 		//int MaxSize;
 		32,
+#else
+		//int StartU;
+		130<<16,
+		//int StartV;
+		130<<16,
+		//int EndU;
+		216<<16,
+		//int EndV;
+		216<<16,
+
+		//int MinSize;
+		96,
+		//int MaxSize;
+		96,
+#endif
+
 		//int GrowthRate;
 		0,
 
@@ -156,7 +183,7 @@ DECAL_DESC DecalDescription[MAX_NO_OF_DECAL_IDS] =
 		TRANSLUCENCY_INVCOLOUR,
 					 
 		//unsigned char Alpha;
-		255,
+		127,
 		//unsigned char RedScale;
 		{255,255,255,255,255},
 		//unsigned char GreenScale;
@@ -456,6 +483,46 @@ DECAL_DESC DecalDescription[MAX_NO_OF_DECAL_IDS] =
 
 	},
 
+	/* DECAL_SHADOW */
+	{
+		//int StartU;
+		0<<16,
+		//int StartV;
+		64<<16,
+		//int EndU;
+		63<<16,
+		//int EndV;
+		127<<16,
+
+		//int MinSize;
+		20,
+		//int MaxSize;
+		200,
+		//int GrowthRate;
+		0,
+
+		//int MaxSubclassNumber;
+		0,
+		//int UOffsetForSubclass;
+		0,
+		
+		//enum TRANSLUCENCY_TYPE TranslucencyType;
+		TRANSLUCENCY_INVCOLOUR,
+
+		//unsigned char Alpha;
+		255,
+		//unsigned char RedScale;
+		{128,128,128,128,128},
+		//unsigned char GreenScale;
+		{128,128,128,128,128},
+		//unsigned char BlueScale;
+		{128,128,128,128,128},
+
+		//unsigned char IsLit:1;
+		0,
+		//unsigned char CanCombine:1;
+		0, 
+	},
 };
 
 
@@ -529,6 +596,19 @@ extern void RemoveAllFixedDecals(void)
 		NumFixedDecals = 0;
 	}
 }
+
+void MakeLargeDecal(enum DECAL_ID decalID, VECTORCH *normalPtr, VECTORCH *positionPtr, int moduleIndex)
+{
+	if (TooManyDecalsOfThisType(decalID,positionPtr)) return;
+	AddLargeDecal(decalID,normalPtr,positionPtr,moduleIndex);
+}
+
+void MakeSmallDecal(enum DECAL_ID decalID, VECTORCH *normalPtr, VECTORCH *positionPtr, int moduleIndex)
+{
+	if (TooManyDecalsOfThisType(decalID,positionPtr)) return;
+	AddSmallDecal(decalID,normalPtr,positionPtr,moduleIndex);
+}
+
 void MakeDecal(enum DECAL_ID decalID, VECTORCH *normalPtr, VECTORCH *positionPtr, int moduleIndex)
 {
 	if (TooManyDecalsOfThisType(decalID,positionPtr)) return;
@@ -612,7 +692,118 @@ static int TooManyDecalsOfThisType(enum DECAL_ID decalID, VECTORCH *positionPtr)
 	
 	return 0;
 }
-	
+
+void AddLargeDecal(enum DECAL_ID decalID, VECTORCH *normalPtr, VECTORCH *positionPtr, int moduleIndex)
+{
+	DECAL *decalPtr;
+	MATRIXCH orientation;
+	int decalSize;
+	extern int sine[],cosine[];
+	int theta = FastRandom()&4095;
+	int sin = GetSin(theta);
+	int cos = GetCos(theta);
+
+	MakeMatrixFromDirection(normalPtr,&orientation);
+
+	if (decalID == DECAL_SCORCHED) {
+		MakeImpactSmoke(&orientation,positionPtr);
+	}
+	decalPtr = AllocateDecal();
+	decalPtr->DecalID = decalID;
+	decalPtr->Centre = *positionPtr;
+
+	decalSize = 1000;//DecalDescription[decalID].MaxSize*2;
+	decalPtr->Vertices[0].vx = MUL_FIXED(-decalSize,cos) - MUL_FIXED(-decalSize,sin);
+	decalPtr->Vertices[0].vy = MUL_FIXED(-decalSize,sin) + MUL_FIXED(-decalSize,cos);
+	decalPtr->Vertices[0].vz = DECAL_Z_OFFSET;
+	RotateVector(&(decalPtr->Vertices[0]),&orientation);
+	decalPtr->Vertices[0].vx += positionPtr->vx;
+	decalPtr->Vertices[0].vy += positionPtr->vy;
+	decalPtr->Vertices[0].vz += positionPtr->vz;
+
+	decalPtr->Vertices[1].vx = MUL_FIXED(decalSize,cos) - MUL_FIXED(-decalSize,sin);
+	decalPtr->Vertices[1].vy = MUL_FIXED(decalSize,sin) + MUL_FIXED(-decalSize,cos);
+	decalPtr->Vertices[1].vz = DECAL_Z_OFFSET;
+	RotateVector(&(decalPtr->Vertices[1]),&orientation);
+	decalPtr->Vertices[1].vx += positionPtr->vx;
+	decalPtr->Vertices[1].vy += positionPtr->vy;
+	decalPtr->Vertices[1].vz += positionPtr->vz;
+
+	decalPtr->Vertices[2].vx = MUL_FIXED(decalSize,cos) - MUL_FIXED(decalSize,sin);
+	decalPtr->Vertices[2].vy = MUL_FIXED(decalSize,sin) + MUL_FIXED(decalSize,cos);
+	decalPtr->Vertices[2].vz = DECAL_Z_OFFSET;
+	RotateVector(&(decalPtr->Vertices[2]),&orientation);
+	decalPtr->Vertices[2].vx += positionPtr->vx;
+	decalPtr->Vertices[2].vy += positionPtr->vy;
+	decalPtr->Vertices[2].vz += positionPtr->vz;
+
+	decalPtr->Vertices[3].vx = MUL_FIXED(-decalSize,cos) - MUL_FIXED(decalSize,sin);
+	decalPtr->Vertices[3].vy = MUL_FIXED(-decalSize,sin) + MUL_FIXED(decalSize,cos);
+	decalPtr->Vertices[3].vz = DECAL_Z_OFFSET;
+	RotateVector(&(decalPtr->Vertices[3]),&orientation);
+	decalPtr->Vertices[3].vx += positionPtr->vx;
+	decalPtr->Vertices[3].vy += positionPtr->vy;
+	decalPtr->Vertices[3].vz += positionPtr->vz;
+
+	decalPtr->ModuleIndex = moduleIndex;
+
+	decalPtr->UOffset = 0;
+}
+
+void AddSmallDecal(enum DECAL_ID decalID, VECTORCH *normalPtr, VECTORCH *positionPtr, int moduleIndex)
+{
+	DECAL *decalPtr;
+	MATRIXCH orientation;
+	int decalSize;
+	extern int sine[],cosine[];
+	int theta = FastRandom()&4095;
+	int sin = GetSin(theta);
+	int cos = GetCos(theta);
+
+	MakeMatrixFromDirection(normalPtr,&orientation);
+
+	decalPtr = AllocateDecal();
+	decalPtr->DecalID = decalID;
+	decalPtr->Centre = *positionPtr;
+
+	decalSize = (DecalDescription[decalID].MinSize*2)+16;
+	decalPtr->Vertices[0].vx = MUL_FIXED(-decalSize,cos) - MUL_FIXED(-decalSize,sin);
+	decalPtr->Vertices[0].vy = MUL_FIXED(-decalSize,sin) + MUL_FIXED(-decalSize,cos);
+	decalPtr->Vertices[0].vz = DECAL_Z_OFFSET;
+	RotateVector(&(decalPtr->Vertices[0]),&orientation);
+	decalPtr->Vertices[0].vx += positionPtr->vx;
+	decalPtr->Vertices[0].vy += positionPtr->vy;
+	decalPtr->Vertices[0].vz += positionPtr->vz;
+
+	decalPtr->Vertices[1].vx = MUL_FIXED(decalSize,cos) - MUL_FIXED(-decalSize,sin);
+	decalPtr->Vertices[1].vy = MUL_FIXED(decalSize,sin) + MUL_FIXED(-decalSize,cos);
+	decalPtr->Vertices[1].vz = DECAL_Z_OFFSET;
+	RotateVector(&(decalPtr->Vertices[1]),&orientation);
+	decalPtr->Vertices[1].vx += positionPtr->vx;
+	decalPtr->Vertices[1].vy += positionPtr->vy;
+	decalPtr->Vertices[1].vz += positionPtr->vz;
+
+	decalPtr->Vertices[2].vx = MUL_FIXED(decalSize,cos) - MUL_FIXED(decalSize,sin);
+	decalPtr->Vertices[2].vy = MUL_FIXED(decalSize,sin) + MUL_FIXED(decalSize,cos);
+	decalPtr->Vertices[2].vz = DECAL_Z_OFFSET;
+	RotateVector(&(decalPtr->Vertices[2]),&orientation);
+	decalPtr->Vertices[2].vx += positionPtr->vx;
+	decalPtr->Vertices[2].vy += positionPtr->vy;
+	decalPtr->Vertices[2].vz += positionPtr->vz;
+
+	decalPtr->Vertices[3].vx = MUL_FIXED(-decalSize,cos) - MUL_FIXED(decalSize,sin);
+	decalPtr->Vertices[3].vy = MUL_FIXED(-decalSize,sin) + MUL_FIXED(decalSize,cos);
+	decalPtr->Vertices[3].vz = DECAL_Z_OFFSET;
+	RotateVector(&(decalPtr->Vertices[3]),&orientation);
+	decalPtr->Vertices[3].vx += positionPtr->vx;
+	decalPtr->Vertices[3].vy += positionPtr->vy;
+	decalPtr->Vertices[3].vz += positionPtr->vz;
+
+	decalPtr->ModuleIndex = moduleIndex;
+
+	decalPtr->UOffset = 0;
+}
+
 void AddDecal(enum DECAL_ID decalID, VECTORCH *normalPtr, VECTORCH *positionPtr, int moduleIndex)
 {
 	DECAL *decalPtr;
@@ -730,9 +921,7 @@ void AddDecal(enum DECAL_ID decalID, VECTORCH *normalPtr, VECTORCH *positionPtr,
 			decalPtr->UOffset = 0;
 			break;
 		}
-
 	}
-
 }
 
 void RenderLaserTarget(THREE_LASER_DOT_DESC *laserTargetPtr)
@@ -754,6 +943,159 @@ void RenderLaserTarget(THREE_LASER_DOT_DESC *laserTargetPtr)
 		
 		decal.DecalID = DECAL_LASERTARGET;
 		decalSize = DecalDescription[DECAL_LASERTARGET].MaxSize;
+
+		decal.Vertices[0].vx = -decalSize;
+		decal.Vertices[0].vy = -decalSize;
+		decal.Vertices[0].vz = DECAL_Z_OFFSET;
+		RotateVector(&(decal.Vertices[0]),&orientation);
+		decal.Vertices[0].vx += positionPtr->vx;
+		decal.Vertices[0].vy += positionPtr->vy;
+		decal.Vertices[0].vz += positionPtr->vz;
+
+		decal.Vertices[1].vx = decalSize;
+		decal.Vertices[1].vy = -decalSize;
+		decal.Vertices[1].vz = DECAL_Z_OFFSET;
+		RotateVector(&(decal.Vertices[1]),&orientation);
+		decal.Vertices[1].vx += positionPtr->vx;
+		decal.Vertices[1].vy += positionPtr->vy;
+		decal.Vertices[1].vz += positionPtr->vz;
+
+		decal.Vertices[2].vx = decalSize;
+		decal.Vertices[2].vy = decalSize;
+		decal.Vertices[2].vz = DECAL_Z_OFFSET;
+		RotateVector(&(decal.Vertices[2]),&orientation);
+		decal.Vertices[2].vx += positionPtr->vx;
+		decal.Vertices[2].vy += positionPtr->vy;
+		decal.Vertices[2].vz += positionPtr->vz;
+
+		decal.Vertices[3].vx = -decalSize;
+		decal.Vertices[3].vy = decalSize;
+		decal.Vertices[3].vz = DECAL_Z_OFFSET;
+		RotateVector(&(decal.Vertices[3]),&orientation);
+		decal.Vertices[3].vx += positionPtr->vx;
+		decal.Vertices[3].vy += positionPtr->vy;
+		decal.Vertices[3].vz += positionPtr->vz;
+
+		decal.ModuleIndex = playerPherModule->m_index;
+		decal.UOffset = 0;
+		RenderDecal(&decal);
+	}
+	while(i--);
+}
+
+void RenderAILaserbeam(THREE_LASER_DOT_DESC *laserTargetPtr, STRATEGYBLOCK *sbPtr)
+{
+	PARTICLE beam;
+	SECTION_DATA *plasma_muzzle;
+
+	if (sbPtr->I_SBtype == I_BehaviourNetGhost)
+	{
+		NETGHOSTDATABLOCK *ghostData = (NETGHOSTDATABLOCK *)sbPtr->SBdataptr;
+
+		plasma_muzzle=GetThisSectionData(ghostData->HModelController.section_data,"dum flash");
+
+		if (plasma_muzzle != NULL) {
+			beam.Colour = RGBA_MAKE(255,0,0,32);
+			beam.ParticleID = PARTICLE_PLASMABEAM;
+			beam.Position = plasma_muzzle->World_Offset;
+			beam.Offset = laserTargetPtr->Position[0];
+			beam.Size = 8;
+			RenderParticle(&beam);
+		}
+	} else {
+		beam.Colour = RGBA_MAKE(255,0,0,32);
+		beam.ParticleID = PARTICLE_PLASMABEAM;
+		beam.Position = laserTargetPtr->LightSource;
+		beam.Offset = laserTargetPtr->Position[0];
+		beam.Size = 8;
+		RenderParticle(&beam);
+	}
+}
+
+void RenderPlayerLightbeam(VECTORCH *offset)
+{
+	extern void GetGunDirection2(VECTORCH *gunDirectionPtr, VECTORCH *positionPtr);
+	PARTICLE beam;
+	VECTORCH position={-50,0,0};
+
+	/* calculate the position */
+	{
+		extern VIEWDESCRIPTORBLOCK *ActiveVDBList[];
+		VIEWDESCRIPTORBLOCK *VDBPtr = ActiveVDBList[0];
+
+		MATRIXCH matrix = VDBPtr->VDB_Mat;
+		TransposeMatrixCH(&matrix);
+
+		RotateVector(&position,&matrix);
+		
+		position.vx += VDBPtr->VDB_World.vx;
+		position.vy += VDBPtr->VDB_World.vy;
+		position.vz += VDBPtr->VDB_World.vz;
+	}
+	beam.Colour = RGBA_MAKE(255,255,255,32);
+	beam.ParticleID = PARTICLE_LASERBEAM;
+	beam.Position = position;
+	beam.Offset = *offset;
+	beam.Size = 40;
+	RenderParticle(&beam);
+}
+
+void RenderPlayerLaserbeam(THREE_LASER_DOT_DESC *laserTargetPtr)
+{
+	extern void GetGunDirection2(VECTORCH *gunDirectionPtr, VECTORCH *positionPtr);
+	PARTICLE beam;
+	VECTORCH position={-200,0,0};
+	/* calculate the position */
+	{
+		extern VIEWDESCRIPTORBLOCK *ActiveVDBList[];
+		VIEWDESCRIPTORBLOCK *VDBPtr = ActiveVDBList[0];
+
+		MATRIXCH matrix = VDBPtr->VDB_Mat;
+		TransposeMatrixCH(&matrix);
+			
+	  	RotateVector(&position,&matrix);
+	
+	 	position.vx += VDBPtr->VDB_World.vx;
+		position.vy += VDBPtr->VDB_World.vy;
+		position.vz += VDBPtr->VDB_World.vz;
+  	}
+	beam.Colour = RGBA_MAKE(255,0,0,128);
+	beam.ParticleID = PARTICLE_PLASMABEAM;
+	beam.Position = position;
+	beam.Offset = laserTargetPtr->Position[0];
+	beam.Size = 8;
+	RenderParticle(&beam);
+}
+
+// This damn function does not work. Silly rotation shit!!!
+void RenderShadow(STRATEGYBLOCK *sbPtr)
+{
+	extern MODULE * playerPherModule;
+	PLAYER_STATUS *psPtr = (PLAYER_STATUS *) sbPtr->SBdataptr;
+	DYNAMICSBLOCK *dynPtr;
+	VECTORCH shadowDir;
+	int i;
+
+	dynPtr = sbPtr->DynPtr;
+	shadowDir = Player->ObWorld;
+
+	if (!playerPherModule) return;
+	if (!psPtr) return;
+	if (psPtr->IsMovingInWater) return;
+	if (!dynPtr->IsInContactWithFloor) return;
+
+	i=1;
+	do
+	{
+		DECAL decal;
+		MATRIXCH orientation;
+		int decalSize; 
+		VECTORCH *positionPtr = &dynPtr->Position;
+
+		MakeMatrixFromDirection(&shadowDir,&orientation);
+		
+		decal.DecalID = DECAL_SHADOW;
+		decalSize = DecalDescription[DECAL_SHADOW].MaxSize;
 
 		decal.Vertices[0].vx = -decalSize;
 		decal.Vertices[0].vy = -decalSize;
@@ -858,7 +1200,10 @@ void HandleDecalSystem(void)
 	if (AvP.PlayerType == I_Predator && PredatorLaserTarget.ShouldBeDrawn)
 	{
 		RenderLaserTarget(&PredatorLaserTarget);
+		RenderPlayerLaserbeam(&PredatorLaserTarget);
 	}
+	// Render Player's Shadow
+	//RenderShadow(Player->ObStrategyBlock);
 
  	
 	{
@@ -886,8 +1231,7 @@ void HandleDecalSystem(void)
 							{
 								continue;
 							}
-							if ((ghostData->CurrentWeapon != WEAPON_PRED_RIFLE)
-							  &&(ghostData->CurrentWeapon != WEAPON_PRED_SHOULDERCANNON))
+							if (ghostData->CurrentWeapon != WEAPON_PRED_SHOULDERCANNON)
 							{
 								continue;
 							}
@@ -904,7 +1248,13 @@ void HandleDecalSystem(void)
 							}
 							else
 							{
-								RenderLaserTarget(&PredatorLaserSights[playerIndex]);
+								// Locking on to either an Alien AI here, or a player...
+								// This fucking thing does not work!!! -- ELD
+								if (PredatorLaserSights[playerIndex].TargetID)
+								{
+									RenderLaserTarget(&PredatorLaserSights[playerIndex]);
+									RenderAILaserbeam(&PredatorLaserSights[playerIndex],sbPtr);
+								}
 							}
 						}
 						break;
@@ -921,16 +1271,17 @@ void HandleDecalSystem(void)
 							if (statusPtr->Pred_Laser_Sight.DotIsOnPlayer)
 							{
 //								textprint("Render flare\n");
-								RenderLightFlare(&(statusPtr->Pred_Laser_Sight.LightSource),0xffff0000);
+								RenderLightFlare(&(statusPtr->Pred_Laser_Sight.LightSource),0xffff0000);							
 							}
 							else
 							{
 //								textprint("Render dots\n");
 								RenderLaserTarget(&(statusPtr->Pred_Laser_Sight));
+								RenderAILaserbeam(&(statusPtr->Pred_Laser_Sight), sbPtr);
 							}
 						}
-						break;
-						
+						//RenderShadow(sbPtr);
+						break;	
 					}
 					default:
 						break;
@@ -956,7 +1307,7 @@ void AddDecalToHModel(VECTORCH *normalPtr, VECTORCH *positionPtr, SECTION_DATA *
 	MATRIXCH orientation;
 	VECTORCH v;
 
-	int decalSize; 
+	int decalSize, i; 
 	extern int sine[],cosine[];
 	int theta,sin,cos;
 
@@ -1002,10 +1353,13 @@ void AddDecalToHModel(VECTORCH *normalPtr, VECTORCH *positionPtr, SECTION_DATA *
 		}
 		else
 		{
-			decalID = DECAL_BULLETHOLE;
+			decalID = DECAL_SCORCHED;
 		}
 
 	}
+
+	for (i=0; i < 2; i++)
+	{
 
 	decalPtr = &sectionDataPtr->Decals[sectionDataPtr->NextDecalToUse];
 	
@@ -1025,7 +1379,11 @@ void AddDecalToHModel(VECTORCH *normalPtr, VECTORCH *positionPtr, SECTION_DATA *
 
 	
 	decalPtr->DecalID = decalID;
-	decalSize = 40;//DecalDescription[decalID].MaxSize;
+
+	if (i != 0)
+		decalPtr->DecalID = DECAL_SCORCHED;
+
+	decalSize = 40/(i+1);//DecalDescription[decalID].MaxSize;
 
 	decalPtr->Centre = v;
 
@@ -1060,6 +1418,8 @@ void AddDecalToHModel(VECTORCH *normalPtr, VECTORCH *positionPtr, SECTION_DATA *
 	decalPtr->Vertices[3].vx += v.vx;
 	decalPtr->Vertices[3].vy += v.vy;
 	decalPtr->Vertices[3].vz += v.vz;
+
+	} // For-loop
 }
 
 

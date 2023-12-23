@@ -25,6 +25,8 @@
 #include "psnd.h"
 #include "savegame.h"
 
+#include "shellapi.h"
+
 #if 0
 #undef BRIGHTNESS_CHANGE_SPEED
 #define BRIGHTNESS_CHANGE_SPEED (RealFrameTime/4)
@@ -34,7 +36,40 @@
 extern void StartMenuBackgroundBink(void);
 extern int PlayMenuBackgroundBink(void);
 extern void EndMenuBackgroundBink(void);
-
+extern void LoadDefaultPrimaryConfigs();
+extern void TimeStampedMessage(char *stringPtr);
+extern void InitialiseMenuGfx();
+extern void PlayMenuMusic();
+extern void EndMenuMusic();
+extern int DirectPlay_ConnectingToLobbiedGame(char *playerName);
+extern int DirectPlay_ConnectingToSession();
+extern void D3D_DrawColourBar(int yTop, int yBottom, int rScale, int gScale, int bScale);
+extern int AnyCheatModesAllowed();
+extern void LoadDeviceAndVideoModePreferences();
+extern int NumberOfAvailableLevels(I_PLAYER_TYPE playerID);
+extern int LevelMostLikelyToPlay(I_PLAYER_TYPE playerID);
+extern void DirectPlay_EnumConnections();
+extern void MakeConnectionSelectMenu();
+extern int HeightOfMenuElement(AVPMENU_ELEMENT *elementPtr);
+extern int MaxDifficultyLevelAllowed(I_PLAYER_TYPE playerID, int level);
+extern void RenderKeyConfigRectangle(int alpha);
+extern void Hardware_RenderKeyConfigRectangle(int alpha);
+extern void Hardware_RenderHighlightRectangle(int x1, int y1, int x2, int y2, int r, int g, int b);
+extern void RenderHighlightRectangle(int x1, int y1, int x2, int y2, int r, int g, int b);
+extern void RenderSmallFontString_Wrapped(char *textPtr, RECT *area, int alpha, int *output_x, int *output_y);
+extern int CheatMode_GetNextAllowedSpecies(int *speciesPtr, int searchForward);
+extern int CheatMode_GetNextAllowedMode(int *cheatModePtr, int searchForward);
+extern int CheatMode_GetNextAllowedEnvironment(int *environmentPtr, int searchForward);
+extern void InitAVPNetGameForJoin();
+extern int LaunchMplayer();
+extern void NextVideoMode2();
+extern void PreviousVideoMode2();
+extern void SaveDeviceAndVideoModePreferences();
+extern int LengthOfMenuText(char *textPtr);
+extern char *GetVideoModeDescription2();
+extern char *GetVideoModeDescription3();
+extern int SelectDirectDrawObject(LPGUID pGUID);
+extern int IntroOutroMoviesAreActive;
 
 /* KJL 11:22:37 23/06/98 - Hopefully these will be the final menus! */
 
@@ -69,6 +104,14 @@ extern int DirectPlay_JoinGame(void);
 extern int DirectPlay_ConnectToSession(int sessionNumber, char *playerName);
 extern int DirectPlay_Disconnect(void);
 
+// ELDRITCH: Add new externs here!
+extern int NumMissionLevels;
+extern int NumEscapeLevels;
+extern int NumTKOTHLevels;
+extern char** MissionLevelNames;
+extern char** EscapeLevelNames;
+extern char** TKOTHLevelNames;
+
 extern void ShowSplashScreens(void);
 extern void Show_WinnerScreen(void);
 
@@ -81,6 +124,7 @@ extern char MP_Config_Name[];
 
 void HandlePostGameFMVs(void);
 void HandlePreGameFMVs(void);
+void DrawMissionBackdrop();
 extern void AvP_UpdateMenus(void);
 static void SetupNewMenu(enum AVPMENU_ID menuID);
 static void RenderMenu(void);
@@ -276,7 +320,9 @@ extern int AvP_MainMenus(void)
 
 	if(AvP.LevelCompleted && CheatMode_Active == CHEATMODE_NONACTIVE && !DebuggingCommandsActive)
 	{
-		HandlePostGameFMVs();
+		if (IntroOutroMoviesAreActive)
+			HandlePostGameFMVs();
+
 		OkayToPlayNextEpisode();
 		AvP.LevelCompleted = 0;
 		AvPMenus.MenusState = MENUSSTATE_MAINMENUS;
@@ -338,7 +384,9 @@ extern int AvP_MainMenus(void)
 		if(!LaunchingMplayer)
 		{
  			if (!LobbiedGame)	// Edmond
+			{
 				DoCredits();
+			}
 		}
 	}
 	TimeStampedMessage("ready to exit menus");
@@ -360,7 +408,7 @@ extern int AvP_MainMenus(void)
 	SoundSys_StopAll();
 	SoundSys_Management();
 
-	if (CheatMode_Active == CHEATMODE_NONACTIVE) HandlePreGameFMVs();
+	//if (CheatMode_Active == CHEATMODE_NONACTIVE) HandlePreGameFMVs();
 
 	HandleCheatModeFeatures();
 	AvP.LevelCompleted = 0;
@@ -369,16 +417,19 @@ extern int AvP_MainMenus(void)
 }
 void HandlePostGameFMVs(void)
 {
+	extern char LevelName[];
+
 	switch(AvP.PlayerType)
 	{
 		case I_Marine:
 		{
-			if (MarineEpisodeToPlay==MAX_NO_OF_BASIC_MARINE_EPISODES-1)
+			if (!stricmp("derelict", &LevelName))
 			{
 				ClearScreenToBlack();
 				FlipBuffers();
 				ClearScreenToBlack();
-				PlayBinkedFMV("FMVs/marineoutro.bik");
+				//ShellExecute(NULL,NULL,"c:/mina dokument/filmer/pitch black.avi","/fullscreen /play /close",NULL,SW_SHOWNORMAL);
+				//PlayBinkedFMV("FMVs/marineoutro.bik");
 			}
 			break;
 		}
@@ -389,7 +440,7 @@ void HandlePostGameFMVs(void)
 				ClearScreenToBlack();
 				FlipBuffers();
 				ClearScreenToBlack();
-				PlayBinkedFMV("FMVs/alienoutro.bik");
+				//PlayBinkedFMV("FMVs/alienoutro.bik");
 			}
 			break;
 		}
@@ -400,7 +451,7 @@ void HandlePostGameFMVs(void)
 				ClearScreenToBlack();
 				FlipBuffers();
 				ClearScreenToBlack();
-				PlayBinkedFMV("FMVs/predatoroutro.bik");
+				//PlayBinkedFMV("FMVs/predatoroutro.bik");
 			}
 			break;
 		}
@@ -408,31 +459,68 @@ void HandlePostGameFMVs(void)
 }
 void HandlePreGameFMVs(void)
 {
-	if (AvPMenus.MenusState == MENUSSTATE_STARTGAME && LoadGameRequest == SAVELOAD_REQUEST_NONE)
+	extern char LevelName[];
+	if (!stricmp("derelict",&LevelName))
 	{
-		extern char LevelName[];
-		if (!stricmp("derelict",&LevelName))
-		{
-			ClearScreenToBlack();
-			FlipBuffers();
-			ClearScreenToBlack();
-			PlayBinkedFMV("FMVs/marineintro.bik");
-		}
-		else if (!stricmp("temple",&LevelName))
-		{
-			ClearScreenToBlack();
-			FlipBuffers();
-			ClearScreenToBlack();
-			PlayBinkedFMV("FMVs/alienintro.bik");
-		}
-		else if (!stricmp("fall",&LevelName))
-		{
-			ClearScreenToBlack();
-			FlipBuffers();
-			ClearScreenToBlack();
-			PlayBinkedFMV("FMVs/predatorintro.bik");
-		}
+		ClearScreenToBlack();
+		FlipBuffers();
+		ClearScreenToBlack();
+		//ShellExecute(NULL,NULL,"c:/mina dokument/filmer/starship troopers.avi","/fullscreen /play /close,NULL,SW_SHOWNORMAL);
+		//PlayBinkedFMV("FMVs/marineintro.bik");
 	}
+	else if (!stricmp("fall",&LevelName))
+	{
+		ClearScreenToBlack();
+		FlipBuffers();
+		ClearScreenToBlack();
+		//PlayBinkedFMV("FMVs/predatorintro.bik");
+	}
+}
+
+int NoDestruct(void)
+{
+	extern char LevelName[];
+
+	if (!stricmp("valore",&LevelName))
+		return TRUE;
+
+	return FALSE;
+}
+
+int ShowLightning(void)
+{
+	extern char LevelName[];
+
+	if (!strcmp("arrival",&LevelName))
+		return TRUE;
+
+	if (!strcmp("outpost",&LevelName))
+		return TRUE;
+
+	if (!strcmp("Custom\\am_rescue",&LevelName))
+		return TRUE;
+
+	return FALSE;
+}
+
+int PlasmaTurretExists(void)
+{
+	extern char LevelName[];
+
+	if (!stricmp("arrival",&LevelName))
+		return TRUE;
+
+	return FALSE;
+}
+
+int OverrideLevelSky(void)
+{
+	extern char LevelName[];
+
+	if (!stricmp(&LevelName, "apclevel2"))
+		return TRUE;
+
+	return FALSE;
 }
 
 extern void QuickSplashScreens(void)
@@ -442,7 +530,7 @@ extern void QuickSplashScreens(void)
 	{
 		Show_WinnerScreen();
 	}
-	ShowSplashScreens();
+//	ShowSplashScreens();
 }
 
 extern void AvP_TriggerInGameMenus(void)
@@ -1245,9 +1333,9 @@ static void RenderMenu(void)
 	if (AvPMenus.MenusState == MENUSSTATE_MAINMENUS)
 	{
 		char *textPtr = GetTextString(AvPMenusData[AvPMenus.CurrentMenu].MenuTitle);
-		RenderMenuText(textPtr,MENU_CENTREX,70,ONE_FIXED,AVPMENUFORMAT_CENTREJUSTIFIED);
+		//RenderMenuText(textPtr,MENU_CENTREX,70,ONE_FIXED,AVPMENUFORMAT_CENTREJUSTIFIED);
 		
-#if 1 // and now we've been told to remove the "Gamers Edition" etc. :)
+#if 0 // and now we've been told to remove the "Gamers Edition" etc. :)
 		// main menu subtitle e.g. "Gamers Edition" etc.
 		if (AvPMenusData[AvPMenus.CurrentMenu].MenuTitle==TEXTSTRING_MAINMENU_TITLE)
 			RenderMenuText(GetTextString(TEXTSTRING_MAINMENU_SUBTITLE),MENU_CENTREX,100,ONE_FIXED,AVPMENUFORMAT_CENTREJUSTIFIED);
@@ -2000,7 +2088,6 @@ static void RenderConfigurationDescriptionString()
 		area.right=MENU_RIGHTXEDGE;
 		area.top=0;
 		area.bottom=60;
-
 		RenderSmallFontString_Wrapped(text,&area,BRIGHTNESS_OF_HIGHLIGHTED_ELEMENT,0,0);
 	}
 }
@@ -2482,22 +2569,43 @@ static void InteractWithMenuElement(enum AVPMENU_ELEMENT_INTERACTION_ID interact
 
 		case AVPMENU_ELEMENT_NUMBERFIELD:
 		{
+			int StringId = TEXTSTRING_MULTIPLAYER_LIVES;
+
 			if(interactionID == AVPMENU_ELEMENT_INTERACTION_DECREASE)
 			{
-				(*elementPtr->NumberPtr)--;
-				if(*elementPtr->NumberPtr<0)
+				// Something very special. Billets can only be set
+				// to a number between 1 and 5.
+				if (elementPtr->TextDescription == StringId)
 				{
-					*elementPtr->NumberPtr=0;
+					if (*elementPtr->NumberPtr == 1)
+						*elementPtr->NumberPtr = 1;
+					else
+						*elementPtr->NumberPtr-=1;
+				} else {
+					(*elementPtr->NumberPtr)--;
+					if(*elementPtr->NumberPtr<0)
+					{
+						*elementPtr->NumberPtr=0;
+					}
 				}
 			}
 			else if(interactionID == AVPMENU_ELEMENT_INTERACTION_INCREASE)
 			{
-				(*elementPtr->NumberPtr)++;
-				if(*elementPtr->NumberPtr>elementPtr->MaxValue)
+				// Something very special. Billets can only be set
+				// to a number between 1 and 5.
+				if (elementPtr->TextDescription == StringId)
 				{
-					*elementPtr->NumberPtr=elementPtr->MaxValue;
+					if (*elementPtr->NumberPtr == 5)
+						*elementPtr->NumberPtr = 5;
+					else
+						*elementPtr->NumberPtr+=1;
+				} else {
+					(*elementPtr->NumberPtr)++;
+					if(*elementPtr->NumberPtr>elementPtr->MaxValue)
+					{
+						*elementPtr->NumberPtr=elementPtr->MaxValue;
+					}
 				}
-				
 			}
 			else
 			{
@@ -2520,6 +2628,7 @@ static void InteractWithMenuElement(enum AVPMENU_ELEMENT_INTERACTION_ID interact
 			if ((interactionID == AVPMENU_ELEMENT_INTERACTION_SELECT)
 			  ||(interactionID == AVPMENU_ELEMENT_INTERACTION_INCREASE))
 			{
+				
 				if (*elementPtr->SliderValuePtr<elementPtr->MaxSliderValue)
 				{
 					*elementPtr->SliderValuePtr+=1;
@@ -2537,21 +2646,47 @@ static void InteractWithMenuElement(enum AVPMENU_ELEMENT_INTERACTION_ID interact
 		case AVPMENU_ELEMENT_TEXTSLIDER:
 		case AVPMENU_ELEMENT_TEXTSLIDER_POINTER:
 		{
+			int StringId = TEXTSTRING_MULTIPLAYER_GAMESTYLE;
+
 			if ((interactionID == AVPMENU_ELEMENT_INTERACTION_SELECT)
 			  ||(interactionID == AVPMENU_ELEMENT_INTERACTION_INCREASE))
 			{
-				*elementPtr->SliderValuePtr+=1;
-				if (*elementPtr->SliderValuePtr>elementPtr->MaxSliderValue)
+				// Made something special here... If the slider is zero (DM)
+				// it is updated to four (Coop), and vice versa, so we only
+				// get two gamemodes.. -- ELDRITCH
+				//
+				if (elementPtr->TextDescription == StringId)
 				{
-					*elementPtr->SliderValuePtr=0;
+					if (*elementPtr->SliderValuePtr == 0)
+						*elementPtr->SliderValuePtr = 4;
+					else
+						*elementPtr->SliderValuePtr = 0;
+				} else {
+					*elementPtr->SliderValuePtr+=1;
+					if (*elementPtr->SliderValuePtr>elementPtr->MaxSliderValue)
+					{
+						*elementPtr->SliderValuePtr=0;
+					}
 				}
 			}
 			else
 			{
-				*elementPtr->SliderValuePtr-=1;
-				if (*elementPtr->SliderValuePtr<0)
+				// Made something special here... If the slider is zero (DM)
+				// it is updated to four (Coop), and vice versa, so we only
+				// get two gamemodes.. -- ELDRITCH
+				//
+				if (elementPtr->TextDescription == StringId)
 				{
-					*elementPtr->SliderValuePtr=elementPtr->MaxSliderValue;
+					if (*elementPtr->SliderValuePtr == 0)
+						*elementPtr->SliderValuePtr = 4;
+					else
+						*elementPtr->SliderValuePtr = 0;
+				} else {
+					*elementPtr->SliderValuePtr-=1;
+					if (*elementPtr->SliderValuePtr<0)
+					{
+						*elementPtr->SliderValuePtr=elementPtr->MaxSliderValue;
+					}
 				}
 			}
 			break;
@@ -2778,6 +2913,10 @@ static void InteractWithMenuElement(enum AVPMENU_ELEMENT_INTERACTION_ID interact
 				AvP.PlayerType = I_Marine;
 				SetLevelToLoadForMarine(MarineEpisodeToPlay);
 
+				// Eldritch -- Play intro movies now...
+				if (IntroOutroMoviesAreActive)
+					HandlePreGameFMVs();
+
 				if (MarineEpisodeToPlay<MAX_NO_OF_BASIC_MARINE_EPISODES)
 				{
 					SetupNewMenu(AVPMENU_LEVELBRIEFING_BASIC);
@@ -2932,10 +3071,8 @@ static void InteractWithMenuElement(enum AVPMENU_ELEMENT_INTERACTION_ID interact
 						SetLevelToLoadForCooperative(netGameData.levelNumber);
 					else
 						SetLevelToLoadForMultiplayer(netGameData.levelNumber);
-	
-					
+
 					SetBriefingTextForMultiplayer();
-					
 				}
 			}
 			break;
@@ -3109,6 +3246,14 @@ static void InteractWithMenuElement(enum AVPMENU_ELEMENT_INTERACTION_ID interact
 							extern int AutoWeaponChangeOn_Temp;
 							extern int AutoWeaponChangeOn;
 							AutoWeaponChangeOn = AutoWeaponChangeOn_Temp;
+
+							#if EXTENDED_CONTROLS
+							{
+								extern int RunMode_Temp;
+								extern int RunMode;
+								RunMode = RunMode_Temp;
+							}
+							#endif
 						}
 						break;
 					}
@@ -3116,12 +3261,29 @@ static void InteractWithMenuElement(enum AVPMENU_ELEMENT_INTERACTION_ID interact
 					{
 						PredatorInputPrimaryConfig       = PlayerInputPrimaryConfig;
 						PredatorInputSecondaryConfig = PlayerInputSecondaryConfig;
+						{
+							#if EXTENDED_CONTROLS
+							extern int RunMode_Temp;
+							extern int RunMode;
+							RunMode = RunMode_Temp;
+							#endif
+						}
 						break;
 					}
 					case AVPMENU_ALIENKEYCONFIG:
 					{
 						AlienInputPrimaryConfig   = PlayerInputPrimaryConfig;
 						AlienInputSecondaryConfig = PlayerInputSecondaryConfig;
+						{
+							#if EXTENDED_CONTROLS
+							extern int RunMode_Temp;
+							extern int RunMode;
+							extern int CrouchMode_Temp;
+							extern int CrouchIsToggleKey;
+							RunMode = RunMode_Temp;
+							CrouchIsToggleKey = CrouchMode_Temp;
+							#endif
+						}
 						break;
 					}
 					case AVPMENU_CONTROLS:
@@ -4494,12 +4656,12 @@ void DisplayVideoModeUnavailableScreen(void)
 
 void CheckForCredits(void)
 {
-	FILE *fp = fopen("credits.txt","rb");
+	FILE *fp = fopen("cb_credits.txt","rb");
 	
 	if (!fp)
 	{
 		char message[100];
-		sprintf(message,"Unable to access credits.txt\n");
+		sprintf(message,"Unable to access cb_credits.txt\n");
 		MessageBox(NULL,message,"AvP Error",MB_OK+MB_SYSTEMMODAL);
 		exit(0x111);
 		return;
@@ -4514,7 +4676,7 @@ void DoCredits(void)
 	int position = 300*2048;
 	BOOL FinishedCredits = FALSE;
 	
-	char *creditsBufferPtr = LoadTextFile("credits.txt");
+	char *creditsBufferPtr = LoadTextFile("cb_credits.txt");
 	char *creditsPtr;
 	
 	if (!creditsBufferPtr) return;
@@ -4547,7 +4709,7 @@ void DoCredits(void)
 	}
 	while(!DebouncedGotAnyKey && !FinishedCredits);
 
-	UnloadTextFile("credits.txt",creditsPtr);
+	UnloadTextFile("cb_credits.txt",creditsPtr);
 }
 
 BOOL RollCreditsText(int position, unsigned char *textPtr)
@@ -4784,8 +4946,6 @@ static void InitMainMenusBackdrop(void)
 	#endif
 	StartMenuBackgroundBink();
 }
-
-
 
 extern void DrawMainMenusBackdrop(void)
 {
@@ -5035,7 +5195,31 @@ static void UpdateMultiplayerConfigurationMenu()
 		netGameData.gameType=NGT_Coop;
 	}
 	
-	if(netGameData.gameType!=NGT_Coop)
+	// ELDRITCH: Need to add NGT_ here to make levels selectable...
+	/*if (netGameData.gameType==NGT_LastManStanding)
+	{
+		elementPtr->MaxSliderValue = NumMissionLevels-1;
+		elementPtr->TextSliderStringPointer = MissionLevelNames;
+
+		netGameData.levelNumber%=NumMissionLevels;
+	}
+	else if (netGameData.gameType==NGT_PredatorTag)
+	{
+		elementPtr->MaxSliderValue = NumEscapeLevels-1;
+		elementPtr->TextSliderStringPointer = EscapeLevelNames;
+
+		//make sure the level number is within bounds
+		netGameData.levelNumber%=NumMultiplayerLevels;
+	}
+	else if (netGameData.gameType==NGT_AlienTag)
+	{
+		elementPtr->MaxSliderValue = NumTKOTHLevels-1;
+		elementPtr->TextSliderStringPointer = TKOTHLevelNames;
+
+		//make sure the level number is within bounds
+		netGameData.levelNumber%=NumMultiplayerLevels;
+	}
+	else*/ if(netGameData.gameType!=NGT_Coop)
 	{
 		elementPtr->MaxSliderValue = NumMultiplayerLevels-1;
 		elementPtr->TextSliderStringPointer = MultiplayerLevelNames;
@@ -5171,7 +5355,9 @@ static BOOL IsFlamerInLevel(int level)
 
 static BOOL IsMinigunInLevel(int level)
 {
-	if(level == AVP_ENVIRONMENT_SEWER)
+	/* No Drill in Dome */
+	if (level == AVP_ENVIRONMENT_SEWER ||
+		level == AVP_ENVIRONMENT_ELEVATOR_MP)
 	{
 		return FALSE;
 	}
@@ -5180,6 +5366,7 @@ static BOOL IsMinigunInLevel(int level)
 
 static BOOL IsSadarInLevel(int level)
 {
+	/* No FLOG in Dome */
 	if(level == AVP_ENVIRONMENT_MASSACRE ||
 	   level == AVP_ENVIRONMENT_MEATFACTORY_MP ||
 	   level == AVP_ENVIRONMENT_MEATFACTORY_COOP ||
@@ -5189,7 +5376,8 @@ static BOOL IsSadarInLevel(int level)
 	   level == AVP_ENVIRONMENT_HIVE_COOP ||
 	   level == AVP_ENVIRONMENT_KENS_COOP ||
 	   level == AVP_ENVIRONMENT_LEADWORKS_MP ||
-	   level == AVP_ENVIRONMENT_LEADWORKS_COOP)
+	   level == AVP_ENVIRONMENT_LEADWORKS_COOP ||
+	   level == AVP_ENVIRONMENT_ELEVATOR_MP)
 	{
 		return FALSE;
 	}
@@ -5198,8 +5386,10 @@ static BOOL IsSadarInLevel(int level)
 
 static BOOL IsSkeeterInLevel(int level)
 {
+	/* No Plasma in Dome */
 	if(level == AVP_ENVIRONMENT_LEADWORKS_MP ||
-	   level == AVP_ENVIRONMENT_LEADWORKS_COOP)
+	   level == AVP_ENVIRONMENT_LEADWORKS_COOP ||
+	   level == AVP_ENVIRONMENT_ELEVATOR_MP)
 	{
 		return FALSE;
 	}
@@ -5212,101 +5402,36 @@ static BOOL IsSmartgunInLevel(int level)
 	return TRUE;
 }
 
+static BOOL IsShotgunInLevel(int level)
+{
+	/* No Shotgun in Dome */
+	if (level == AVP_ENVIRONMENT_ELEVATOR_MP) return FALSE;
+	return TRUE;
+}
 
 static void SetBriefingTextForMultiplayer()
 {
 	int level = NumberForCurrentLevel();
-
 	int num_not_available = 0;
+	extern char LevelName[];
+
+	MultiplayerBriefing[0][0] = 0;
+	MultiplayerBriefing[1][0] = 0;
+	MultiplayerBriefing[2][0] = 0;
 
 	if(netGameData.customLevelName[0] != 0)
 	{
 		//custom level
 		BriefingTextString[0] = netGameData.customLevelName;
-		return;
-	}
-	
-	MultiplayerBriefing[0][0] = 0;
-	MultiplayerBriefing[1][0] = 0;
-	MultiplayerBriefing[2][0] = 0;
-
-	if(!netGameData.allowSmartgun || !IsSmartgunInLevel(level))
-	{
-		AddMultiplayerBriefingString(GetTextString(TEXTSTRING_INGAME_SMARTGUN));
-		num_not_available++;
-	}
-	if(!netGameData.allowFlamer || !IsFlamerInLevel(level))
-	{
-		AddMultiplayerBriefingString(GetTextString(TEXTSTRING_INGAME_FLAMETHROWER));
-		num_not_available++;
-	}
-	if(!netGameData.allowSadar || !IsSadarInLevel(level))
-	{
-		AddMultiplayerBriefingString(GetTextString(TEXTSTRING_INGAME_SADAR));
-		num_not_available++;
-	}
-	if(!netGameData.allowGrenadeLauncher)
-	{
-		AddMultiplayerBriefingString(GetTextString(TEXTSTRING_INGAME_GRENADELAUNCHER));
-		num_not_available++;
-	}
-	if(!netGameData.allowMinigun || !IsMinigunInLevel(level))
-	{
-		AddMultiplayerBriefingString(GetTextString(TEXTSTRING_INGAME_MINIGUN));
-		num_not_available++;
-	}
-	if(!netGameData.allowSmartDisc || !IsSkeeterInLevel(level))
-	{
-		AddMultiplayerBriefingString(GetTextString(TEXTSTRING_INGAME_SKEETER));
-		num_not_available++;
-	}
-	if(!netGameData.allowPistols)
-	{
-		AddMultiplayerBriefingString(GetTextString(TEXTSTRING_INGAME_MARINE_PISTOL));
-		num_not_available++;
-	}
-	if(!netGameData.allowDisc)
-	{
-		AddMultiplayerBriefingString(GetTextString(TEXTSTRING_INGAME_DISC));
-		num_not_available++;
-	}
-	if(!netGameData.allowPistol)
-	{
-		AddMultiplayerBriefingString(GetTextString(TEXTSTRING_BRIEFING_PREDATOR_PISTOL));
-		num_not_available++;
-	}
-	if(!netGameData.allowPlasmaCaster)
-	{
-		AddMultiplayerBriefingString(GetTextString(TEXTSTRING_INGAME_SHOULDERCANNON));
-		num_not_available++;
-	}
-	if(!netGameData.allowSpeargun)
-	{
-		AddMultiplayerBriefingString(GetTextString(TEXTSTRING_INGAME_RIFLE));
-		num_not_available++;
-	}
-	if(!netGameData.allowMedicomp)
-	{
-		AddMultiplayerBriefingString(GetTextString(TEXTSTRING_INGAME_MEDICOMP));
-		num_not_available++;
 	}
 
-	if(netGameData.gameType!=NGT_Coop)
+	// test...
+	if (!stricmp("Custom\\dm_valore",LevelName))
 	{
-		BriefingTextString[0] = GetTextString(netGameData.levelNumber + TEXTSTRING_MULTIPLAYERLEVELS_1);
-		
-	}
-	else
-	{
-		BriefingTextString[0] = GetTextString(netGameData.levelNumber + TEXTSTRING_COOPLEVEL_1);
-	}
-	
-	if(num_not_available)
-	{
-		BriefingTextString[1] = GetTextString(TEXTSTRING_BRIEFING_UNAVAILABLE_WEAPONS);
-		BriefingTextString[2] = MultiplayerBriefing[0];
-		BriefingTextString[3] = MultiplayerBriefing[1];
-		BriefingTextString[4] = MultiplayerBriefing[2];
+		BriefingTextString[1] = "MISSION BRIEFING";
+		BriefingTextString[2] = "The Valore Ganymedes prison ship.";
+		BriefingTextString[3] = "Fight to the death.";
+		BriefingTextString[4] = "";
 	}
 }
 

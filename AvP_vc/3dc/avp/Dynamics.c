@@ -37,7 +37,7 @@ you should have seen the previous versions. */
 
 
 #define FLOOR_THRESHOLD 30000
-#define NEARLYFLATFLOOR_THRESHOLD 60000
+#define NEARLYFLATFLOOR_THRESHOLD 30000 //60000
 
 #if 0
 	extern int GlobalFrameCounter;
@@ -57,6 +57,12 @@ extern POLYHEADER *PolyheaderPtr;
 extern DAMAGE_PROFILE FlechetteDamage;
 extern DAMAGE_PROFILE FallingDamage;
 extern DAMAGE_PROFILE PredPistol_FlechetteDamage;
+extern void PlayerPheromoneTrail(DYNAMICSBLOCK *dynPtr);
+extern void *CreateHuggerBot(VECTORCH *Position);
+extern STRATEGYBLOCK *CreateOpenEgg(VECTORCH *location, char *name);
+extern int Underwater;
+int EggTimer;	// Alien Egg
+extern DPID GrabbedPlayer;
 
 #define AccessNextPolygon()\
 {\
@@ -420,10 +426,10 @@ extern void ObjectDynamics(void)
 		 	{	
 				int hitSomethingWhileMoving;
 
-				if (ShowDebuggingText.Dynamics) PrintDebuggingText("Displacement:%d,%d,%d\n",
-				dynPtr->Displacement.vx,
-				dynPtr->Displacement.vy,
-				dynPtr->Displacement.vz);
+				//if (ShowDebuggingText.Dynamics) PrintDebuggingText("Displacement:%d,%d,%d\n",
+				//dynPtr->Displacement.vx,
+				//dynPtr->Displacement.vy,
+				//dynPtr->Displacement.vz);
 
 				hitSomethingWhileMoving = MoveObject(sbPtr);
 
@@ -593,11 +599,12 @@ extern void ObjectDynamics(void)
 				}
 			}
 			#endif
-			BOOL fallingDamageDisabled = (!netGameData.fallingDamage && AvP.Network!=I_No_Network);
+			BOOL fallingDamageDisabled = 0;//(!netGameData.fallingDamage && AvP.Network!=I_No_Network);
 			int damage = (PlayersFallingSpeed-15000)*256;
 			int distanceFallen = (dynPtr->Position.vy - PlayersMaxHeightWhilstNotInContactWithGround);
 
-			if (distanceFallen>5000 && damage>ONE_FIXED && !fallingDamageDisabled)
+			if (distanceFallen>5000 && damage>ONE_FIXED && !fallingDamageDisabled &&
+				(!GrabbedPlayer))
 			{
 				CauseDamageToObject(Player->ObStrategyBlock,&FallingDamage,damage,NULL);
 			}
@@ -627,15 +634,19 @@ extern void ObjectDynamics(void)
 
 		if(dynPtr->IsInContactWithFloor)
 		{
-			/* CDF 8/4/99 - end of jump sound... */
-			{
-				int distanceFallen = (dynPtr->Position.vy - PlayersMaxHeightWhilstNotInContactWithGround);
+			BOOL fallingDamageDisabled = 0;//(!netGameData.fallingDamage && AvP.Network!=I_No_Network);
+			int damage = (PlayersFallingSpeed-15000)*128;
+			int distanceFallen = (dynPtr->Position.vy - PlayersMaxHeightWhilstNotInContactWithGround);
 
-				if (distanceFallen>1000) {
-					/* Make a sound. */
-	   				Sound_Play(SID_PRED_SMALLLANDING,"h");
-					if(AvP.Network!=I_No_Network) netGameData.landingNoise=1;
-				}
+			if (distanceFallen>15000 && damage>ONE_FIXED && !fallingDamageDisabled &&
+				(!GrabbedPlayer))
+			{
+				CauseDamageToObject(Player->ObStrategyBlock,&FallingDamage,damage,NULL);
+			}
+			else if (distanceFallen>1000)
+			{
+	   			Sound_Play(SID_PRED_SMALLLANDING,"h");
+				if(AvP.Network!=I_No_Network) netGameData.landingNoise=1;
 			}
 			PlayersMaxHeightWhilstNotInContactWithGround=dynPtr->Position.vy;
 		}
@@ -678,6 +689,71 @@ extern void ObjectDynamics(void)
 						reportPtr->ObstacleNormal.vz = -dynPtr->GravityDirection.vz;
 					}
 				}
+
+				/* Water - Does not work.. will keep it for future coding...
+				{
+					DISPLAYBLOCK *dispPtr = obstaclePtr->SBdptr;
+					INANIMATEOBJECT_STATUSBLOCK *objPtr = obstaclePtr->SBdataptr;
+					unsigned int valid=1;
+					int miny, maxy;
+
+					if (objPtr->typeId == IOT_Key)
+					{
+						// check center X and Z against the water bounding box.
+						if (Player->ObWorld.vx < dispPtr->ObMinX) valid=0;
+						if (Player->ObWorld.vx > dispPtr->ObMaxX) valid=0;
+						if (Player->ObWorld.vz < dispPtr->ObMinZ) valid=0;
+						if (Player->ObWorld.vz > dispPtr->ObMaxZ) valid=0;
+
+						// check the vertical extents to the water bounding box.
+						miny = Player->ObWorld.vy+Player->ObMinY;
+						maxy = Player->ObWorld.vy+Player->ObMaxY;
+
+						if (max(miny, dispPtr->ObMinY) > min(maxy, dispPtr->ObMaxY)) valid=0;
+
+						if (valid)
+						{
+							NewOnScreenMessage("Water containment valid!");
+						}
+					}
+				}*/
+				/* Alien Egg */
+				{
+					INANIMATEOBJECT_STATUSBLOCK *objPtr = obstaclePtr->SBdataptr;
+					VECTORCH position={0,0,0};
+
+					if (objPtr->typeId == IOT_PheromonePod)
+					{
+						if (Approximate3dMagnitude(&disp)<(PLAYER_PICKUP_OBJECT_RADIUS*8))
+						{
+							if (EggTimer == 0)
+							{
+								EggTimer = ONE_FIXED*3;
+								Sound_Play(SID_ARMMID,"d",&(obstaclePtr->DynPtr->Position));
+							}
+							if (EggTimer > 0)
+							{
+								EggTimer -= NormalFrameTime;
+
+								if (EggTimer <= (ONE_FIXED*1))
+								{
+									position.vx = obstaclePtr->DynPtr->Position.vx+100;
+									position.vy = obstaclePtr->DynPtr->Position.vy-500;
+									position.vz = obstaclePtr->DynPtr->Position.vz;
+									CreateHuggerBot(&position);
+
+									position.vx = obstaclePtr->DynPtr->Position.vx;
+									position.vy = obstaclePtr->DynPtr->Position.vy-180;
+									position.vz = obstaclePtr->DynPtr->Position.vz;
+									if (CreateOpenEgg(&position,NULL))
+									{ /* Do nothing special...*/ }
+									DestroyAnyStrategyBlock(obstaclePtr);
+									EggTimer = 0;
+								}
+							}
+						}
+					}
+				}
 			}
 		}
 	}
@@ -717,16 +793,21 @@ extern void ObjectDynamics(void)
 	//NewTrailPoint(Player->ObStrategyBlock->DynPtr);
 }
 
+// SLIDING CHARACTERS FIX
+int	tmp_LinVelPlusImpulseY = 0,
+	tmp_ScaledY = 0;
+// END OF SLIDING CHARACTERS FIX
+
 static void InitialiseDynamicObjectsList(void)
 {
 	STRATEGYBLOCK *unsortedDynamicObjectsList[MAX_NO_OF_DYNAMICS_BLOCKS];
 	signed int valueOnWhichToSort[MAX_NO_OF_DYNAMICS_BLOCKS];
 	AccelDueToGravity = MUL_FIXED(GRAVITY_STRENGTH,NormalFrameTime);
 
-	if (UNDERWATER_CHEATMODE)
+	/*if (Underwater)
 	{
 		AccelDueToGravity/=2;
-	}
+	}*/
 	
 	/* scan through list of strategy blocks looking for ones
 	   with dynamics blocks and collisions on  */
@@ -826,9 +907,39 @@ static void InitialiseDynamicObjectsList(void)
 						    dynPtr->Displacement.vz += MUL_FIXED(dynPtr->LinVelocity.vz, NormalFrameTime);
 						}    
 						else
-						{
+						{							
+							// SLIDING CHARACTERS FIX
+
+							// RXP - fix for characters sliding around in multiplayer. Took ages to find this, can't be bothered
+							// to go into details, but the bottom line is that if the character is standing still LinVelocity.vy
+							// is 0 ( fine ), but we expect LinImpulse.vy to be set due to gravity. This *is* set to 'AccelDueToGravity'
+							// as part of the dynamics calcs. If u look where AcceldueToGravity is itself setup u will see that a MUL_FIXED
+							// with NormalFrameTime is involved. It ( and therefore LinImpulse.vy ) will therefore be very small when the 
+							// frame rate is high. Then below we multiply this small value by NormalFrameTime again! This second operation
+							// can yield a result of 0 ( so small it returns 0 )...then 'if (dynPtr->Displacement.vy > 0)' just below is
+							// not actioned which messes the rest up...
+							
+							tmp_LinVelPlusImpulseY = dynPtr->LinVelocity.vy + dynPtr->LinImpulse.vy;
+							tmp_ScaledY = MUL_FIXED(tmp_LinVelPlusImpulseY, NormalFrameTime);
+
+							if (   ( tmp_ScaledY == 0 )
+								&& ( tmp_LinVelPlusImpulseY > 0 ))
+							{
+								// tmp_ScaledY is only 0 cos of inaccuracy during the last MUL_FIXED.
+								// Force it to a min value of 1.
+								tmp_ScaledY = 1;
+							}
+
+							dynPtr->Displacement.vy += tmp_ScaledY;
+							// END OF SLIDING CHARACTERS FIX
+							
 							dynPtr->Displacement.vx += MUL_FIXED(dynPtr->LinVelocity.vx+dynPtr->LinImpulse.vx, NormalFrameTime);
-						    dynPtr->Displacement.vy += MUL_FIXED(dynPtr->LinVelocity.vy+dynPtr->LinImpulse.vy, NormalFrameTime);
+
+							// SLIDING CHARACTERS FIX - comment out the following line
+
+						    // dynPtr->Displacement.vy += MUL_FIXED(dynPtr->LinVelocity.vy+dynPtr->LinImpulse.vy, NormalFrameTime);
+							// END OF SLIDING CHARACTERS FIX
+
 						    dynPtr->Displacement.vz += MUL_FIXED(dynPtr->LinVelocity.vz+dynPtr->LinImpulse.vz, NormalFrameTime);
 
 							/* If moving in direction of gravity, add a little bit to make sure you will make contact
@@ -963,7 +1074,11 @@ static void UpdateDisplayBlockData(STRATEGYBLOCK *sbPtr)
 		{
 			if (sbPtr)
 			{	
-				if (sbPtr->I_SBtype == I_BehaviourAlien)
+				if ((sbPtr->I_SBtype == I_BehaviourMarine ||
+					sbPtr->I_SBtype == I_BehaviourPredator ||
+					sbPtr->I_SBtype == I_BehaviourMarinePlayer || 
+					sbPtr->I_SBtype == I_BehaviourPredatorPlayer) &&
+					(sbPtr != Player->ObStrategyBlock))
 					PlayerPheromoneTrail(dynPtr);
 			}
 		}
@@ -2366,6 +2481,19 @@ static void FindObjectPolygonsInObjectsPath(STRATEGYBLOCK *sbPtr)
 					continue;
 				}
 
+				/* A hack to allow AI to pass through intangibles */
+				if ((sbPtr->I_SBtype == I_BehaviourAlien ||
+					sbPtr->I_SBtype == I_BehaviourMarine ||
+					sbPtr->I_SBtype == I_BehaviourSeal ||
+					sbPtr->I_SBtype == I_BehaviourPredator) &&
+					obstaclePtr->I_SBtype == I_BehaviourInanimateObject)
+				{
+					INANIMATEOBJECT_STATUSBLOCK *objPtr = obstaclePtr->SBdataptr;
+
+					if (objPtr->typeId == IOT_Key)
+						continue;
+				}
+
 			   	if (!( ( (DBBMaxX >= objectVerticesPtr[7].vx) && (DBBMinX <= objectVerticesPtr[0].vx) )
 			   	     &&( (DBBMaxY >= objectVerticesPtr[7].vy) && (DBBMinY <= objectVerticesPtr[0].vy) )
 			         &&( (DBBMaxZ >= objectVerticesPtr[7].vz) && (DBBMinZ <= objectVerticesPtr[0].vz) ) ))
@@ -2845,9 +2973,27 @@ static void TestShapeWithDynamicBoundingBox(DISPLAYBLOCK *objectPtr, DYNAMICSBLO
 	    	NumberOfCollisionPolys++;
 			/* ran out of space? */
 			LOCALASSERT(NumberOfCollisionPolys < MAXIMUM_NUMBER_OF_COLLISIONPOLYS);
-        }        
+        }
+		// Check for polygons that allow Aliens to Hide
+        if ((AvP.PlayerType == I_Alien) && (mainDynPtr->ToppleForce == TOPPLE_FORCE_ALIEN)
+			&& (PolygonFlag & iflag_mirror))
+		{
+			// This is working!!!
+			if (Player->ObStrategyBlock)
+			{
+				DYNAMICSBLOCK *dynPtr = Player->ObStrategyBlock->DynPtr;
+			    if ((dynPtr->LinVelocity.vx == 0) &&
+					(dynPtr->LinVelocity.vy == 0) &&
+					(dynPtr->LinVelocity.vz == 0))
+				{
+					PLAYER_STATUS *psPtr = (PLAYER_STATUS *) Player->ObStrategyBlock->SBdataptr;
+					psPtr->cloakOn = 1;
+					psPtr->CloakingEffectiveness = 65536;
+				}
+			}
+		}
 	}
-    					       
+					       
     return;
 }	
 static void TestShapeWithParticlesDynamicBoundingBox(DISPLAYBLOCK *objectPtr)
@@ -5363,7 +5509,7 @@ static void CreateNRBBForObject(const STRATEGYBLOCK *sbPtr)
 {
 	VECTORCH *objectVertices = sbPtr->DynPtr->ObjectVertices;
 	COLLISION_EXTENTS *extentsPtr = 0;
-	int objectIsCrouching = 0;
+	int objectIsCrouching = 0, isAPC = 0;
 	DYNAMICSBLOCK *dynPtr = sbPtr->DynPtr;
 	
 	dynPtr->CollisionRadius = 0;
@@ -5377,12 +5523,18 @@ static void CreateNRBBForObject(const STRATEGYBLOCK *sbPtr)
 
 			/* set player state */
 			objectIsCrouching = (playerStatusPtr->ShapeState != PMph_Standing);
+			isAPC = (playerStatusPtr->Honor);
 			
 			switch(AvP.PlayerType)
 			{
 				case I_Marine:
-					extentsPtr = &CollisionExtents[CE_MARINE];
-					dynPtr->CollisionRadius = extentsPtr->CollisionRadius;
+					if (isAPC) {
+						extentsPtr = &CollisionExtents[CE_APC];
+						dynPtr->CollisionRadius = extentsPtr->CollisionRadius;
+					} else {
+						extentsPtr = &CollisionExtents[CE_MARINE];
+						dynPtr->CollisionRadius = extentsPtr->CollisionRadius;
+					}
 					break;
 					
 				case I_Alien:
@@ -5841,8 +5993,39 @@ int ParticleDynamics(PARTICLE *particlePtr, VECTORCH *obstacleNormalPtr, int *mo
 					{
 						CauseDamageToObject(nearPolysPtr->ParentObject->ObStrategyBlock,&PredPistol_FlechetteDamage,ONE_FIXED,&(particlePtr->Velocity));
 					}
+				} else if ((particlePtr->ParticleID==PARTICLE_FLAME ||
+							particlePtr->ParticleID==PARTICLE_PARGEN_FLAME ||
+							particlePtr->ParticleID==PARTICLE_MOLOTOVFLAME)
+							&& nearPolysPtr->ParentObject)
+				{
+					if (nearPolysPtr->ParentObject->ObStrategyBlock)
+					{
+						if (nearPolysPtr->ParentObject->ObStrategyBlock->I_SBtype==I_BehaviourInanimateObject)
+						{
+							INANIMATEOBJECT_STATUSBLOCK* objPtr = nearPolysPtr->ParentObject->ObStrategyBlock->SBdataptr;
+
+							if (!objPtr->Indestructable || objPtr->typeId != IOT_Key) {
+								nearPolysPtr->ParentObject->ObStrategyBlock->SBDamageBlock.IsOnFire = 1;
+								CauseDamageToObject(nearPolysPtr->ParentObject->ObStrategyBlock,&TemplateAmmo[AMMO_FRISBEE_BLAST].MaxDamage[AvP.Difficulty],(ONE_FIXED*4),&(particlePtr->Velocity));
+							}
+						}
+					}
+				} else if ((particlePtr->ParticleID==PARTICLE_FIRE || 
+							particlePtr->ParticleID == PARTICLE_NONCOLLIDINGFLAME) && 
+							nearPolysPtr->ParentObject)
+				{
+					if (nearPolysPtr->ParentObject->ObStrategyBlock)
+					{
+						if (nearPolysPtr->ParentObject->ObStrategyBlock->I_SBtype==I_BehaviourInanimateObject)
+						{
+							INANIMATEOBJECT_STATUSBLOCK* objPtr = nearPolysPtr->ParentObject->ObStrategyBlock->SBdataptr;
+
+							if (!objPtr->Indestructable || objPtr->typeId != IOT_Key) {
+								CauseDamageToObject(nearPolysPtr->ParentObject->ObStrategyBlock,&TemplateAmmo[AMMO_FRISBEE_BLAST].MaxDamage[AvP.Difficulty],(ONE_FIXED*4),&(particlePtr->Velocity));
+							}
+						}
+					}
 				}
-	
 			}
 		}
         nearPolysPtr++;
@@ -5925,10 +6108,14 @@ int ParticleDynamics(PARTICLE *particlePtr, VECTORCH *obstacleNormalPtr, int *mo
 			if (DBBMinZ<dynPtr->ObjectVertices[0].vz && DBBMaxZ>dynPtr->ObjectVertices[7].vz)		
 			{
 				/* blam! particle hit something */
-				if (particlePtr->ParticleID==PARTICLE_ALIEN_BLOOD)
+				if (particlePtr->ParticleID==PARTICLE_ALIEN_BLOOD ||
+					particlePtr->ParticleID==PARTICLE_FIRE ||
+					particlePtr->ParticleID==PARTICLE_NONCOLLIDINGFLAME)
 				{
 					if ((dispPtr==Player)||(sbPtr->I_SBtype==I_BehaviourMarine)) {
-						CauseDamageToObject(sbPtr,&TemplateAmmo[AMMO_ALIEN_FRAG].MaxDamage[AvP.Difficulty], NormalFrameTime,NULL);
+						CauseDamageToObject(sbPtr,&TemplateAmmo[AMMO_ALIEN_FRAG].MaxDamage[AvP.Difficulty],NormalFrameTime,NULL);
+					} else if (sbPtr->I_SBtype==I_BehaviourInanimateObject) {
+						CauseDamageToObject(sbPtr,&TemplateAmmo[AMMO_FRISBEE_BLAST].MaxDamage[AvP.Difficulty],NormalFrameTime,NULL);
 					}
 				}
 				else if (particlePtr->ParticleID==PARTICLE_FLAME 
@@ -5936,6 +6123,21 @@ int ParticleDynamics(PARTICLE *particlePtr, VECTORCH *obstacleNormalPtr, int *mo
 				       ||particlePtr->ParticleID==PARTICLE_MOLOTOVFLAME)
 				{
 					BOOL ignoreDamage = FALSE;
+					if (sbPtr->I_SBtype == I_BehaviourInanimateObject) {
+						INANIMATEOBJECT_STATUSBLOCK* objPtr = sbPtr->SBdataptr;
+
+						if ((objPtr->typeId == IOT_Key) && (objPtr->subType <= 5)) {
+							VECTORCH velocity;
+							velocity.vy = (-(FastRandom()%1023)-512)*2;
+							velocity.vx = ((FastRandom()&1023)-512)*2;
+							velocity.vz = ((FastRandom()&1023)-512)*2;
+							MakeParticle(&(particlePtr->Position), &velocity, PARTICLE_STEAM);
+						}
+						if (!objPtr->Indestructable || objPtr->typeId != IOT_Key) {
+							sbPtr->SBDamageBlock.IsOnFire = 1;
+						}
+						CauseDamageToObject(sbPtr,&TemplateAmmo[AMMO_FRISBEE_BLAST].MaxDamage[AvP.Difficulty],(ONE_FIXED*2),NULL);
+					} else
 					if ((dispPtr==Player)||(dispPtr->HModelControlBlock))
 					{
 				
@@ -5944,7 +6146,7 @@ int ParticleDynamics(PARTICLE *particlePtr, VECTORCH *obstacleNormalPtr, int *mo
 							//If friendly fire has been disabled , we may need to ignore this option
 							if(particlePtr->ParticleID==PARTICLE_FLAME)
 							{
-								if (netGameData.disableFriendlyFire && (netGameData.gameType==NGT_CoopDeathmatch || netGameData.gameType==NGT_Coop)) 
+								if (netGameData.disableFriendlyFire/* && (netGameData.gameType==NGT_CoopDeathmatch || netGameData.gameType==NGT_Coop)*/) 
 								{
 									//okay , friendly fire is off , so flamethrower particles , can't harm
 									//marines.
@@ -6388,7 +6590,7 @@ VECTORCH *GetNearestModuleTeleportPoint(MODULE* thisModulePtr, VECTORCH* positio
 	{
 		VECTORCH p = *positionPtr;
 		int d;		
-		char buffer[100];
+//		char buffer[100];
 
 		p.vx -= thisModulePtr->m_aimodule->m_world.vx + epList->position.vx;
 		p.vy -= thisModulePtr->m_aimodule->m_world.vy + epList->position.vy;

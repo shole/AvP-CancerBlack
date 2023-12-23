@@ -460,6 +460,10 @@ ie is not infinite or a terminator, etc...
 -------------------------------------------------------------------*/
 int ModuleIsPhysical(MODULE* target)
 {
+	if (target==NULL) {
+		return(0);
+	}
+	GLOBALASSERT(target);
 	if(target->m_flags & m_flag_infinite) return 0;
 	if(target->m_type == mtype_term) return 0;
 	return 1;

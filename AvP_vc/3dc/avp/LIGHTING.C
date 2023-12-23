@@ -16,12 +16,23 @@
 #include "dynamics.h"
 #define UseLocalAssert Yes
 #include "ourasert.h"
+#include "weapons.h"
 
 static VECTORCH RotatingLightPosition;
 extern int CloakingPhase;
 extern int NormalFrameTime;
 extern VIEWDESCRIPTORBLOCK *Global_VDB_Ptr;
 extern int LightScale;
+
+// For Predator Self-Destruct FX.
+int SpatialShockwave;
+
+// SHOULDER LAMP IN MULTI - this function is no longer needed
+// static LIGHTELEMENT	*FindLightElement(enum LIGHTELEMENT_BEHAVIOUR_ID TargetBehaviourID);
+extern void NewOnScreenMessage(unsigned char *messagePtr);
+// END OF SHOULDER LAMP IN MULTI
+
+void PositionShoulderLamp(VECTORCH *Position);
 
 void AddLightingEffectToObject(DISPLAYBLOCK *objectPtr, enum LIGHTING_EFFECTS_ID lfxID)
 {
@@ -118,9 +129,9 @@ void AddLightingEffectToObject(DISPLAYBLOCK *objectPtr, enum LIGHTING_EFFECTS_ID
 			/* range */
 			lightPtr->LightRange = 10000; /* ? */
 
-			lightPtr->RedScale=255*256;
-			lightPtr->GreenScale=32*256;
-			lightPtr->BlueScale=0; 
+			lightPtr->RedScale=0;
+			lightPtr->GreenScale=0;
+			lightPtr->BlueScale=255*256; 
 			#if PSX
 			lightPtr->LightColour.r=255;
 			lightPtr->LightColour.g=32;
@@ -162,8 +173,8 @@ void AddLightingEffectToObject(DISPLAYBLOCK *objectPtr, enum LIGHTING_EFFECTS_ID
 			lightPtr->LightRange = 10000; /* ? */
 
 			lightPtr->RedScale=255*256;
-			lightPtr->GreenScale=200*256;
-			lightPtr->BlueScale=255*256;
+			lightPtr->GreenScale=0;
+			lightPtr->BlueScale=0;
 			#if PSX
 			lightPtr->LightColour.r=255;
 			lightPtr->LightColour.g=64;
@@ -248,7 +259,41 @@ void AddLightingEffectToObject(DISPLAYBLOCK *objectPtr, enum LIGHTING_EFFECTS_ID
 	}
 }
 
+// SHOULDER LAMP IN MULTI
 
+LIGHTBLOCK *AddLightEffectToObjReturnReference(DISPLAYBLOCK *objectPtr, enum LIGHTING_EFFECTS_ID lfxID)
+{
+	// Copied from AddLightingEffectToObject, but returns reference to the created light.
+
+	LIGHTBLOCK *lightPtr;
+	
+	lightPtr = AddLightBlock (objectPtr, NULL);
+
+	if ( !lightPtr ) 
+	{
+		return (NULL);
+	}
+
+	switch (lfxID)
+	{		
+		case LFX_SHOULDER_LAMP:		
+		default:
+			lightPtr->LightBright	= ONE_FIXED << 1;	
+			lightPtr->LightRange	= 6000;				
+			// LFlag_Deallocate - kill at end of frame, recreate next time
+			// LFlag_AbsPos - Don't move this light in UpdateObjectLights
+			lightPtr->LightFlags	= LFlag_Omni | LFlag_Deallocate | LFlag_AbsPos;
+			lightPtr->LightType		= LightType_PerVertex;
+			lightPtr->RedScale		= ONE_FIXED;		
+			lightPtr->GreenScale	= ONE_FIXED;		
+			lightPtr->BlueScale		= ONE_FIXED >> 1;			
+			break;	
+	}
+
+	return (lightPtr);
+}
+
+// END OF SHOULDER LAMP IN MULTI
 
 void LightBlockDeallocation(void)
 {
@@ -324,6 +369,9 @@ void MakeLightElement(VECTORCH *positionPtr, enum LIGHTELEMENT_BEHAVIOUR_ID beha
 	lightElementPtr->LightBlock.LightWorld = *positionPtr;	
 	lightElementPtr->LifeTime=ONE_FIXED;
 
+	if (lightElementPtr->BehaviourID == LIGHTELEMENT_ELECTRICAL_EXPLOSION)
+		lightElementPtr->LifeTime = ONE_FIXED*3;
+
 	switch (behaviourID)
 	{
 		case LIGHTELEMENT_ROTATING:
@@ -395,6 +443,27 @@ void MakeLightElement(VECTORCH *positionPtr, enum LIGHTELEMENT_BEHAVIOUR_ID beha
 			lightElementPtr->LifeTime = 0;
 			break;
 		}
+
+		// SHOULDER LAMP IN MULTI - this no longer needed as the lamp is now attached to the
+		// Players DISPLAY_BLOCK as an 'Object Light'
+
+		/*
+		case LIGHTELEMENT_SHOULDER_LAMP:
+			lightPtr->LightBright = ONE_FIXED << 1;
+			lightPtr->LightRange = 6000;
+			lightPtr->LightFlags = LFlag_CosAtten;
+			lightPtr->LightType = LightType_Infinite;
+
+			lightPtr->RedScale = ONE_FIXED;
+			lightPtr->GreenScale = ONE_FIXED;
+			lightPtr->BlueScale = ONE_FIXED >> 1;
+
+			lightElementPtr->LifeTime = 1;
+			PositionShoulderLamp(&(lightPtr->LightWorld));
+			break;
+		*/
+
+		// END OF SHOULDER LAMP IN MULTI
 	}
 }
 
@@ -457,7 +526,8 @@ void HandleLightElementSystem(void)
 				lightElementPtr->LifeTime-=NormalFrameTime*4;
 				
 				break;
-			}case LIGHTELEMENT_FROMFMV:
+			}
+			case LIGHTELEMENT_FROMFMV:
 			{						 
 				extern int FmvColourRed;
 				extern int FmvColourGreen;
@@ -554,7 +624,31 @@ void HandleLightElementSystem(void)
 				lightPtr->LightRange = EXPLOSION_LIGHT_RANGE;// 1+MUL_FIXED(EXPLOSION_LIGHT_RANGE,scale);
 				lightPtr->LightBright = scale*16;
 				
+				{
+					PLAYER_STATUS *playerStatusPtr= (PLAYER_STATUS *) (Player->ObStrategyBlock->SBdataptr);
+
+					if (playerStatusPtr->IsAlive)
+					{
+						VECTORCH d = lightElementPtr->LightBlock.LightWorld;
+						int m;
+						d.vx -= Global_VDB_Ptr->VDB_World.vx;
+						d.vy -= Global_VDB_Ptr->VDB_World.vy;
+						d.vz -= Global_VDB_Ptr->VDB_World.vz;
+						m = Approximate3dMagnitude(&d);
+
+						if (m<ONE_FIXED) {
+							// Create Spatial Shockwave effect.. niiiice &-P
+							SpatialShockwave=1;
+						} else {
+							SpatialShockwave=0;
+						}
+					}
+				}
 				lightElementPtr->LifeTime-=NormalFrameTime;
+
+				if (lightElementPtr->LifeTime <= NormalFrameTime) {
+					SpatialShockwave=0;
+				}
 				break;
 			}
 			case LIGHTELEMENT_ELECTRICAL_SPARKS:
@@ -647,6 +741,15 @@ void HandleLightElementSystem(void)
 			}
 			break;
 
+			// SHOULDER LAMP IN MULTI - this no longer needed as the lamp is now attached to the
+			// Players DISPLAY_BLOCK as an 'Object Light'
+			/*
+			case LIGHTELEMENT_SHOULDER_LAMP:
+				PositionShoulderLamp(&(lightPtr->LightWorld));
+				break;
+			*/
+			// END OF SHOULDER LAMP IN MULTI
+
 			default:
 				break;
 		}
@@ -664,6 +767,29 @@ void HandleLightElementSystem(void)
 	}
 }
 
+// SHOULDER LAMP IN MULTI - this no longer needed as the lamp is now attached to the
+// Players DISPLAY_BLOCK as an 'Object Light'
+
+/*
+static LIGHTELEMENT *FindLightElement(enum LIGHTELEMENT_BEHAVIOUR_ID TargetBehaviourID)
+{
+	LIGHTELEMENT *lightElementPtr = LightElementStorage;
+	int ListIndex = 0;
+
+	while (ListIndex < NumActiveLightElements)
+	{
+		if (lightElementPtr->BehaviourID == TargetBehaviourID)
+		{
+			return (lightElementPtr);
+		}
+		ListIndex++;
+		lightElementPtr++;
+	}
+	return (NULL);
+}
+
+*/
+// END OF SHOULDER LAMP IN MULTI
 
 /*--------------------------**
 ** Load/Save Light Elements **
@@ -728,3 +854,93 @@ void Save_LightElements()
 	}
 	
 }
+
+#define DEFAULT_LAMP_DISTANCE 10000
+
+// SHOULDER LAMP IN MULTI - remove the 'static' from this function
+// static void PositionShoulderLamp(VECTORCH *Position)
+// END OF SHOULDER LAMP IN MULTI
+void PositionShoulderLamp(VECTORCH *Position)
+{
+	int DistanceFromPlayer;
+
+	if (Global_VDB_Ptr == NULL) return;
+
+	if ((PlayersTarget.DispPtr) && (PlayersTarget.Distance < DEFAULT_LAMP_DISTANCE))
+	{
+		DistanceFromPlayer = PlayersTarget.Distance;
+	}
+	else
+	{
+		DistanceFromPlayer = DEFAULT_LAMP_DISTANCE;
+	}
+
+	{
+		VECTORCH LampOffset = {0,0,DistanceFromPlayer};
+		MATRIXCH mat = Global_VDB_Ptr->VDB_Mat;
+		TransposeMatrixCH(&mat);
+		RotateVector(&LampOffset, &mat);
+
+		Position->vx = Global_VDB_Ptr->VDB_World.vx + LampOffset.vx;
+		Position->vy = Global_VDB_Ptr->VDB_World.vy + LampOffset.vy;
+		Position->vz = Global_VDB_Ptr->VDB_World.vz + LampOffset.vz;
+	}
+}
+
+// SHOULDER LAMP IN MULTI - Replace the existing function with this one
+void DisableShoulderLamp()
+{
+	PLAYER_STATUS	*playerStatusPtr;
+
+	if (   ( Player == NULL )
+		|| ( Player->ObStrategyBlock == NULL )
+		|| ( Player->ObStrategyBlock->SBdataptr == NULL ))
+	{
+		return;
+	}
+
+	// Get reference to player's state...
+	playerStatusPtr = (PLAYER_STATUS *)(Player->ObStrategyBlock->SBdataptr);
+	// ...and ensure the lamp is switched off
+	playerStatusPtr->IAmUsingShoulderLamp = 0;
+}
+// END OF SHOULDER LAMP IN MULTI
+
+
+
+// SHOULDER LAMP IN MULTI - Replace the existing function with this one
+void	ToggleShoulderLamp ()
+{
+	PLAYER_STATUS	*playerStatusPtr;
+
+	if (AvP.PlayerType != I_Marine) return;
+
+	if (   ( Player == NULL )
+		|| ( Player->ObStrategyBlock == NULL )
+		|| ( Player->ObStrategyBlock->SBdataptr == NULL ))
+	{
+		return;
+	}
+
+	// Get reference to player's state...
+	playerStatusPtr = (PLAYER_STATUS *)(Player->ObStrategyBlock->SBdataptr);
+
+	// Don't have a Shoulder Lamp? Tough luck! :-P
+	if (!playerStatusPtr->IRGoggles) return;
+
+	// ...then reverse the IAmUsingShoulderLamp setting
+	playerStatusPtr->IAmUsingShoulderLamp = !playerStatusPtr->IAmUsingShoulderLamp;
+
+	if ( playerStatusPtr->IAmUsingShoulderLamp )
+	{
+		NewOnScreenMessage("Shoulder Lamp Activated.");
+		Sound_Play(SID_POWERDN,"h");
+	}
+	else
+	{
+		NewOnScreenMessage("Shoulder Lamp Deactivated.");
+		Sound_Play(SID_POWERUP,"h");
+	}
+
+}
+// END OF SHOULDER LAMP IN MULTI

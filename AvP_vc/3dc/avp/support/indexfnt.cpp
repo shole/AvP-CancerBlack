@@ -132,18 +132,18 @@ void IndexedFont :: Render_Clipped_Report
 	const SCString& SCStr
 ) const
 {
-	textprint
-	(
-		"IndexedFont(%i)::RenderString_Clipped() at(%i,%i) clip(%i,%i,%i,%i) \"%s\"\n",
-		I_Font_Val,
-		R2Pos_Cursor . x,
-		R2Pos_Cursor . y,
-		R2Rect_Clip . x0,
-		R2Rect_Clip . y0,
-		R2Rect_Clip . x1,
-		R2Rect_Clip . y1,
-		SCStr . pProjCh()
-	);
+	//textprint
+	//(
+	//	"IndexedFont(%i)::RenderString_Clipped() at(%i,%i) clip(%i,%i,%i,%i) \"%s\"\n",
+	//	I_Font_Val,
+	//	R2Pos_Cursor . x,
+	//	R2Pos_Cursor . y,
+	//	R2Rect_Clip . x0,
+	//	R2Rect_Clip . y0,
+	//	R2Rect_Clip . x1,
+	//	R2Rect_Clip . y1,
+	//	SCStr . pProjCh()
+	//);
 }
 #endif
 

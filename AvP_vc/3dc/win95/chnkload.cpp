@@ -1545,7 +1545,7 @@ void DeallocateRifLoadedShapeheader(SHAPEHEADER * shp)
 	#endif
 
 	int max_num_texs = 0;
-	int i;
+//	int i;
 
 	if(shp->animation_header)
 	{

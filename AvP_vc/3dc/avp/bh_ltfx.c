@@ -15,6 +15,7 @@
 #include "bh_ltfx.h"
 
 extern int NormalFrameTime;
+extern int Request_PolyFlags(void *polygon);
 
 
 #if PSX
