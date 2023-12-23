@@ -17,6 +17,7 @@ extern void SetToDefaultDetailLevels(void)
 	MenuDetailLevelOptions.MuzzleSmoke = 1;
 	MenuDetailLevelOptions.Shells = 1;
 	MenuDetailLevelOptions.WeatherFX = 1;
+	MenuDetailLevelOptions.CenteredWeapons = 0;
 	SetDetailLevelsFromMenu();
 }
 
@@ -31,6 +32,7 @@ extern void SetToMinimalDetailLevels(void)
 	MenuDetailLevelOptions.MuzzleSmoke = 0;
 	MenuDetailLevelOptions.Shells = 0;
 	MenuDetailLevelOptions.WeatherFX = 0;
+	MenuDetailLevelOptions.CenteredWeapons = 0;
 	SetDetailLevelsFromMenu();
 }
 
@@ -70,6 +72,7 @@ extern void SetDetailLevelsFromMenu(void)
 	GlobalLevelOfDetail_Hierarchical = 65536;
 
 	LocalDetailLevels.ExplosionFX = MenuDetailLevelOptions.CharacterComplexity;
+	LocalDetailLevels.CenteredWeapons = MenuDetailLevelOptions.CenteredWeapons;
 
 	/*switch (MenuDetailLevelOptions.CharacterComplexity)
 	{

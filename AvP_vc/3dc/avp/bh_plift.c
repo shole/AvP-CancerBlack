@@ -98,14 +98,6 @@ void PlatformLiftBehaviour(STRATEGYBLOCK *sbPtr)
 		{
 			if(AvP.Network!=I_Peer)
 			{
-				// If the platform lift is in it's origin position,
-				// set the Delay to zero so it activates immediately.
-				// This is to make all AMP doors react faster.
-				if(dynPtr->Position.vy > ((platformliftdata->upHeight+platformliftdata->downHeight)/2))
-				{
-					platformliftdata->activationDelayTimer = 0;
-				}
-
 				if(platformliftdata->activationDelayTimer>0)
 				{
 					platformliftdata->activationDelayTimer -= NormalFrameTime;
@@ -292,7 +284,6 @@ void InitialisePlatformLift(void* bhdata, STRATEGYBLOCK *sbPtr)
 
 	platformliftdata->Enabled = toolsData->Enabled;
 	platformliftdata->OneUse = toolsData->OneUse;
-
 
 	/* create and initialise the dynamics block */
 	{
@@ -642,6 +633,20 @@ void PlatformLiftIsDamaged(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int mul
 	LOCALASSERT(platformliftdata);
 	LOCALASSERT(sbPtr->DynPtr);
 
+	/* All lifts in mp_predship are indestructible */
+	{
+		extern char LevelName[];
+
+		if (!stricmp("Custom\\mp_predship",&LevelName))
+			return;
+	}
+
+	if (AvP.Network != I_No_Network)
+	{
+		if ((netGameData.InstantSpawn) || (netGameData.MinimumPlayers < 2))
+			return;
+	}
+
 	if (damage->Id == AMMO_CUDGEL)
 	{
 		valid=1;
@@ -677,6 +682,61 @@ void PlatformLiftIsDamaged(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int mul
 
 		MakeFragments(sbPtr);
 		DestroyAnyStrategyBlock(sbPtr);
+	}
+}
+
+#define PLIFT_ON 0
+#define PLIFT_OFF 1
+#define PLIFT_IGNORE 2
+
+int PlatformLiftGetSynchData(STRATEGYBLOCK* sbPtr)
+{
+	PLATFORMLIFT_BEHAVIOUR_BLOCK *platformliftdata;
+	platformliftdata = (PLATFORMLIFT_BEHAVIOUR_BLOCK *)sbPtr->SBdataptr;
+
+	//don't try to synch moving lifts
+	if(platformliftdata->state == PLBS_GoingUp ||
+	   platformliftdata->state == PLBS_GoingDown)
+	{
+		return PLIFT_IGNORE;
+	}
+
+	if(platformliftdata->Enabled)
+		return PLIFT_ON;
+	else	
+		return PLIFT_OFF;
+}
+
+void PlatformLiftSetSynchData(STRATEGYBLOCK* sbPtr,int status)
+{
+	PLATFORMLIFT_BEHAVIOUR_BLOCK *platformliftdata;
+	platformliftdata = (PLATFORMLIFT_BEHAVIOUR_BLOCK *)sbPtr->SBdataptr;
+
+	//don't try to synch moving switches
+	if(platformliftdata->state == PLBS_GoingUp ||
+	   platformliftdata->state == PLBS_GoingDown)
+	{
+		return;
+	}
+	
+	
+	switch(status)
+	{
+		case PLIFT_ON :
+			if(!platformliftdata->Enabled)
+			{
+				//this switch should be on
+				RequestState(sbPtr,1,0);
+			}
+			break;
+
+		case PLIFT_OFF :
+			if(platformliftdata->Enabled)
+			{
+				//this switch should be off
+				RequestState(sbPtr,0,0);
+			}
+			break;
 	}
 }
 

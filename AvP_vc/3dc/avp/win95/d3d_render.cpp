@@ -40,6 +40,7 @@ extern "C++"{
 #include "bh_types.h"
 #include "pvisible.h"
 #include "bh_pargen.h"
+#include "bh_deathvol.h"
 
 #include <string.h>
 
@@ -105,18 +106,6 @@ extern int PredatorNumbersImageNumber;
 extern int StaticImageNumber;
 extern int AAFontImageNumber;
 extern int WaterShaftImageNumber;
-
-extern int SmartgunIRImageNumber;
-extern int HelmetImageNumber;
-extern int IRImageNumber;
-extern int UVImageNumber;
-extern int ZoomImageNumber;
-extern int Zoom2ImageNumber;
-extern int APCImageNumber;
-
-extern int AlienMenuImageNumber;
-extern int MarineMenuImageNumber;
-extern int PredatorMenuImageNumber;
 
 D3DTEXTUREHANDLE FMVTextureHandle[4];
 D3DTEXTUREHANDLE NoiseTextureHandle;
@@ -213,6 +202,7 @@ extern int OverrideLevelSky(void);
 extern void UpdateFMVPalette(PALETTEENTRY *FMVPalette, int fmvNumber);
 
 void D3D_DrawFMV(int xOrigin, int yOrigin, int zOrigin);
+void D3D_DrawSimpleWater(int xOrigin, int yOrigin, int zOrigin);
 
 VECTORCH FMVParticleAbsPosition[450];
 VECTORCH FMVParticlePosition[450];
@@ -2972,7 +2962,6 @@ void D3D_FMVParticle_Output(RENDERVERTEX *renderVerticesPtr)
 	}
 }
 
-
 extern int CloakingPhase;
 extern int sine[];
 extern int cosine[];
@@ -3007,11 +2996,14 @@ void D3D_DrawMoltenMetal(int xOrigin, int yOrigin, int zOrigin);
 void D3D_DrawMoltenMetalMesh_Unclipped(void);
 void D3D_DrawMoltenMetalMesh_Clipped(void);
 
-
 //#define WATER_POLY_SCALE 256
 int MeshXScale;
 int MeshZScale;
 int WaterFallBase;
+
+// fixing water meshes, hopefully
+#pragma optimize ("", off)
+
 void PostLandscapeRendering(void)
 {
 	extern int NumOnScreenBlocks;
@@ -3645,6 +3637,123 @@ void PostLandscapeRendering(void)
 	}
 
 	/*
+	 * New water
+	 *
+	 * Scans for water inanimates and replaces them with
+	 * Rebellion's water patches.
+	 *
+	 * Remade the system to scan for deathvolumes with dps == 0.
+	 */
+#if 1
+	{
+		while(numOfObjects)
+		{
+			DISPLAYBLOCK *objectPtr = OnScreenBlockList[--numOfObjects];
+			MODULE *modulePtr = objectPtr->ObMyModule;
+
+			if (modulePtr)
+			{
+				extern int NumActiveStBlocks;
+				extern STRATEGYBLOCK *ActiveStBlockList[];
+				STRATEGYBLOCK *sbPtr;
+				int sbIndex=0;
+
+				while (sbIndex < NumActiveStBlocks)
+				{
+					sbPtr = ActiveStBlockList[sbIndex++];
+					if (sbPtr && sbPtr->I_SBtype)
+					{
+						// Is it an inanimate object?
+						if (sbPtr->I_SBtype == I_BehaviourDeathVolume/*I_BehaviourInanimateObject*/)
+						{
+							DEATH_VOLUME_BEHAV_BLOCK *dv_bhv;
+							dv_bhv = (DEATH_VOLUME_BEHAV_BLOCK *)sbPtr->SBdataptr;
+							//INANIMATEOBJECT_STATUSBLOCK *objPtr = (INANIMATEOBJECT_STATUSBLOCK *) sbPtr->SBdataptr;
+
+							if (dv_bhv->active)
+							{
+								if (dv_bhv->damage_per_second == 99)
+								{
+
+							/*
+							// Is it an intangible?
+							if (objPtr->typeId == IOT_Key)
+							{
+								// Is it regular water?
+								if (objPtr->subType <= 5)
+								{
+							
+									// Do not render!
+									sbPtr->SBdptr->ObFlags|=ObFlag_NotVis;
+							*/
+
+									// Replace with water patches.
+									{
+										int x = dv_bhv->volume_min.vx;//sbPtr->DynPtr->Position.vx;
+										int y = dv_bhv->volume_min.vy;//sbPtr->DynPtr->Position.vy;
+										int z = dv_bhv->volume_min.vz;//sbPtr->DynPtr->Position.vz;
+
+										//if (x >= 0)
+											MeshXScale = (dv_bhv->volume_max.vx-x);//(x-10000);
+										//else
+										//	MeshXScale = (-x-10000);
+
+										//if (z >= 0)
+											MeshZScale = (dv_bhv->volume_max.vz-z);//(z-10000);
+										//else
+										//	MeshZScale = (-z-10000);
+
+										{
+											extern void CheckForObjectsInWater(int minX, int maxX, int minZ, int maxZ, int averageY);
+											CheckForObjectsInWater(x, x+MeshXScale, z, z+MeshZScale, y);
+										}
+
+										WaterXOrigin=x;
+										WaterZOrigin=z;
+										WaterUScale = 4.0f/(float)MeshXScale;
+										WaterVScale = 4.0f/(float)MeshZScale;
+		 								MeshXScale/=2;
+		 								MeshZScale/=2;
+			
+										// Turn OFF texturing if it is on...
+										D3DTEXTUREHANDLE TextureHandle = (D3DTEXTUREHANDLE)ImageHeaderArray[ChromeImageNumber].D3DHandle;
+										if (CurrTextureHandle != TextureHandle)
+										{
+											OP_STATE_RENDER(1, ExecBufInstPtr);
+											STATE_DATA(D3DRENDERSTATE_TEXTUREHANDLE, TextureHandle, ExecBufInstPtr);
+											CurrTextureHandle = TextureHandle;
+										}	 
+										CheckTranslucencyModeIsCorrect(TRANSLUCENCY_NORMAL);
+										if (NumVertices)
+										{
+											WriteEndCodeToExecuteBuffer();
+		  									UnlockExecuteBufferAndPrepareForUse();
+											ExecuteBuffer();
+		  									LockExecuteBuffer();
+										}
+										if (0) {
+											D3D_DrawWaterPatch(x, y, z);
+			 								D3D_DrawWaterPatch(x+MeshXScale, y, z);
+			 								D3D_DrawWaterPatch(x, y, z+MeshZScale);
+		 									D3D_DrawWaterPatch(x+MeshXScale, y, z+MeshZScale);
+										} else {
+											//D3D_DrawSimpleWater(x, y, z);
+											//D3D_DrawSimpleWater(x+MeshXScale, y, z);
+											//D3D_DrawSimpleWater(x, y, z+MeshZScale);
+											//D3D_DrawSimpleWater(x+MeshXScale, y, z+MeshZScale);
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+#endif
+
+	/*
 	 * All new rain generator.
 	 *
 	 * Scans for visible modules and checks all strategyblock
@@ -3682,7 +3791,24 @@ void PostLandscapeRendering(void)
 								if (sbPtr->containingModule && (sbPtr->containingModule == modulePtr))
 								{
 									extern void HandleRainDrops(MODULE *modulePtr,int numberOfRaindrops);
+
 									HandleRainDrops(modulePtr,999);
+
+									if (sbPtr->containingModule == Player->ObStrategyBlock->containingModule)
+									{
+										PLAYER_STATUS *psPtr = (PLAYER_STATUS *) Player->ObStrategyBlock->SBdataptr;
+
+										/* Predator cloak is screwed from rain. */
+										if (AvP.PlayerType == I_Predator)
+										{
+											if (psPtr->cloakOn)
+											{
+												psPtr->cloakOn = 0;
+												psPtr->CloakingEffectiveness = 0;
+												Sound_Play(SID_PRED_CLOAKOFF, "h");
+											}
+										}
+									}
 									break;
 								}
 							}
@@ -3693,6 +3819,12 @@ void PostLandscapeRendering(void)
 		}
 	}
 }
+
+// fixing water meshes, hopefully
+#pragma optimize ("", on)
+
+// fixing water meshes, hopefully
+#pragma optimize ("", off)
 
 void D3D_DrawWaterTest(MODULE *testModulePtr)
 {
@@ -3831,6 +3963,9 @@ void D3D_DrawWaterTest(MODULE *testModulePtr)
 
 }
 
+// fixing water meshes, hopefully
+#pragma optimize ("", on)
+
 VECTORCH MeshVertex[256];
 #define TEXTURE_WATER 0
 
@@ -3838,14 +3973,73 @@ VECTORCH MeshWorldVertex[256];
 unsigned int MeshVertexColour[256];
 unsigned int MeshVertexSpecular[256];
 char MeshVertexOutcode[256];
+
+// fixing water meshes, hopefully
+#pragma optimize ("", off)
+
+void D3D_DrawSimpleWater(int xOrigin, int yOrigin, int zOrigin)
+{
+	int i=0;
+	int x;
+	int num = 16;
+
+	for (x=0; x<num; x++) {
+		int z;
+		for(z=0; z<num; z++) {
+			VECTORCH *point = &MeshVertex[i];
+			point->vx = xOrigin+(x*MeshXScale)/15;
+			point->vz = zOrigin+(x*MeshZScale)/15;
+			point->vy = yOrigin;
+
+			MeshWorldVertex[i].vx = ((point->vx-WaterXOrigin)/4+MUL_FIXED(GetSin((point->vy*16)&4095),128));			
+			MeshWorldVertex[i].vy = ((point->vz-WaterZOrigin)/4+MUL_FIXED(GetSin((point->vy*16+200)&4095),128));			
+
+			TranslatePointIntoViewspace(point);
+
+			/* is particle within normal view frustrum ? */
+			if(AvP.PlayerType==I_Alien)	/* wide frustrum */
+			{
+				if(( (-point->vx <= point->vz*2)
+		   			&&(point->vx <= point->vz*2)
+					&&(-point->vy <= point->vz*2)
+					&&(point->vy <= point->vz*2) ))
+				{
+					MeshVertexOutcode[i]=1;
+				}
+				else
+				{
+					MeshVertexOutcode[i]=0;
+				}
+			}
+			else
+			{
+				if(( (-point->vx <= point->vz)
+		   			&&(point->vx <= point->vz)
+					&&(-point->vy <= point->vz)
+					&&(point->vy <= point->vz) ))
+				{
+					MeshVertexOutcode[i]=1;
+				}
+				else
+				{
+					MeshVertexOutcode[i]=0;
+				}
+			}
+			i++;
+		}
+	}
+}
+
 void D3D_DrawWaterPatch(int xOrigin, int yOrigin, int zOrigin)
 {
 	int i=0;
 	int x;
-	for (x=0; x<16; x++)
+	int num = 16; // Having 8 makes it look like shit :P
+
+	for (x=0; x<num; x++)
 	{
 		int z;
-		for(z=0; z<16; z++)
+		for(z=0; z<num; z++)
 		{
 			VECTORCH *point = &MeshVertex[i];
 			
@@ -3988,6 +4182,12 @@ void D3D_DrawWaterPatch(int xOrigin, int yOrigin, int zOrigin)
 	
 }
 
+// fixing water meshes, hopefully
+#pragma optimize ("", on)
+
+// fixing water meshes, hopefully
+#pragma optimize ("", off)
+
 void D3D_DrawWaterMesh_Unclipped(void)
 {
 	float ZNear = (float) (Global_VDB_Ptr->VDB_ClipZ * GlobalScale);
@@ -4097,6 +4297,13 @@ void D3D_DrawWaterMesh_Unclipped(void)
 	}
 	#endif
 }
+
+// fixing water meshes, hopefully
+#pragma optimize ("", on)
+
+// fixing water meshes, hopefully
+#pragma optimize ("", off)
+
 void D3D_DrawWaterMesh_Clipped(void)
 {
 	float ZNear = (float) (Global_VDB_Ptr->VDB_ClipZ * GlobalScale);
@@ -4228,6 +4435,8 @@ void D3D_DrawWaterMesh_Clipped(void)
 	#endif
 }
 
+// fixing water meshes, hopefully
+#pragma optimize ("", on)
 
 int LightSourceWaterPoint(VECTORCH *pointPtr,int offset)
 {
@@ -5153,7 +5362,15 @@ void D3D_DrawBackdrop(void)
 	  		
 			if (AvP.PlayerType != I_Alien)
 			{
-				if (LevelHasStars)
+				if (Fog) {
+					// Fogged sky is simply rendered white.
+					ColourFillBackBuffer(GetSingleColourForPrimary(0xFFFFFF));
+				}
+				else if (!_stricmp(LevelName, "Custom\\mp_predship")) {
+					// mp_predship has green fog.
+					ColourFillBackBuffer(GetSingleColourForPrimary(0x00FF00));
+				}
+				else if (LevelHasStars)
 				{
 					extern void RenderStarfield(void);
 					RenderStarfield();
@@ -5916,494 +6133,14 @@ void DrawPredTechOverlay(float level)
 	if (level==0.5f) DrawPredTechNoiseOverlay(30);
 }
 
-void DrawSmartIROverlay(int t)
-{
-	{
-		D3DTLVERTEX *vertexPtr = &((LPD3DTLVERTEX)ExecuteBufferDataArea)[NumVertices];
-		  
-		extern float CameraZoomScale;
-		float u = 0.0f;//FastRandom()&255;
-		float v = 0.0f;//FastRandom()&255;
-		int c = 255;
-		int size = 256;//*CameraZoomScale;
-	  	vertexPtr->sx =	Global_VDB_Ptr->VDB_ClipLeft;
-	  	vertexPtr->sy =	Global_VDB_Ptr->VDB_ClipUp;
-		vertexPtr->sz = 1.0f;
-		vertexPtr->rhw = 1.0f;
-		vertexPtr->tu = u/256.0;
-		vertexPtr->tv = v/256.0;
-		vertexPtr->color = RGBALIGHT_MAKE(c,c,c,t);
-		vertexPtr++;
-	  	vertexPtr->sx =	Global_VDB_Ptr->VDB_ClipRight;
-	  	vertexPtr->sy =	Global_VDB_Ptr->VDB_ClipUp;
-		vertexPtr->sz = 1.0f;
-		vertexPtr->rhw = 1.0f;
-		vertexPtr->tu = (u+size)/256.0;
-		vertexPtr->tv = v/256.0;
-		vertexPtr->color = RGBALIGHT_MAKE(c,c,c,t);
-		vertexPtr++;
-	  	vertexPtr->sx =	Global_VDB_Ptr->VDB_ClipRight;
-	  	vertexPtr->sy =	Global_VDB_Ptr->VDB_ClipDown;
-		vertexPtr->sz = 1.0f;
-		vertexPtr->rhw = 1.0f;
-		vertexPtr->tu = (u+size)/256.0;
-		vertexPtr->tv = (v+size)/256.0;
-		vertexPtr->color = RGBALIGHT_MAKE(c,c,c,t);
-		vertexPtr++;
-	  	vertexPtr->sx =	Global_VDB_Ptr->VDB_ClipLeft;
-	  	vertexPtr->sy =	Global_VDB_Ptr->VDB_ClipDown;
-		vertexPtr->sz = 1.0f;
-		vertexPtr->rhw = 1.0f;
-		vertexPtr->tu = u/256.0;
-		vertexPtr->tv = (v+size)/256.0;
-		vertexPtr->color = RGBALIGHT_MAKE(c,c,c,t);
-
-		NumVertices+=4;
-	}
-	CheckTranslucencyModeIsCorrect(TRANSLUCENCY_GLOWING);
-	CheckFilteringModeIsCorrect(FILTERING_BILINEAR_ON);
-    OP_STATE_RENDER(1, ExecBufInstPtr);
-    STATE_DATA(D3DRENDERSTATE_ZFUNC, D3DCMP_ALWAYS, ExecBufInstPtr);
-
- 	NoiseTextureHandle = (D3DTEXTUREHANDLE)ImageHeaderArray[SmartgunIRImageNumber].D3DHandle;
-    if (CurrTextureHandle != NoiseTextureHandle)
-	{
-    	OP_STATE_RENDER(1, ExecBufInstPtr);
-        STATE_DATA(D3DRENDERSTATE_TEXTUREHANDLE, NoiseTextureHandle, ExecBufInstPtr);
-        CurrTextureHandle = NoiseTextureHandle;
-	}
-    if (D3DTexturePerspective != No)
-	{
-		D3DTexturePerspective = No;
-		OP_STATE_RENDER(1, ExecBufInstPtr);
-		STATE_DATA(D3DRENDERSTATE_TEXTUREPERSPECTIVE, FALSE, ExecBufInstPtr);
-	}
-
-
-	OP_TRIANGLE_LIST(2, ExecBufInstPtr);
-	OUTPUT_TRIANGLE(0,1,3, 4);
-	OUTPUT_TRIANGLE(1,2,3, 4);
-
-    OP_STATE_RENDER(1, ExecBufInstPtr);
-    STATE_DATA(D3DRENDERSTATE_ZFUNC, D3DCMP_LESSEQUAL, ExecBufInstPtr);
-
-	if (NumVertices > (MaxVerticesInExecuteBuffer-12)) 
-	{
-	   WriteEndCodeToExecuteBuffer();
-  	   UnlockExecuteBufferAndPrepareForUse();
-	   ExecuteBuffer();
-  	   LockExecuteBuffer();
-	}
-}
-
-void DrawIROverlay(int t)
-{
-	{
-		D3DTLVERTEX *vertexPtr = &((LPD3DTLVERTEX)ExecuteBufferDataArea)[NumVertices];
-		  
-		extern float CameraZoomScale;
-		float u = 0.0f;//FastRandom()&255;
-		float v = 0.0f;//FastRandom()&255;
-		int c = 255;
-		int size = 256;//*CameraZoomScale;
-	  	vertexPtr->sx =	Global_VDB_Ptr->VDB_ClipLeft;
-	  	vertexPtr->sy =	Global_VDB_Ptr->VDB_ClipUp;
-		vertexPtr->sz = 1.0f;
-		vertexPtr->rhw = 1.0f;
-		vertexPtr->tu = u/256.0;
-		vertexPtr->tv = v/256.0;
-		vertexPtr->color = RGBALIGHT_MAKE(c,c,c,t);
-		vertexPtr++;
-	  	vertexPtr->sx =	Global_VDB_Ptr->VDB_ClipRight;
-	  	vertexPtr->sy =	Global_VDB_Ptr->VDB_ClipUp;
-		vertexPtr->sz = 1.0f;
-		vertexPtr->rhw = 1.0f;
-		vertexPtr->tu = (u+size)/256.0;
-		vertexPtr->tv = v/256.0;
-		vertexPtr->color = RGBALIGHT_MAKE(c,c,c,t);
-		vertexPtr++;
-	  	vertexPtr->sx =	Global_VDB_Ptr->VDB_ClipRight;
-	  	vertexPtr->sy =	Global_VDB_Ptr->VDB_ClipDown;
-		vertexPtr->sz = 1.0f;
-		vertexPtr->rhw = 1.0f;
-		vertexPtr->tu = (u+size)/256.0;
-		vertexPtr->tv = (v+size)/256.0;
-		vertexPtr->color = RGBALIGHT_MAKE(c,c,c,t);
-		vertexPtr++;
-	  	vertexPtr->sx =	Global_VDB_Ptr->VDB_ClipLeft;
-	  	vertexPtr->sy =	Global_VDB_Ptr->VDB_ClipDown;
-		vertexPtr->sz = 1.0f;
-		vertexPtr->rhw = 1.0f;
-		vertexPtr->tu = u/256.0;
-		vertexPtr->tv = (v+size)/256.0;
-		vertexPtr->color = RGBALIGHT_MAKE(c,c,c,t);
-
-		NumVertices+=4;
-	}
-	CheckTranslucencyModeIsCorrect(TRANSLUCENCY_GLOWING);
-	CheckFilteringModeIsCorrect(FILTERING_BILINEAR_ON);
-    OP_STATE_RENDER(1, ExecBufInstPtr);
-    STATE_DATA(D3DRENDERSTATE_ZFUNC, D3DCMP_ALWAYS, ExecBufInstPtr);
-
- 	NoiseTextureHandle = (D3DTEXTUREHANDLE)ImageHeaderArray[IRImageNumber].D3DHandle;
-    if (CurrTextureHandle != NoiseTextureHandle)
-	{
-    	OP_STATE_RENDER(1, ExecBufInstPtr);
-        STATE_DATA(D3DRENDERSTATE_TEXTUREHANDLE, NoiseTextureHandle, ExecBufInstPtr);
-        CurrTextureHandle = NoiseTextureHandle;
-	}
-    if (D3DTexturePerspective != No)
-	{
-		D3DTexturePerspective = No;
-		OP_STATE_RENDER(1, ExecBufInstPtr);
-		STATE_DATA(D3DRENDERSTATE_TEXTUREPERSPECTIVE, FALSE, ExecBufInstPtr);
-	}
-
-
-	OP_TRIANGLE_LIST(2, ExecBufInstPtr);
-	OUTPUT_TRIANGLE(0,1,3, 4);
-	OUTPUT_TRIANGLE(1,2,3, 4);
-
-    OP_STATE_RENDER(1, ExecBufInstPtr);
-    STATE_DATA(D3DRENDERSTATE_ZFUNC, D3DCMP_LESSEQUAL, ExecBufInstPtr);
-
-	if (NumVertices > (MaxVerticesInExecuteBuffer-12)) 
-	{
-	   WriteEndCodeToExecuteBuffer();
-  	   UnlockExecuteBufferAndPrepareForUse();
-	   ExecuteBuffer();
-  	   LockExecuteBuffer();
-	}
-}
-
-void DrawUVOverlay(int t)
-{
-	{
-		D3DTLVERTEX *vertexPtr = &((LPD3DTLVERTEX)ExecuteBufferDataArea)[NumVertices];
-		  
-		extern float CameraZoomScale;
-		float u = 0.0f;//FastRandom()&255;
-		float v = 0.0f;//FastRandom()&255;
-		int c = 255;
-		int size = 256;//*CameraZoomScale;
-	  	vertexPtr->sx =	Global_VDB_Ptr->VDB_ClipLeft;
-	  	vertexPtr->sy =	Global_VDB_Ptr->VDB_ClipUp;
-		vertexPtr->sz = 1.0f;
-		vertexPtr->rhw = 1.0f;
-		vertexPtr->tu = u/256.0;
-		vertexPtr->tv = v/256.0;
-		vertexPtr->color = RGBALIGHT_MAKE(c,c,c,t);
-		vertexPtr++;
-	  	vertexPtr->sx =	Global_VDB_Ptr->VDB_ClipRight;
-	  	vertexPtr->sy =	Global_VDB_Ptr->VDB_ClipUp;
-		vertexPtr->sz = 1.0f;
-		vertexPtr->rhw = 1.0f;
-		vertexPtr->tu = (u+size)/256.0;
-		vertexPtr->tv = v/256.0;
-		vertexPtr->color = RGBALIGHT_MAKE(c,c,c,t);
-		vertexPtr++;
-	  	vertexPtr->sx =	Global_VDB_Ptr->VDB_ClipRight;
-	  	vertexPtr->sy =	Global_VDB_Ptr->VDB_ClipDown;
-		vertexPtr->sz = 1.0f;
-		vertexPtr->rhw = 1.0f;
-		vertexPtr->tu = (u+size)/256.0;
-		vertexPtr->tv = (v+size)/256.0;
-		vertexPtr->color = RGBALIGHT_MAKE(c,c,c,t);
-		vertexPtr++;
-	  	vertexPtr->sx =	Global_VDB_Ptr->VDB_ClipLeft;
-	  	vertexPtr->sy =	Global_VDB_Ptr->VDB_ClipDown;
-		vertexPtr->sz = 1.0f;
-		vertexPtr->rhw = 1.0f;
-		vertexPtr->tu = u/256.0;
-		vertexPtr->tv = (v+size)/256.0;
-		vertexPtr->color = RGBALIGHT_MAKE(c,c,c,t);
-
-		NumVertices+=4;
-	}
-	CheckTranslucencyModeIsCorrect(TRANSLUCENCY_GLOWING);
-	CheckFilteringModeIsCorrect(FILTERING_BILINEAR_ON);
-    OP_STATE_RENDER(1, ExecBufInstPtr);
-    STATE_DATA(D3DRENDERSTATE_ZFUNC, D3DCMP_ALWAYS, ExecBufInstPtr);
-
- 	NoiseTextureHandle = (D3DTEXTUREHANDLE)ImageHeaderArray[UVImageNumber].D3DHandle;
-    if (CurrTextureHandle != NoiseTextureHandle)
-	{
-    	OP_STATE_RENDER(1, ExecBufInstPtr);
-        STATE_DATA(D3DRENDERSTATE_TEXTUREHANDLE, NoiseTextureHandle, ExecBufInstPtr);
-        CurrTextureHandle = NoiseTextureHandle;
-	}
-    if (D3DTexturePerspective != No)
-	{
-		D3DTexturePerspective = No;
-		OP_STATE_RENDER(1, ExecBufInstPtr);
-		STATE_DATA(D3DRENDERSTATE_TEXTUREPERSPECTIVE, FALSE, ExecBufInstPtr);
-	}
-
-
-	OP_TRIANGLE_LIST(2, ExecBufInstPtr);
-	OUTPUT_TRIANGLE(0,1,3, 4);
-	OUTPUT_TRIANGLE(1,2,3, 4);
-
-    OP_STATE_RENDER(1, ExecBufInstPtr);
-    STATE_DATA(D3DRENDERSTATE_ZFUNC, D3DCMP_LESSEQUAL, ExecBufInstPtr);
-
-	if (NumVertices > (MaxVerticesInExecuteBuffer-12)) 
-	{
-	   WriteEndCodeToExecuteBuffer();
-  	   UnlockExecuteBufferAndPrepareForUse();
-	   ExecuteBuffer();
-  	   LockExecuteBuffer();
-	}
-}
-
-void DrawZoomOverlay(int t)
-{
-	{
-		D3DTLVERTEX *vertexPtr = &((LPD3DTLVERTEX)ExecuteBufferDataArea)[NumVertices];
-		  
-		extern float CameraZoomScale;
-		float u = 0.0f;//FastRandom()&255;
-		float v = 0.0f;//FastRandom()&255;
-		int c = 255;
-		int size = 256;//*CameraZoomScale;
-	  	vertexPtr->sx =	Global_VDB_Ptr->VDB_ClipLeft;
-	  	vertexPtr->sy =	Global_VDB_Ptr->VDB_ClipUp;
-		vertexPtr->sz = 1.0f;
-		vertexPtr->rhw = 1.0f;
-		vertexPtr->tu = u/256.0;
-		vertexPtr->tv = v/256.0;
-		vertexPtr->color = RGBALIGHT_MAKE(c,c,c,t);
-		vertexPtr++;
-	  	vertexPtr->sx =	Global_VDB_Ptr->VDB_ClipRight;
-	  	vertexPtr->sy =	Global_VDB_Ptr->VDB_ClipUp;
-		vertexPtr->sz = 1.0f;
-		vertexPtr->rhw = 1.0f;
-		vertexPtr->tu = (u+size)/256.0;
-		vertexPtr->tv = v/256.0;
-		vertexPtr->color = RGBALIGHT_MAKE(c,c,c,t);
-		vertexPtr++;
-	  	vertexPtr->sx =	Global_VDB_Ptr->VDB_ClipRight;
-	  	vertexPtr->sy =	Global_VDB_Ptr->VDB_ClipDown;
-		vertexPtr->sz = 1.0f;
-		vertexPtr->rhw = 1.0f;
-		vertexPtr->tu = (u+size)/256.0;
-		vertexPtr->tv = (v+size)/256.0;
-		vertexPtr->color = RGBALIGHT_MAKE(c,c,c,t);
-		vertexPtr++;
-	  	vertexPtr->sx =	Global_VDB_Ptr->VDB_ClipLeft;
-	  	vertexPtr->sy =	Global_VDB_Ptr->VDB_ClipDown;
-		vertexPtr->sz = 1.0f;
-		vertexPtr->rhw = 1.0f;
-		vertexPtr->tu = u/256.0;
-		vertexPtr->tv = (v+size)/256.0;
-		vertexPtr->color = RGBALIGHT_MAKE(c,c,c,t);
-
-		NumVertices+=4;
-	}
-	CheckTranslucencyModeIsCorrect(TRANSLUCENCY_OFF);
-	CheckFilteringModeIsCorrect(FILTERING_BILINEAR_ON);
-    OP_STATE_RENDER(1, ExecBufInstPtr);
-    STATE_DATA(D3DRENDERSTATE_ZFUNC, D3DCMP_ALWAYS, ExecBufInstPtr);
-
- 	NoiseTextureHandle = (D3DTEXTUREHANDLE)ImageHeaderArray[ZoomImageNumber].D3DHandle;
-    if (CurrTextureHandle != NoiseTextureHandle)
-	{
-    	OP_STATE_RENDER(1, ExecBufInstPtr);
-        STATE_DATA(D3DRENDERSTATE_TEXTUREHANDLE, NoiseTextureHandle, ExecBufInstPtr);
-        CurrTextureHandle = NoiseTextureHandle;
-	}
-    if (D3DTexturePerspective != No)
-	{
-		D3DTexturePerspective = No;
-		OP_STATE_RENDER(1, ExecBufInstPtr);
-		STATE_DATA(D3DRENDERSTATE_TEXTUREPERSPECTIVE, FALSE, ExecBufInstPtr);
-	}
-
-
-	OP_TRIANGLE_LIST(2, ExecBufInstPtr);
-	OUTPUT_TRIANGLE(0,1,3, 4);
-	OUTPUT_TRIANGLE(1,2,3, 4);
-
-    OP_STATE_RENDER(1, ExecBufInstPtr);
-    STATE_DATA(D3DRENDERSTATE_ZFUNC, D3DCMP_LESSEQUAL, ExecBufInstPtr);
-
-	if (NumVertices > (MaxVerticesInExecuteBuffer-12)) 
-	{
-	   WriteEndCodeToExecuteBuffer();
-  	   UnlockExecuteBufferAndPrepareForUse();
-	   ExecuteBuffer();
-  	   LockExecuteBuffer();
-	}
-}
-
-void DrawZoom2Overlay(int t)
-{
-	{
-		D3DTLVERTEX *vertexPtr = &((LPD3DTLVERTEX)ExecuteBufferDataArea)[NumVertices];
-		  
-		extern float CameraZoomScale;
-		float u = 0.0f;//FastRandom()&255;
-		float v = 0.0f;//FastRandom()&255;
-		int c = 255;
-		int size = 256;//*CameraZoomScale;
-	  	vertexPtr->sx =	Global_VDB_Ptr->VDB_ClipLeft;
-	  	vertexPtr->sy =	Global_VDB_Ptr->VDB_ClipUp;
-		vertexPtr->sz = 1.0f;
-		vertexPtr->rhw = 1.0f;
-		vertexPtr->tu = u/256.0;
-		vertexPtr->tv = v/256.0;
-		vertexPtr->color = RGBALIGHT_MAKE(c,c,c,t);
-		vertexPtr++;
-	  	vertexPtr->sx =	Global_VDB_Ptr->VDB_ClipRight;
-	  	vertexPtr->sy =	Global_VDB_Ptr->VDB_ClipUp;
-		vertexPtr->sz = 1.0f;
-		vertexPtr->rhw = 1.0f;
-		vertexPtr->tu = (u+size)/256.0;
-		vertexPtr->tv = v/256.0;
-		vertexPtr->color = RGBALIGHT_MAKE(c,c,c,t);
-		vertexPtr++;
-	  	vertexPtr->sx =	Global_VDB_Ptr->VDB_ClipRight;
-	  	vertexPtr->sy =	Global_VDB_Ptr->VDB_ClipDown;
-		vertexPtr->sz = 1.0f;
-		vertexPtr->rhw = 1.0f;
-		vertexPtr->tu = (u+size)/256.0;
-		vertexPtr->tv = (v+size)/256.0;
-		vertexPtr->color = RGBALIGHT_MAKE(c,c,c,t);
-		vertexPtr++;
-	  	vertexPtr->sx =	Global_VDB_Ptr->VDB_ClipLeft;
-	  	vertexPtr->sy =	Global_VDB_Ptr->VDB_ClipDown;
-		vertexPtr->sz = 1.0f;
-		vertexPtr->rhw = 1.0f;
-		vertexPtr->tu = u/256.0;
-		vertexPtr->tv = (v+size)/256.0;
-		vertexPtr->color = RGBALIGHT_MAKE(c,c,c,t);
-
-		NumVertices+=4;
-	}
-	CheckTranslucencyModeIsCorrect(TRANSLUCENCY_OFF);
-	CheckFilteringModeIsCorrect(FILTERING_BILINEAR_ON);
-    OP_STATE_RENDER(1, ExecBufInstPtr);
-    STATE_DATA(D3DRENDERSTATE_ZFUNC, D3DCMP_ALWAYS, ExecBufInstPtr);
-
- 	NoiseTextureHandle = (D3DTEXTUREHANDLE)ImageHeaderArray[Zoom2ImageNumber].D3DHandle;
-    if (CurrTextureHandle != NoiseTextureHandle)
-	{
-    	OP_STATE_RENDER(1, ExecBufInstPtr);
-        STATE_DATA(D3DRENDERSTATE_TEXTUREHANDLE, NoiseTextureHandle, ExecBufInstPtr);
-        CurrTextureHandle = NoiseTextureHandle;
-	}
-    if (D3DTexturePerspective != No)
-	{
-		D3DTexturePerspective = No;
-		OP_STATE_RENDER(1, ExecBufInstPtr);
-		STATE_DATA(D3DRENDERSTATE_TEXTUREPERSPECTIVE, FALSE, ExecBufInstPtr);
-	}
-
-
-	OP_TRIANGLE_LIST(2, ExecBufInstPtr);
-	OUTPUT_TRIANGLE(0,1,3, 4);
-	OUTPUT_TRIANGLE(1,2,3, 4);
-
-    OP_STATE_RENDER(1, ExecBufInstPtr);
-    STATE_DATA(D3DRENDERSTATE_ZFUNC, D3DCMP_LESSEQUAL, ExecBufInstPtr);
-
-	if (NumVertices > (MaxVerticesInExecuteBuffer-12)) 
-	{
-	   WriteEndCodeToExecuteBuffer();
-  	   UnlockExecuteBufferAndPrepareForUse();
-	   ExecuteBuffer();
-  	   LockExecuteBuffer();
-	}
-}
-
-void DrawAPCOverlay(int t)
-{
-	{
-		D3DTLVERTEX *vertexPtr = &((LPD3DTLVERTEX)ExecuteBufferDataArea)[NumVertices];
-		  
-		extern float CameraZoomScale;
-		float u = 0.0f;//FastRandom()&255;
-		float v = 0.0f;//FastRandom()&255;
-		int c = 255;
-		int size = 256;//*CameraZoomScale;
-	  	vertexPtr->sx =	Global_VDB_Ptr->VDB_ClipLeft;
-	  	vertexPtr->sy =	Global_VDB_Ptr->VDB_ClipUp;
-		vertexPtr->sz = 1.0f;
-		vertexPtr->rhw = 1.0f;
-		vertexPtr->tu = u/256.0;
-		vertexPtr->tv = v/256.0;
-		vertexPtr->color = RGBALIGHT_MAKE(c,c,c,t);
-		vertexPtr++;
-	  	vertexPtr->sx =	Global_VDB_Ptr->VDB_ClipRight;
-	  	vertexPtr->sy =	Global_VDB_Ptr->VDB_ClipUp;
-		vertexPtr->sz = 1.0f;
-		vertexPtr->rhw = 1.0f;
-		vertexPtr->tu = (u+size)/256.0;
-		vertexPtr->tv = v/256.0;
-		vertexPtr->color = RGBALIGHT_MAKE(c,c,c,t);
-		vertexPtr++;
-	  	vertexPtr->sx =	Global_VDB_Ptr->VDB_ClipRight;
-	  	vertexPtr->sy =	Global_VDB_Ptr->VDB_ClipDown;
-		vertexPtr->sz = 1.0f;
-		vertexPtr->rhw = 1.0f;
-		vertexPtr->tu = (u+size)/256.0;
-		vertexPtr->tv = (v+size)/256.0;
-		vertexPtr->color = RGBALIGHT_MAKE(c,c,c,t);
-		vertexPtr++;
-	  	vertexPtr->sx =	Global_VDB_Ptr->VDB_ClipLeft;
-	  	vertexPtr->sy =	Global_VDB_Ptr->VDB_ClipDown;
-		vertexPtr->sz = 1.0f;
-		vertexPtr->rhw = 1.0f;
-		vertexPtr->tu = u/256.0;
-		vertexPtr->tv = (v+size)/256.0;
-		vertexPtr->color = RGBALIGHT_MAKE(c,c,c,t);
-
-		NumVertices+=4;
-	}
-	CheckTranslucencyModeIsCorrect(TRANSLUCENCY_OFF);
-	CheckFilteringModeIsCorrect(FILTERING_BILINEAR_ON);
-    OP_STATE_RENDER(1, ExecBufInstPtr);
-    STATE_DATA(D3DRENDERSTATE_ZFUNC, D3DCMP_ALWAYS, ExecBufInstPtr);
-
- 	NoiseTextureHandle = (D3DTEXTUREHANDLE)ImageHeaderArray[APCImageNumber].D3DHandle;
-    if (CurrTextureHandle != NoiseTextureHandle)
-	{
-    	OP_STATE_RENDER(1, ExecBufInstPtr);
-        STATE_DATA(D3DRENDERSTATE_TEXTUREHANDLE, NoiseTextureHandle, ExecBufInstPtr);
-        CurrTextureHandle = NoiseTextureHandle;
-	}
-    if (D3DTexturePerspective != No)
-	{
-		D3DTexturePerspective = No;
-		OP_STATE_RENDER(1, ExecBufInstPtr);
-		STATE_DATA(D3DRENDERSTATE_TEXTUREPERSPECTIVE, FALSE, ExecBufInstPtr);
-	}
-
-
-	OP_TRIANGLE_LIST(2, ExecBufInstPtr);
-	OUTPUT_TRIANGLE(0,1,3, 4);
-	OUTPUT_TRIANGLE(1,2,3, 4);
-
-    OP_STATE_RENDER(1, ExecBufInstPtr);
-    STATE_DATA(D3DRENDERSTATE_ZFUNC, D3DCMP_LESSEQUAL, ExecBufInstPtr);
-
-	if (NumVertices > (MaxVerticesInExecuteBuffer-12)) 
-	{
-	   WriteEndCodeToExecuteBuffer();
-  	   UnlockExecuteBufferAndPrepareForUse();
-	   ExecuteBuffer();
-  	   LockExecuteBuffer();
-	}
-}
-
 void DrawHelmetNoiseOverlay(int t)
 {
 	{
 		D3DTLVERTEX *vertexPtr = &((LPD3DTLVERTEX)ExecuteBufferDataArea)[NumVertices];
 		  
 		extern float CameraZoomScale;
-		float u = 0.0f;//FastRandom()&255;
-		float v = 0.0f;//FastRandom()&255;
+		float u = FastRandom()&255;
+		float v = FastRandom()&255;
 		int c = 255;
 		int size = 256;//*CameraZoomScale;
 	  	vertexPtr->sx =	Global_VDB_Ptr->VDB_ClipLeft;
@@ -6412,7 +6149,7 @@ void DrawHelmetNoiseOverlay(int t)
 		vertexPtr->rhw = 1.0f;
 		vertexPtr->tu = u/256.0;
 		vertexPtr->tv = v/256.0;
-		vertexPtr->color = RGBALIGHT_MAKE(c,c,c,t);
+		vertexPtr->color = RGBALIGHT_MAKE(0,c,0,t);
 		vertexPtr++;
 	  	vertexPtr->sx =	Global_VDB_Ptr->VDB_ClipRight;
 	  	vertexPtr->sy =	Global_VDB_Ptr->VDB_ClipUp;
@@ -6420,7 +6157,7 @@ void DrawHelmetNoiseOverlay(int t)
 		vertexPtr->rhw = 1.0f;
 		vertexPtr->tu = (u+size)/256.0;
 		vertexPtr->tv = v/256.0;
-		vertexPtr->color = RGBALIGHT_MAKE(c,c,c,t);
+		vertexPtr->color = RGBALIGHT_MAKE(0,c,0,t);
 		vertexPtr++;
 	  	vertexPtr->sx =	Global_VDB_Ptr->VDB_ClipRight;
 	  	vertexPtr->sy =	Global_VDB_Ptr->VDB_ClipDown;
@@ -6428,7 +6165,7 @@ void DrawHelmetNoiseOverlay(int t)
 		vertexPtr->rhw = 1.0f;
 		vertexPtr->tu = (u+size)/256.0;
 		vertexPtr->tv = (v+size)/256.0;
-		vertexPtr->color = RGBALIGHT_MAKE(c,c,c,t);
+		vertexPtr->color = RGBALIGHT_MAKE(0,c,0,t);
 		vertexPtr++;
 	  	vertexPtr->sx =	Global_VDB_Ptr->VDB_ClipLeft;
 	  	vertexPtr->sy =	Global_VDB_Ptr->VDB_ClipDown;
@@ -6436,7 +6173,7 @@ void DrawHelmetNoiseOverlay(int t)
 		vertexPtr->rhw = 1.0f;
 		vertexPtr->tu = u/256.0;
 		vertexPtr->tv = (v+size)/256.0;
-		vertexPtr->color = RGBALIGHT_MAKE(c,c,c,t);
+		vertexPtr->color = RGBALIGHT_MAKE(0,c,0,t);
 
 		NumVertices+=4;
 	}
@@ -6445,7 +6182,7 @@ void DrawHelmetNoiseOverlay(int t)
     OP_STATE_RENDER(1, ExecBufInstPtr);
     STATE_DATA(D3DRENDERSTATE_ZFUNC, D3DCMP_ALWAYS, ExecBufInstPtr);
 
- 	NoiseTextureHandle = (D3DTEXTUREHANDLE)ImageHeaderArray[HelmetImageNumber].D3DHandle;
+ 	NoiseTextureHandle = (D3DTEXTUREHANDLE)ImageHeaderArray[StaticImageNumber].D3DHandle;
     if (CurrTextureHandle != NoiseTextureHandle)
 	{
     	OP_STATE_RENDER(1, ExecBufInstPtr);
@@ -7209,6 +6946,9 @@ void D3D_DrawFMVOnWater(int xOrigin, int yOrigin, int zOrigin)
 	
 }
 
+// fixing water meshes, hopefully
+#pragma optimize ("", off)
+
 void D3D_DrawMoltenMetal(int xOrigin, int yOrigin, int zOrigin)
 {
 	int i=0;
@@ -7354,6 +7094,12 @@ void D3D_DrawMoltenMetal(int xOrigin, int yOrigin, int zOrigin)
 	
 }
 
+// fixing water meshes, hopefully
+#pragma optimize ("", on)
+
+// fixing water meshes, hopefully
+#pragma optimize ("", off)
+
 void D3D_DrawMoltenMetalMesh_Unclipped(void)
 {
 	float ZNear = (float) (Global_VDB_Ptr->VDB_ClipZ * GlobalScale);
@@ -7455,6 +7201,13 @@ void D3D_DrawMoltenMetalMesh_Unclipped(void)
 	}
 	#endif
 }
+
+// fixing water meshes, hopefully
+#pragma optimize ("", on)
+
+// fixing water meshes, hopefully
+#pragma optimize ("", off)
+
 void D3D_DrawMoltenMetalMesh_Clipped(void)
 {
 	float ZNear = (float) (Global_VDB_Ptr->VDB_ClipZ * GlobalScale);
@@ -7642,6 +7395,9 @@ void D3D_DrawMoltenMetalMesh_Clipped(void)
 	}
 	#endif
 }
+
+// fixing water meshes, hopefully
+#pragma optimize ("", on)
 
 void *DynamicImagePtr;
 

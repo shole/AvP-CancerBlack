@@ -29,6 +29,13 @@ LANGUAGE LANG_NEUTRAL, SUBLANG_DEFAULT
 // Icon with lowest ID value placed first to ensure application icon
 // remains consistent on all systems.
 IDI_AMP                 ICON    DISCARDABLE     "avp.ico"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Cursor
+//
+
+IDC_TAIL                CURSOR  DISCARDABLE     "tail.cur"
 #endif    // Neutral (Default) resources
 /////////////////////////////////////////////////////////////////////////////
 

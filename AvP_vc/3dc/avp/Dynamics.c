@@ -724,7 +724,7 @@ extern void ObjectDynamics(void)
 
 					if (objPtr->typeId == IOT_PheromonePod)
 					{
-						if (Approximate3dMagnitude(&disp)<(PLAYER_PICKUP_OBJECT_RADIUS*8))
+						if (Approximate3dMagnitude(&disp)<(PLAYER_PICKUP_OBJECT_RADIUS*2))
 						{
 							if (EggTimer == 0)
 							{
@@ -740,13 +740,17 @@ extern void ObjectDynamics(void)
 									position.vx = obstaclePtr->DynPtr->Position.vx+100;
 									position.vy = obstaclePtr->DynPtr->Position.vy-500;
 									position.vz = obstaclePtr->DynPtr->Position.vz;
-									CreateHuggerBot(&position);
+									//CreateHuggerBot(&position);
 
 									position.vx = obstaclePtr->DynPtr->Position.vx;
 									position.vy = obstaclePtr->DynPtr->Position.vy-180;
 									position.vz = obstaclePtr->DynPtr->Position.vz;
 									if (CreateOpenEgg(&position,NULL))
-									{ /* Do nothing special...*/ }
+									{
+										if (objPtr->event_target) {
+											RequestState(objPtr->event_target->event_target_sbptr,objPtr->event_target->request,0);
+										}
+									}
 									DestroyAnyStrategyBlock(obstaclePtr);
 									EggTimer = 0;
 								}
@@ -2982,11 +2986,12 @@ static void TestShapeWithDynamicBoundingBox(DISPLAYBLOCK *objectPtr, DYNAMICSBLO
 			if (Player->ObStrategyBlock)
 			{
 				DYNAMICSBLOCK *dynPtr = Player->ObStrategyBlock->DynPtr;
+				extern int CrouchIsToggleKey;
 
 			    if ((dynPtr->LinVelocity.vx == 0) &&
 					(dynPtr->LinVelocity.vy == 0) &&
 					(dynPtr->LinVelocity.vz == 0) &&
-					(PlayerStatusPtr->Mvt_InputRequests.Flags.Rqst_Crouch))
+					(PlayerStatusPtr->Mvt_InputRequests.Flags.Rqst_Crouch || !CrouchIsToggleKey))
 				{
 					PLAYER_STATUS *psPtr = (PLAYER_STATUS *) Player->ObStrategyBlock->SBdataptr;
 					psPtr->cloakOn = 1;
@@ -5541,6 +5546,10 @@ static void CreateNRBBForObject(const STRATEGYBLOCK *sbPtr)
 					
 				case I_Alien:
 					extentsPtr = &CollisionExtents[CE_ALIEN];
+
+					if (playerStatusPtr->Class == CLASS_MEDIC_PR)
+						extentsPtr = &CollisionExtents[CE_QUEEN];
+
 					dynPtr->CollisionRadius = extentsPtr->CollisionRadius;
 					break;
 				
@@ -5623,6 +5632,10 @@ static void CreateNRBBForObject(const STRATEGYBLOCK *sbPtr)
 		   		case I_BehaviourAlienPlayer:
 				{
 					extentsPtr = &CollisionExtents[CE_ALIEN];
+
+					if (ghostData->Class == CLASS_MEDIC_PR)
+						extentsPtr = &CollisionExtents[CE_QUEEN];
+
 					dynPtr->CollisionRadius = extentsPtr->CollisionRadius;
 					sbPtr->SBdptr->ObRadius = 700;
 					break;
@@ -6166,7 +6179,7 @@ int ParticleDynamics(PARTICLE *particlePtr, VECTORCH *obstacleNormalPtr, int *mo
 											ignoreDamage = TRUE;
 										}
 									}
-									if(dispPtr==Player)
+									/*if(dispPtr==Player)
 									{
 										if(AvP.PlayerType == I_Marine)
 										{
@@ -6176,8 +6189,7 @@ int ParticleDynamics(PARTICLE *particlePtr, VECTORCH *obstacleNormalPtr, int *mo
 										{
 											ignoreDamage = TRUE;
 										}
-									}
-									
+									}*/
 								}
 							}
 														

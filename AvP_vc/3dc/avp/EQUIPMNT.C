@@ -761,9 +761,9 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 			1, /* CanRun */
 		},
 		{ /* Encum_FireSec */
-			ONE_FIXED*1, /* MovementMultiple	*/
+			ONE_FIXED*0.7, /* MovementMultiple	*/
 			ONE_FIXED*1, /* TurningMultiple */
-			ONE_FIXED*1, /* JumpingMultiple */
+			ONE_FIXED*0.3, /* JumpingMultiple */
 			1, /* CanCrouch */
 			1, /* CanRun */
 		},
@@ -1706,7 +1706,7 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 	    /* TimeOutRateForState[MAX_NO_OF_WEAPON_STATES]; in 16.16 */
 		{
 			65536,						/* WEAPONSTATE_IDLE	*/
-		   	WEAPONSTATE_INSTANTTIMEOUT,	/* WEAPONSTATE_FIRING_PRIMARY */
+		   	65536*2/*WEAPONSTATE_INSTANTTIMEOUT*/,	/* WEAPONSTATE_FIRING_PRIMARY */
 			65536*2,					/* WEAPONSTATE_RECOIL_PRIMARY */
 			65536*4,					/* WEAPONSTATE_RELOAD_PRIMARY */
 
@@ -1855,7 +1855,7 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 		{
 			65536,						/* WEAPONSTATE_IDLE	*/
 		   	WEAPONSTATE_INSTANTTIMEOUT,	/* WEAPONSTATE_FIRING_PRIMARY */
-			65536*2,					/* WEAPONSTATE_RECOIL_PRIMARY */
+			65536,						/* WEAPONSTATE_RECOIL_PRIMARY */
 			65536*4,					/* WEAPONSTATE_RELOAD_PRIMARY */
 
 			WEAPONSTATE_INSTANTTIMEOUT,	/* WEAPONSTATE_FIRING_SECONDARY	*/
@@ -2466,8 +2466,8 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 	    /* TimeOutRateForState[MAX_NO_OF_WEAPON_STATES]; in 16.16 */
 		{
 			65536,						/* WEAPONSTATE_IDLE	*/
-		   	WEAPONSTATE_INSTANTTIMEOUT,	/* WEAPONSTATE_FIRING_PRIMARY */
-			65536*2,					/* WEAPONSTATE_RECOIL_PRIMARY */
+		   	65536*4,					/* WEAPONSTATE_FIRING_PRIMARY */
+			65536,						/* WEAPONSTATE_RECOIL_PRIMARY */
 			65536*4,					/* WEAPONSTATE_RELOAD_PRIMARY */
 
 			WEAPONSTATE_INSTANTTIMEOUT,	/* WEAPONSTATE_FIRING_SECONDARY	*/
@@ -2617,9 +2617,9 @@ TEMPLATE_WEAPON_DATA	TemplateWeapon[MAX_NO_OF_WEAPON_TEMPLATES] =
 		{
 			65536,/* WEAPONSTATE_IDLE	*/
 			
-			65536*6,
+			65536,
 			//WEAPONSTATE_INSTANTTIMEOUT, /* WEAPONSTATE_FIRING_PRIMARY */
-		   	65536*8,					/* WEAPONSTATE_RECOIL_PRIMARY */
+		   	65536,						/* WEAPONSTATE_RECOIL_PRIMARY */
 			65536*4,					/* WEAPONSTATE_RELOAD_PRIMARY */
 
 			WEAPONSTATE_INSTANTTIMEOUT, /* WEAPONSTATE_FIRING_SECONDARY	*/
@@ -4960,7 +4960,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 	},
 	/* AMMO_PULSE_GRENADE */
 	{
-		5*65536,
+		4*65536,
 		{
 			{
 				50,0,30,10,0,0,
@@ -5290,7 +5290,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 		0,
 		{
 			{
-				0,10,0,0,0,0,
+				0,30,0,0,0,20,
 				0,	/* ExplosivePower */
 				1,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -5301,7 +5301,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_PRED_WRISTBLADE,
 			},
 			{
-				0,10,0,0,0,0,
+				0,30,0,0,0,20,
 				0,	/* ExplosivePower */
 				1,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -5312,7 +5312,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_PRED_WRISTBLADE,
 			},
 			{
-				0,10,0,0,0,0,
+				0,30,0,0,0,20,
 				0,	/* ExplosivePower */
 				1,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -5323,7 +5323,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_PRED_WRISTBLADE,
 			},
 			{
-				0,10,0,0,0,0,
+				0,30,0,0,0,20,
 				0,	/* ExplosivePower */
 				1,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -5623,7 +5623,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 		0,
 		{
 			{
-				0,20,0,0,0,2,
+				0,40,0,0,0,4,
 				0,	/* ExplosivePower */
 				1,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -5634,7 +5634,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_ALIEN_CLAW,
 			},
 			{
-				0,20,0,0,0,2,
+				0,40,0,0,0,4,
 				0,	/* ExplosivePower */
 				1,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -5645,7 +5645,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_ALIEN_CLAW,
 			},
 			{
-				0,20,0,0,0,2,
+				0,40,0,0,0,4,
 				0,	/* ExplosivePower */
 				1,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -5656,7 +5656,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_ALIEN_CLAW,
 			},
 			{
-				0,20,0,0,0,2,
+				0,40,0,0,0,4,
 				0,	/* ExplosivePower */
 				1,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -5731,7 +5731,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 		10,
 		{
 			{
-				0,30,0,0,0,20,
+				0,0,0,0,0,0,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -5742,7 +5742,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_ALIEN_SPIT,
 			},
 			{
-				0,30,0,0,0,20,
+				0,0,0,0,0,0,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -5753,7 +5753,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_ALIEN_SPIT,
 			},
 			{
-				0,30,0,0,0,20,
+				0,0,0,0,0,0,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -5764,7 +5764,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_ALIEN_SPIT,
 			},
 			{
-				0,30,0,0,0,20,
+				0,0,0,0,0,0,
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -5777,7 +5777,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 		},
 		0,
 		TEXTSTRING_AMMO_SHORTNAME_UNKNOWN, /* ShortName */
-		1,
+		0,
 		0
 	},
 
@@ -6004,7 +6004,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 		0,
 		{
 			{
-				0,0,0,0,0,2, // Change me!
+				0,0,0,0,0,50, // Change me!
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -6015,7 +6015,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_ALIEN_FRAG,
 			},
 			{
-				0,0,0,0,0,5, // Change me!
+				0,0,0,0,0,50, // Change me!
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -6026,7 +6026,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_ALIEN_FRAG,
 			},
 			{
-				0,0,0,0,0,10, // Change me!
+				0,0,0,0,0,50, // Change me!
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -6037,7 +6037,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_ALIEN_FRAG,
 			},
 			{
-				0,0,0,0,0,10, // Change me!
+				0,0,0,0,0,50, // Change me!
 				0,	/* ExplosivePower */
 				0,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -6330,7 +6330,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 		0,
 		{
 			{
-				0,20,0,0,0,2,
+				0,40,0,0,0,4,
 				0,	/* ExplosivePower */
 				1,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -6341,7 +6341,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_NPC_ALIEN_CLAW,
 			},
 			{
-				0,20,0,0,0,2,
+				0,40,0,0,0,4,
 				0,	/* ExplosivePower */
 				1,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -6352,7 +6352,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_NPC_ALIEN_CLAW,
 			},
 			{
-				0,20,0,0,0,2,
+				0,40,0,0,0,4,
 				0,	/* ExplosivePower */
 				1,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -6363,7 +6363,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_NPC_ALIEN_CLAW,
 			},
 			{
-				0,20,0,0,0,2,
+				0,40,0,0,0,4,
 				0,	/* ExplosivePower */
 				1,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -6924,7 +6924,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 		0,
 		{
 			{
-				0,30,0,0,2,0,
+				0,70,0,0,30,0,
 				0,	/* ExplosivePower */
 				1,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -6935,7 +6935,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_PRED_STAFF,
 			},
 			{
-				0,30,0,0,2,0,
+				0,70,0,0,30,0,
 				0,	/* ExplosivePower */
 				1,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -6946,7 +6946,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_PRED_STAFF,
 			},
 			{
-				0,30,0,0,2,0,
+				0,70,0,0,30,0,
 				0,	/* ExplosivePower */
 				1,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -6957,7 +6957,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_PRED_STAFF,
 			},
 			{
-				0,30,0,0,2,0,
+				0,70,0,0,30,0,
 				0,	/* ExplosivePower */
 				1,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -7086,7 +7086,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 		0,
 		{
 			{
-				0,80,0,0,0,60,
+				0,80,10,0,0,70,
 				0,	/* ExplosivePower */
 				1,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -7097,7 +7097,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_HEAVY_PRED_WRISTBLADE,
 			},
 			{
-				0,80,0,0,0,60,
+				0,80,10,0,0,70,
 				0,	/* ExplosivePower */
 				1,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -7108,7 +7108,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_HEAVY_PRED_WRISTBLADE,
 			},
 			{
-				0,80,0,0,0,60,
+				0,80,10,0,0,70,
 				0,	/* ExplosivePower */
 				1,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -7119,7 +7119,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 				AMMO_HEAVY_PRED_WRISTBLADE,
 			},
 			{
-				0,80,0,0,0,60,
+				0,80,10,0,0,70,
 				0,	/* ExplosivePower */
 				1,	/* Slicing */
 				0,	/* ProduceBlood */
@@ -8010,7 +8010,7 @@ TEMPLATE_AMMO_DATA		TemplateAmmo[MAX_NO_OF_AMMO_TEMPLATES] =
 
 DAMAGE_PROFILE certainDeath = {0,0,10000,0,0,0, 0,0,0,0,0,0,0,AMMO_NONE};
 DAMAGE_PROFILE console_nuke = {0,0,0,0,1000,0, 0,0,0,0,0,0,0,AMMO_NONE}; 
-DAMAGE_PROFILE firedamage 	= {0,0,0,5,0,0, 0,0,0,0,0,0,0,AMMO_FIREDAMAGE_POSTMAX}; 
+DAMAGE_PROFILE firedamage 	= {0,0,0,25,0,0, 0,0,0,0,0,0,0,AMMO_FIREDAMAGE_POSTMAX}; 
 
 //Deamage caused by placed objects that explode when destroyed
 DAMAGE_PROFILE SmallExplosionDamage = {50,0,1,0,0,0, 1,0,0,0,0,0,AMMO_NONE};

@@ -26,6 +26,7 @@
 #include "savegame.h"
 
 #include "shellapi.h"
+#include "resource.h"
 
 #if 0
 #undef BRIGHTNESS_CHANGE_SPEED
@@ -111,6 +112,8 @@ extern int NumTKOTHLevels;
 extern char** MissionLevelNames;
 extern char** EscapeLevelNames;
 extern char** TKOTHLevelNames;
+
+extern int mouseLeft, mouseRight, mouseX, mouseY;
 
 extern void ShowSplashScreens(void);
 extern void Show_WinnerScreen(void);
@@ -320,7 +323,7 @@ extern int AvP_MainMenus(void)
 
 	if(AvP.LevelCompleted && CheatMode_Active == CHEATMODE_NONACTIVE && !DebuggingCommandsActive)
 	{
-		if (IntroOutroMoviesAreActive)
+		if (IntroOutroMoviesAreActive && !DebuggingCommandsActive)
 			HandlePostGameFMVs();
 
 		OkayToPlayNextEpisode();
@@ -460,19 +463,36 @@ void HandlePostGameFMVs(void)
 void HandlePreGameFMVs(void)
 {
 	extern char LevelName[];
-	if (!stricmp("derelict",&LevelName))
+	if (!stricmp("valore",&LevelName))
 	{
 		ClearScreenToBlack();
 		FlipBuffers();
 		ClearScreenToBlack();
-		//ShellExecute(NULL,NULL,"c:/mina dokument/filmer/starship troopers.avi","/fullscreen /play /close,NULL,SW_SHOWNORMAL);
+		ShellExecute(NULL,"open","movies/play.bat","intro",NULL,SW_MAXIMIZE);
 		//PlayBinkedFMV("FMVs/marineintro.bik");
 	}
-	else if (!stricmp("fall",&LevelName))
+	else if (!stricmp("arrival",&LevelName))
 	{
 		ClearScreenToBlack();
 		FlipBuffers();
 		ClearScreenToBlack();
+		ShellExecute(NULL,"open","movies/play.bat","level5-6",NULL,SW_MAXIMIZE);
+		//PlayBinkedFMV("FMVs/marineintro.bik");
+	}
+	else if (!stricmp("mines",&LevelName))
+	{
+		ClearScreenToBlack();
+		FlipBuffers();
+		ClearScreenToBlack();
+		ShellExecute(NULL,"open","movies/play.bat","level2-3",NULL,SW_MAXIMIZE);
+		//PlayBinkedFMV("FMVs/predatorintro.bik");
+	}
+	else if (!stricmp("outpost",&LevelName))
+	{
+		ClearScreenToBlack();
+		FlipBuffers();
+		ClearScreenToBlack();
+		ShellExecute(NULL,"open","movies/play.bat","level4-5",NULL,SW_MAXIMIZE);
 		//PlayBinkedFMV("FMVs/predatorintro.bik");
 	}
 }
@@ -884,6 +904,16 @@ static void SetupNewMenu(enum AVPMENU_ID menuID)
 		{
 			GetSettingsFromUserProfile();
 			SaveUserProfile(UserProfilePtr);
+
+			// Create an arrow cursor -- Eld
+			#if 1
+			{
+				extern HCURSOR hCurs;
+				SetCursor(hCurs);
+			}
+			#else
+			//SetCursor(NULL);
+			#endif
 			
 			if (DebuggingCommandsActive)
 			{
@@ -1326,6 +1356,10 @@ static void RenderMenu(void)
 		}
 		
 		RenderMenuElement(elementPtr,e,y);
+
+		// Store yPos so mouse can detect element later.
+		elementPtr->yPos = y;
+
 		y += HeightOfMenuElement(elementPtr);
 	}
 
@@ -1637,6 +1671,7 @@ static void RenderKeyConfigurationMenu(void)
 		}
 		
 		RenderMenuElement(elementPtr,i,y);
+		elementPtr->yPos = y;
 		y += HeightOfMenuElement(elementPtr);
 	}
 	centrePosition = (AvPMenus.CurrentlySelectedElement)*ONE_FIXED;
@@ -1682,6 +1717,7 @@ static void RenderKeyConfigurationMenu(void)
 			elementPtr->Brightness = targetBrightness;
 			#endif
 			RenderMenuElement(elementPtr, i, centreY+y);
+			elementPtr->yPos = centreY+y;
 			#if 0
 			if (AvPMenus.MenusState == MENUSSTATE_INGAMEMENUS)
 			{
@@ -1799,6 +1835,7 @@ static void RenderScrollyMenu()
 			elementPtr->Brightness = targetBrightness;
 			
 			RenderMenuElement(elementPtr, i, y);
+			elementPtr->yPos = y;
 			y+=HeightOfMenuElement(elementPtr);
 		}
 		
@@ -1967,7 +2004,8 @@ static void RenderLoadGameMenu(void)
 			}
 			
 		}
-		
+		elementPtr->yPos = y;
+
 		sprintf(buffer,"%d.",e+1);
 		RenderText(buffer,MENU_LEFTXEDGE+20,y,elementPtr->Brightness,AVPMENUFORMAT_RIGHTJUSTIFIED);
 		
@@ -2034,7 +2072,7 @@ static void RenderLoadGameMenu(void)
 		{
 			RenderText(GetTextString(TEXTSTRING_SAVEGAME_EMPTYSLOT),MENU_CENTREX,y,elementPtr->Brightness,AVPMENUFORMAT_CENTREJUSTIFIED);
 		}
-
+		
 		y += HeightOfMenuElement(elementPtr);
 	}
 
@@ -2096,6 +2134,8 @@ static void RenderConfigurationDescriptionString()
 static void ActUponUsersInput(void)
 {
 	static int BackspaceTimer=0;
+	int i;
+
 	//Set up a keyboard repeat rate thingy for deleting long strings
 	if(KeyboardInput[KEY_BACKSPACE])
 	{
@@ -2104,6 +2144,34 @@ static void ActUponUsersInput(void)
 	else
 	{
 		BackspaceTimer=0;
+	}
+
+	/* Mouse input: Try and grab mouse position and compare to our menu items. -- Eld */
+	/* Skip some of the menus where having the mouse active just made it impossible. */
+	if (AvPMenus.CurrentMenu != AVPMENU_MARINEKEYCONFIG &&
+		AvPMenus.CurrentMenu != AVPMENU_PREDATORKEYCONFIG &&
+		AvPMenus.CurrentMenu != AVPMENU_ALIENKEYCONFIG &&
+		AvPMenus.CurrentMenu != AVPMENU_SKIRMISH_CONFIG &&
+		AvPMenus.CurrentMenu != AVPMENU_MULTIPLAYER_CONFIG &&
+		AvPMenus.CurrentMenu != AVPMENU_MULTIPLAYER_CONFIG_JOIN &&
+		AvPMenus.CurrentMenu != AVPMENU_INGAME &&
+		AvPMenus.CurrentMenu != AVPMENU_INNETGAME) {
+		for (i = 0; i < AvPMenus.NumberOfElementsInMenu; i++) {
+
+			/*
+			Menus in AvP are drawn based on the center coordinate of the screen.
+			Each new menu element is inserted into the menu underneath the [0] element,
+			and the menu is then centered, with the middle element in the center of the
+			screen. This complicates things...
+
+			Though, I solved this by adding and storing the y-coordinate of each element
+			when they are rendered. Works like a charm :)
+			*/
+
+			if (mouseY > AvPMenus.MenuElements[i].yPos) {
+				AvPMenus.CurrentlySelectedElement = i;
+			}
+		}
 	}
 	
 	if (AvPMenus.UserEnteringText)
@@ -2336,7 +2404,8 @@ static void ActUponUsersInput(void)
 				SetupNewMenu(AvPMenusData[AvPMenus.CurrentMenu].ParentMenu);
 			}
 		}
-		else if (IDemandSelect()) // select element
+		/* Mouse input: Check for left mouse button. -- Eld */
+		else if (IDemandSelect() || mouseLeft) // select element
 		{
 			if (InputIsDebounced)
 			{
@@ -2432,7 +2501,7 @@ static void ActUponUsersInput(void)
 				KeyDepressedCounter += RealFrameTime;
 			}
 		}
-		else if (IDemandTurnLeft()) 
+		else if (IDemandTurnLeft() || mouseRight) 
 		{
 			if (InputIsDebounced)
 			{
@@ -2653,7 +2722,7 @@ static void InteractWithMenuElement(enum AVPMENU_ELEMENT_INTERACTION_ID interact
 			{
 				// Made something special here... If the slider is zero (DM)
 				// it is updated to four (Coop), and vice versa, so we only
-				// get two gamemodes.. -- ELDRITCH
+				// get two game modes.. -- ELDRITCH
 				//
 				if (elementPtr->TextDescription == StringId)
 				{
@@ -2673,7 +2742,7 @@ static void InteractWithMenuElement(enum AVPMENU_ELEMENT_INTERACTION_ID interact
 			{
 				// Made something special here... If the slider is zero (DM)
 				// it is updated to four (Coop), and vice versa, so we only
-				// get two gamemodes.. -- ELDRITCH
+				// get two game modes.. -- ELDRITCH
 				//
 				if (elementPtr->TextDescription == StringId)
 				{
@@ -2914,7 +2983,7 @@ static void InteractWithMenuElement(enum AVPMENU_ELEMENT_INTERACTION_ID interact
 				SetLevelToLoadForMarine(MarineEpisodeToPlay);
 
 				// Eldritch -- Play intro movies now...
-				if (IntroOutroMoviesAreActive)
+				if (IntroOutroMoviesAreActive && !DebuggingCommandsActive)
 					HandlePreGameFMVs();
 
 				if (MarineEpisodeToPlay<MAX_NO_OF_BASIC_MARINE_EPISODES)
@@ -3157,6 +3226,7 @@ static void InteractWithMenuElement(enum AVPMENU_ELEMENT_INTERACTION_ID interact
 				if(netGameData.connectionType == CONN_Mplayer)
 				{
 					//exit the game and launch the mplayer stuff
+					//this is now the serverposter.exe program!
 					LaunchingMplayer=TRUE;
 					LaunchMplayer();
 					AvP.MainLoopRunning = 0;
@@ -3208,9 +3278,9 @@ static void InteractWithMenuElement(enum AVPMENU_ELEMENT_INTERACTION_ID interact
 			{
 				extern void RestartMultiplayer(void);
 				
-				if (AvP.Network == I_Host)
+				if ((AvP.Network != I_No_Network) && (AvP.Network == I_Host))
 					RestartMultiplayer();
-				else
+				else if (AvP.Network == I_No_Network)
 					AvP.RestartLevel=1;
 
 				AvPMenus.MenusState = MENUSSTATE_STARTGAME;
@@ -3557,7 +3627,7 @@ static void RenderMenuElement(AVPMENU_ELEMENT *elementPtr, int e, int y)
 				{
 					int length = LengthOfMenuText(textPtr);
 
-					if (length>ScreenDescriptorBlock.SDB_Width-MENU_CENTREX-MENU_ELEMENT_SPACING*2)
+					/*if (length>ScreenDescriptorBlock.SDB_Width-MENU_CENTREX-MENU_ELEMENT_SPACING*2)
 					{
 						RenderText
 						(
@@ -3576,7 +3646,7 @@ static void RenderMenuElement(AVPMENU_ELEMENT *elementPtr, int e, int y)
 							AVPMENUFORMAT_RIGHTJUSTIFIED
 						);
 					}
-					else
+					else*/
 					{
 
 						RenderText
@@ -5433,15 +5503,24 @@ static void SetBriefingTextForMultiplayer()
 
 	// Will attempt to open a text-file containing the
 	// level's briefing from the Custom folder.
-#if 0
-	{
+
+	/*{
+		FILE *fpInput;
 		char levelstring[100];
 
 		strcpy(levelstring,"avp_rifs/Custom/");
 		strcat(levelstring,netGameData.customLevelName);
 		strcat(levelstring,".txt");
-	}
-#endif
+
+		fpInput = fopen(levelstring,"rb");
+
+		if (fpInput)
+		{
+			fread(&BriefingTextString[1], sizeof(int), 1, fpInput);
+			fread(&BriefingTextString[2], sizeof(int), 1, fpInput);
+		}
+	}*/
+
 	// test...
 	/*if (!stricmp("Custom\\dm_valore",LevelName))
 	{
@@ -5450,6 +5529,24 @@ static void SetBriefingTextForMultiplayer()
 		BriefingTextString[3] = "Fight to the death.";
 		BriefingTextString[4] = "";
 	}*/
+
+	/* Rescue Maps */
+	if (!stricmp("Custom\\am_rescue", LevelName))
+	{
+		BriefingTextString[1] = "Mission: Rescue";
+	}
+
+	/* Eradication Maps */
+	if (!stricmp("Custom\\mp_jungle", LevelName))
+	{
+		BriefingTextString[1] = "Mission: Eradication";
+	}
+
+	/* Queen Hunt Maps */
+	if (!stricmp("Custom\\ap_jockey_ship", LevelName))
+	{
+		BriefingTextString[1] = "Mission: Queen Hunt";
+	}
 }
 
 void SetBriefingTextToBlank(void)

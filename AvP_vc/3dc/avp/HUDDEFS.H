@@ -35,14 +35,6 @@ typedef struct
 	int Y;
 	int Brightness;
 } BLIP_TYPE;
-
-typedef struct
-{
-	int X;
-	int Y;
-	int Brightness;
-	int Color;
-} SONAR_BLIP_TYPE;
 /*KJL*************************************************
 * Speed at which gunsight moves when smart-targeting *
 *************************************************KJL*/

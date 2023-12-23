@@ -36,12 +36,12 @@ AVPMENUGFX AvPMenuGfxStorage[MAX_NO_OF_AVPMENUGFXS] =
 
 	{"Menus\\FIandRD.rim"},
 	{"Menus\\presents.rim"},
-	{"Menus\\AliensVPredator.rim"},
+	{"Menus\\cb_splash.rim"},
 	
 	{"Menus\\sliderbar.rim"},//AVPMENUGFX_SLIDERBAR,
 	{"Menus\\slider.rim"},//AVPMENUGFX_SLIDER,
 
-	{"Menus\\starfield.rim"},
+	{"Menus\\cb_background.rim"},
 	{"Menus\\aliens.rim"},
 	{"Menus\\Alien.rim"},
 	{"Menus\\Marine.rim"},
@@ -94,7 +94,7 @@ AVPMENUGFX AvPMenuGfxStorage[MAX_NO_OF_AVPMENUGFXS] =
 	{"Menus\\AliensVsPredator.rim"},
 	{"Menus\\Copyright.rim"},
 	{"Menus\\Loading.rim"},
-	{"Menus\\Starfield.rim"},
+	{"Menus\\cb_background.rim"},
 	{"Menus\\biomechmenu.rim"},
 };
 

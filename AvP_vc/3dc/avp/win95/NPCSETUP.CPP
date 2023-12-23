@@ -374,7 +374,7 @@ void InitNPCs(RIFFHANDLE h)
 		Load_HNPC[HNPC_Predator]=TRUE;
 		Load_HNPC[HNPC_Marine]=TRUE;
 		Load_HNPC[HNPC_PredAlien]=TRUE; // Plus these ones... -- ELD
-		//Load_HNPC[HNPC_AlienQueen]=TRUE;
+		Load_HNPC[HNPC_AlienQueen]=TRUE;
 		Load_HNPC[HNPC_Hugger]=TRUE;
 	}
 	

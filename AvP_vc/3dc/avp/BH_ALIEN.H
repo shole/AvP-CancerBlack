@@ -196,10 +196,10 @@
 	#define ALIEN_JUMPVELOCITY 					(8000)
 	#define ALIEN_FORWARDVELOCITY 				(10000)
 	#define ALIEN_CURVEDISTANCE 				(8000)
-	#define ALIEN_ATTACKDISTANCE_MIN			(2000)
+	#define ALIEN_ATTACKDISTANCE_MIN			(1500)
 	/* Above (1500) for Ken: reduced from 2000 */
 	/* 1/6/98, changed back to 2000.  It was well bust. */
-	#define ALIEN_ATTACKDISTANCE_MAX			(4000)
+	#define ALIEN_ATTACKDISTANCE_MAX			(8000)
 	#define ALIEN_ATTACKRANGE 					(3000)
 	/* Range check for damage validity. */
 	#define ALIEN_ATTACKTIME 					(ONE_FIXED>>1)

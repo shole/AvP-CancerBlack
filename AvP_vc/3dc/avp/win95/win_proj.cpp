@@ -49,8 +49,8 @@ unsigned char ToAsciiTable[256][256];
 	as well...), so that a NULL here should ensure no menu.
 */
 
-#define NAME "AvP"
-#define TITLE "AvP"
+#define NAME "Cancer Black"
+#define TITLE "Cancer Black"
 
 //	Necessary globals
 
@@ -60,6 +60,9 @@ BOOL        bActive = TRUE;        // is application active?
 // Parameters for main (assumed full screen) window
 int WinLeftX, WinRightX, WinTopY, WinBotY;
 int WinWidth, WinHeight;
+
+/* Cancer Black addition: Mouse support -- Eld */
+int mouseLeft, mouseRight, mouseX, mouseY;
 
 // Externs
 
@@ -277,7 +280,7 @@ long FAR PASCAL WindowProc(HWND hWnd, UINT message,
 	    break;
 
      case WM_SETCURSOR:
-        SetCursor(NULL);
+        //SetCursor(NULL);
         return TRUE;
 
 	 case WM_ERASEBKGND:
@@ -292,6 +295,24 @@ long FAR PASCAL WindowProc(HWND hWnd, UINT message,
 	 case MM_MCINOTIFY:
 		PlatCDDAManagementCallBack(wParam, lParam);
 	 	break;
+
+	 /* Cancer Black addition: Support mouse movements and mouse buttons. -- Eld */
+	 case WM_LBUTTONDOWN:
+		 mouseLeft = true;
+		 break;
+	 case WM_LBUTTONUP:
+		 mouseLeft = false;
+		 break;
+	 case WM_RBUTTONDOWN:
+		 mouseRight = true;
+		 break;
+	 case WM_RBUTTONUP:
+		 mouseRight = false;
+		 break;
+	 case WM_MOUSEMOVE:
+		 mouseX = LOWORD(lParam);
+		 mouseY = HIWORD(lParam);
+		 break;
 
      case WM_DESTROY:
 	 // Calls ReleaseDirect3D DIRECTLY,
@@ -356,8 +377,8 @@ BOOL InitialiseWindowsSystem(HANDLE hInstance, int nCmdShow,
      {
 	  
 	  //force window to be 640x480 to avoid stretch blits.
-	  WinWidth=640;
-	  WinHeight=480;	
+	  WinWidth=800;//640;
+	  WinHeight=600;//480;	
 
       WinLeftX = (int) (TopLeftSubWindow.x * 
 	     (float) GetSystemMetrics(SM_CXSCREEN));
@@ -433,7 +454,7 @@ BOOL InitialiseWindowsSystem(HANDLE hInstance, int nCmdShow,
 	  #endif
 // System cursor resource.  This one is generic.
       #if 1
-      wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+      wc.hCursor = LoadCursor(NULL, MAKEINTRESOURCE(IDC_ARROW/*IDC_TAIL*/));
 	  #else
       wc.hCursor = NULL;
 	  #endif
@@ -630,7 +651,17 @@ BOOL InitialiseWindowsSystem(HANDLE hInstance, int nCmdShow,
     #if grabmousecapture
     SetCapture(hWndMain);
 // Load null cursor shape
-	SetCursor(NULL);
+
+	// Create an arrow cursor -- Eld
+#if 0
+	{
+		HCURSOR hCurs;
+
+		hCurs = LoadCursor(NULL, IDC_ARROW);
+		SetCursor(hCurs);
+	}
+#endif
+
 	#endif
 	MakeToAsciiTable();
 
@@ -656,40 +687,8 @@ BOOL ExitWindowsSystem(void)
 }
 
 // Trying to fix the "strange bug".. -- Eldritch
-#if 0
-void MakeToAsciiTable(void)
-{
-	FILE *src = fopen("Seb.txt","wt"); // ADDED
-	WORD output;
-	for (int k=0; k<=255; k++)
-	{
-		ksarray[k]=0;
-	}
+#pragma optimize("", off)
 
-	if(src) //ADDED
-	{
-		for (int i=0; i<=255; i++)
-		{
-			for (int s=0; s<=255; s++)
-			{
-				fprintf(src,"i=%d s=%d ",i,s); // ADDED
-				if (ToAscii(i,s,&ksarray[0],&output,0)!=0)
-				{
-					ToAsciiTable[i][s] = (unsigned char)output;
-					fprintf(src,"output=%d\n",output); // ADDED
-				}
-				else 
-				{
-					ToAsciiTable[i][s] = 0;
-					fprintf(src,"0\n"); // ADDED
-				}
-			}
-		}
-		fputs("ok",src); // ADDED
-		fclose(src); // ADDED
-	}
-}
-#else
 void MakeToAsciiTable(void)
 {
 	WORD output;
@@ -713,7 +712,8 @@ void MakeToAsciiTable(void)
 		}
 	}
 }
-#endif
+#pragma optimize("", on)
+
 // End of extern C declaration 
 
 };

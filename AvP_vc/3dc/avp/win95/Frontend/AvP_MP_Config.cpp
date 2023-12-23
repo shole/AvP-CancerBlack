@@ -22,9 +22,9 @@ extern char MP_SessionName[];
 extern char MP_Config_Description[];
 
 #define MP_CONFIG_DIR "MPConfig"
-#define MP_CONFIG_WILDCARD "MPConfig\\*.cfg"
+#define MP_CONFIG_WILDCARD "MPConfig\\*.cbcfg"
 
-#define SKIRMISH_CONFIG_WILDCARD "MPConfig\\*.skirmish_cfg"
+#define SKIRMISH_CONFIG_WILDCARD "MPConfig\\*.skirmish_cbcfg"
 
 static List<char*> ConfigurationFilenameList;
 static List<char*> ConfigurationLocalisedFilenameList;
@@ -194,9 +194,9 @@ const char* GetMultiplayerConfigDescription(int index)
 	FILE* file;
 	char filename[200];
 	if(netGameData.skirmishMode)
-		sprintf(filename,"%s\\%s.skirmish_cfg",MP_CONFIG_DIR,name);
+		sprintf(filename,"%s\\%s.skirmish_cbcfg",MP_CONFIG_DIR,name);
 	else
-		sprintf(filename,"%s\\%s.cfg",MP_CONFIG_DIR,name);
+		sprintf(filename,"%s\\%s.cbcfg",MP_CONFIG_DIR,name);
 
 	file=fopen(filename,"rb");
 	if(!file)
@@ -234,9 +234,9 @@ void LoadMultiplayerConfiguration(const char* name)
 	FILE* file;
 	char filename[200];
 	if(netGameData.skirmishMode)
-		sprintf(filename,"%s\\%s.skirmish_cfg",MP_CONFIG_DIR,name);
+		sprintf(filename,"%s\\%s.skirmish_cbcfg",MP_CONFIG_DIR,name);
 	else
-		sprintf(filename,"%s\\%s.cfg",MP_CONFIG_DIR,name);
+		sprintf(filename,"%s\\%s.cbcfg",MP_CONFIG_DIR,name);
 
 	file=fopen(filename,"rb");
 	if(!file) return;
@@ -348,9 +348,9 @@ void SaveMultiplayerConfiguration(const char* name)
 	FILE* file;
 	char filename[200];
 	if(netGameData.skirmishMode)
-		sprintf(filename,"%s\\%s.skirmish_cfg",MP_CONFIG_DIR,name);
+		sprintf(filename,"%s\\%s.skirmish_cbcfg",MP_CONFIG_DIR,name);
 	else
-		sprintf(filename,"%s\\%s.cfg",MP_CONFIG_DIR,name);
+		sprintf(filename,"%s\\%s.cbcfg",MP_CONFIG_DIR,name);
 	
 	CreateDirectory(MP_CONFIG_DIR,0);
 	file=fopen(filename,"wb");
@@ -450,9 +450,9 @@ void DeleteMultiplayerConfigurationByIndex(int index)
 
 	char filename[200];
 	if(netGameData.skirmishMode)
-		sprintf(filename,"%s\\%s.skirmish_cfg",MP_CONFIG_DIR,ConfigurationFilenameList[index]);
+		sprintf(filename,"%s\\%s.skirmish_cbcfg",MP_CONFIG_DIR,ConfigurationFilenameList[index]);
 	else
-		sprintf(filename,"%s\\%s.cfg",MP_CONFIG_DIR,ConfigurationFilenameList[index]);
+		sprintf(filename,"%s\\%s.cbcfg",MP_CONFIG_DIR,ConfigurationFilenameList[index]);
 
 	DeleteFile(filename);
 }

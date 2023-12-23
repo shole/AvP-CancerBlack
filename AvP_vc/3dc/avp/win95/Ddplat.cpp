@@ -113,8 +113,6 @@ static void SetupScanlinePoly(char const *filenamePtr, int width);
 extern void D3D_InitialiseMarineHUD(void);
 extern void D3D_BLTMotionTrackerToHUD(int scanLineSize);
 extern void D3D_BLTMotionTrackerBlipToHUD(int x, int y, int brightness);
-extern void D3D_BLTSonarToHUD(int scanLineSize);
-extern void D3D_BLTSonarBlipToHUD(int x, int y, int brightness, int color);
 extern void D3D_BLTDigitToHUD(char digit, int x, int y, int font);
 extern void D3D_BLTGunSightToHUD(int screenX, int screenY, enum GUNSIGHT_SHAPE gunsightShape);
 extern void D3D_BLTWaveformToHUD(int type);
@@ -551,29 +549,6 @@ void BLTWaveformToHUD(int type)
 	}
 	return;
 }
-
-/*ELD**********************
-* ALIEN SONAR ROUTINES    *
-**************************/
-void BLTSonarToHUD(int scanLineSize)
-{
- //	if (VideoModeType_8 != VideoModeTypeScreen) return;
-	if ((ScanDrawMode != ScanDrawDirectDraw) && (ZBufferOn==ZBufferMode))
-	{
-		D3D_BLTSonarToHUD(scanLineSize);
-	}
-	return;
-}
-
-void BLTSonarBlipToHUD(int x, int y, int brightness, int color)
-{
-	if ((ScanDrawMode != ScanDrawDirectDraw) && (ZBufferOn==ZBufferMode))
-	{
-		D3D_BLTSonarBlipToHUD(x,y,brightness,color);
-	}
-	return;
-}
-
 
 /*KJL**********************
 * MARINE DRAWING ROUTINES *

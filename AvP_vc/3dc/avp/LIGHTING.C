@@ -23,6 +23,9 @@ extern int CloakingPhase;
 extern int NormalFrameTime;
 extern VIEWDESCRIPTORBLOCK *Global_VDB_Ptr;
 extern int LightScale;
+extern int ChangedMyClass;
+
+extern DPID GrabbedPlayer;
 
 // For Predator Self-Destruct FX.
 int SpatialShockwave;
@@ -225,7 +228,7 @@ void AddLightingEffectToObject(DISPLAYBLOCK *objectPtr, enum LIGHTING_EFFECTS_ID
 		case LFX_OBJECTONFIRE:
 		{
 			/* brightness */
-			lightPtr->LightBright = 16484 - (FastRandom()&4095);
+			lightPtr->LightBright = ONE_FIXED - (FastRandom()&4095);
 			/* flags */
 			lightPtr->LightFlags = LFlag_Omni|LFlag_Deallocate|LFlag_Thermal;
 			/* lightblock light type */
@@ -233,8 +236,8 @@ void AddLightingEffectToObject(DISPLAYBLOCK *objectPtr, enum LIGHTING_EFFECTS_ID
 			/* range */
 			lightPtr->LightRange = 10000;
 			lightPtr->RedScale=255*256;
-			lightPtr->GreenScale=110*256;
-			lightPtr->BlueScale=50*256;
+			lightPtr->GreenScale=60*256;
+			lightPtr->BlueScale=0;//50*256;
 
 			break;
 		}
@@ -284,9 +287,9 @@ LIGHTBLOCK *AddLightEffectToObjReturnReference(DISPLAYBLOCK *objectPtr, enum LIG
 			// LFlag_AbsPos - Don't move this light in UpdateObjectLights
 			lightPtr->LightFlags	= LFlag_Omni | LFlag_Deallocate | LFlag_AbsPos;
 			lightPtr->LightType		= LightType_PerVertex;
-			lightPtr->RedScale		= ONE_FIXED;		
-			lightPtr->GreenScale	= ONE_FIXED;		
-			lightPtr->BlueScale		= ONE_FIXED >> 1;			
+			lightPtr->RedScale		= 240*256;		
+			lightPtr->GreenScale	= 240*256;		
+			lightPtr->BlueScale		= 255*256;			
 			break;	
 	}
 
@@ -603,6 +606,7 @@ void HandleLightElementSystem(void)
 						}
 					}
 				}
+
 				lightElementPtr->LifeTime-=NormalFrameTime;
 				break;
 			}
@@ -855,7 +859,7 @@ void Save_LightElements()
 	
 }
 
-#define DEFAULT_LAMP_DISTANCE 10000
+#define DEFAULT_LAMP_DISTANCE 7500
 
 // SHOULDER LAMP IN MULTI - remove the 'static' from this function
 // static void PositionShoulderLamp(VECTORCH *Position)
@@ -876,7 +880,7 @@ void PositionShoulderLamp(VECTORCH *Position)
 	}
 
 	{
-		VECTORCH LampOffset = {0,0,DistanceFromPlayer};
+		VECTORCH LampOffset = {-50,50,DistanceFromPlayer};
 		MATRIXCH mat = Global_VDB_Ptr->VDB_Mat;
 		TransposeMatrixCH(&mat);
 		RotateVector(&LampOffset, &mat);
@@ -914,6 +918,7 @@ void	ToggleShoulderLamp ()
 	PLAYER_STATUS	*playerStatusPtr;
 
 	if (AvP.PlayerType != I_Marine) return;
+	if (GrabbedPlayer) return;
 
 	if (   ( Player == NULL )
 		|| ( Player->ObStrategyBlock == NULL )
@@ -933,14 +938,16 @@ void	ToggleShoulderLamp ()
 
 	if ( playerStatusPtr->IAmUsingShoulderLamp )
 	{
-		NewOnScreenMessage("Shoulder Lamp Activated.");
+		NewOnScreenMessage("Shoulder Lamp activated");
 		Sound_Play(SID_POWERDN,"h");
 	}
 	else
 	{
-		NewOnScreenMessage("Shoulder Lamp Deactivated.");
+		NewOnScreenMessage("Shoulder Lamp deactivated");
 		Sound_Play(SID_POWERUP,"h");
 	}
 
+	if (AvP.Network != I_No_Network)
+		ChangedMyClass = 1;
 }
 // END OF SHOULDER LAMP IN MULTI

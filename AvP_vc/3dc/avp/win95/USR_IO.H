@@ -135,6 +135,16 @@ typedef struct fixed_input_configuration
 	unsigned char Weapon9;
 	unsigned char Weapon10;
 	unsigned char PauseGame;
+
+	unsigned char Radio1;
+	unsigned char Radio2;
+	unsigned char Radio3;
+	unsigned char Radio4;
+	unsigned char Radio5;
+	unsigned char Radio6;
+	unsigned char Radio7;
+	unsigned char Radio8;
+	unsigned char Radio9;
 		
 }FIXED_INPUT_CONFIGURATION;
 

@@ -81,6 +81,7 @@ extern int NumActiveStBlocks;
 extern STRATEGYBLOCK *ActiveStBlockList[maxstblocks];
 
 extern DPID HuggedBy;
+extern DPID GrabbedPlayer;
 
 extern void RenderString(char *stringPtr, int x, int y, int colour);
 extern void SecondFlushD3DZBuffer(void);
@@ -98,9 +99,6 @@ extern void RenderPredatorTargetingSegment(int theta, int scale, int drawInRed);
 extern void Draw_HUDImage(HUDImageDesc *imageDescPtr);
 extern void RenderPredatorPlasmaCasterCharge(int value, VECTORCH *worldOffsetPtr, MATRIXCH *orientationPtr);
 extern int GetLoadedShapeMSL(const char *shapename);
-extern void DrawAPCOverlay(int t);
-extern void BLTSonarToHUD(int scanLineSize);
-extern void BLTSonarBlipToHUD(int x, int y, int brightness, int color);
 
 extern SCREENDESCRIPTORBLOCK ScreenDescriptorBlock;
 extern int NormalFrameTime;
@@ -138,7 +136,6 @@ static int MTScanLineSize=MOTIONTRACKER_SMALLESTSCANLINESIZE;
 static int PreviousMTScanLineSize=MOTIONTRACKER_SMALLESTSCANLINESIZE;
 static int MTDelayBetweenScans=0;
 static BLIP_TYPE MotionTrackerBlips[MOTIONTRACKER_MAXBLIPS];
-static SONAR_BLIP_TYPE SonarBlips[MOTIONTRACKER_MAXBLIPS];
 static int NoOfMTBlips=0;
 static int MTSoundHandle=SOUND_NOACTIVEINDEX;
 int predHUDSoundHandle=SOUND_NOACTIVEINDEX;
@@ -204,11 +201,9 @@ static void DisplayMarinesAmmo(void);
 
 
 static void DoMotionTracker(void);
-static void DoSonar(void);
 static void DoWaveform(int type);
 static void DoPredatorThreatDisplay(void);
 static int DoMotionTrackerBlips(void);
-static int DoSonarBlips(void);
 static void UpdateMarineStatusValues(void);
 
 static void HandleMarineWeapon(void);
@@ -232,6 +227,8 @@ int AMPGunZ;
 int AMPGunEX;
 int AMPGunEY;
 int AMPGunEZ;
+VECTORCH wFlipIn;
+VECTORCH wFlipOut;
 
 static void InitPredatorHUD();
 static int FindPredatorThreats(void);
@@ -398,7 +395,7 @@ char GetEqIcon(int eq)
 void DrawAMPHud(void)
 {
 	PLAYER_STATUS *playerStatusPtr= (PLAYER_STATUS *) (Player->ObStrategyBlock->SBdataptr);
-	extern float CameraZoomScale;
+	extern float Stamina;
 	char text[200];
 	char eqicon;
 
@@ -447,13 +444,6 @@ void DrawAMPHud(void)
 		sprintf(text,"%d", playerStatusPtr->Grenades);
 		RenderString(text,30,100,0xffffffff);
 	}
-}
-
-void DrawAPCHud(void)
-{
-	PLAYER_STATUS *playerStatusPtr= (PLAYER_STATUS *) (Player->ObStrategyBlock->SBdataptr);
-	
-	DrawAPCOverlay(255);
 }
 
 /* KJL 16:27:39 09/20/96 - routine which handles all HUD activity */
@@ -534,7 +524,6 @@ void MaintainHUD(void)
 				{
 					DrawMarineSights();
 					DrawAMPSpecificWeapons();
-					//DrawAPCHud();
 				}
 				if (!playerStatusPtr->Honor) 
 				{
@@ -569,7 +558,10 @@ void MaintainHUD(void)
 							DisplayMarinesAmmo();
 						}
 						DrawAMPHud();
-						DrawMarineSights();
+
+						if (!GrabbedPlayer)
+							DrawMarineSights();
+
 						ShowTeamNames_Marine();
 						BLTIconsToHUD();
 					}
@@ -604,7 +596,10 @@ void MaintainHUD(void)
 				if ((AvP.Network==I_No_Network) || ((AvP.Network != I_No_Network) &&
 					(playerStatusPtr->Class != CLASS_NONE) &&
 					(playerStatusPtr->Class != 20))) {
-			   		DrawPredatorSights();
+			   		
+					if (!GrabbedPlayer)
+						DrawPredatorSights();
+					
 					ShowTeamNames_Predator();
 					//flash health if invulnerable
 					if((playerStatusPtr->invulnerabilityTimer/12000 %2)==0)
@@ -652,7 +647,6 @@ void MaintainHUD(void)
 				if (!ThirdPersonActive)
 					DrawAlienTeeth();
 
-				//DoSonar();
 				if (AlienTongueOffset)
 				{
 					RenderInsideAlienTongue(AlienTongueOffset);
@@ -1045,119 +1039,6 @@ static void DoMotionTracker(void)
 	return;
 }
 
-static void DoSonar(void)
-{
- 	static char distanceNotLocked=1;
-	static int distance=0;
-	
-	/* draw static motion tracker background, and the moving scanline */
-	BLTSonarToHUD(MTScanLineSize);
-  	
-	if(distanceNotLocked) /* if MT hasn't found any contacts this scan */
-	{
-		int nearestDistance=DoSonarBlips();
-		
-   		if (nearestDistance<MOTIONTRACKER_RANGE) /* if picked up some blips */
-		{
-			distance=nearestDistance;
-			distanceNotLocked=0;
-		}
-		else if (NoOfMTBlips==0) /* if the MT is blank, cycle the distance digits */
-		{
-			distance= MUL_FIXED(MTScanLineSize,MOTIONTRACKER_RANGE);
- 		}
-	}
-	else DoSonarBlips();
-   
-	if (MTDelayBetweenScans)
-	{
-		MTDelayBetweenScans-=NormalFrameTime;
-		if (MTDelayBetweenScans<0) 
-		{
-			MTDelayBetweenScans=0;
-
-			PreviousMTScanLineSize =MTScanLineSize=MOTIONTRACKER_SMALLESTSCANLINESIZE;
-			distanceNotLocked=1; /* allow MT to look for a new nearest contact distance */
-		}
-	}
-	else
-	{
-		/* expand scanline or wrap it around */
-		PreviousMTScanLineSize=MTScanLineSize;
-		
-		if (MTScanLineSize>=65536)
-		{	 		
-			MTDelayBetweenScans=65536;
-			MTScanLineSize=0;
-		}
-		else if (MTScanLineSize>32768) 
-		{
-			MTScanLineSize+= MUL_FIXED(MOTIONTRACKER_SPEED*2,NormalFrameTime);
-		}
-		else
-		{
-			MTScanLineSize+= MUL_FIXED(MOTIONTRACKER_SPEED*2,NormalFrameTime);
-		}	
-		
-		if (MTScanLineSize>65536)
-		{
-			MTScanLineSize=65536;
-		}
-	}
-
-	/* draw blips to HUD */
-	{
-		DYNAMICSBLOCK *playerDynPtr = Player->ObStrategyBlock->DynPtr;
-		int phi = playerDynPtr->OrientEuler.EulerY;
-		int cosPhi = MUL_FIXED(GetCos(phi),MOTIONTRACKER_SCALE);
-		int sinPhi = MUL_FIXED(GetSin(phi),MOTIONTRACKER_SCALE);
-    	int i;
-		int blipcolor;
-    	/* made more awkward because we want to draw the brightest last */
-		i=0;
-		blipcolor = 1;
-
-		while(i<NoOfMTBlips)
-		{
-			int y = SonarBlips[i].Y-playerDynPtr->Position.vz;
-		  	int x = SonarBlips[i].X-playerDynPtr->Position.vx;
-			int y2 = MUL_FIXED(x,sinPhi) + MUL_FIXED(y,cosPhi);
-			
-			if (y2>=0)
-			{
-				x = MUL_FIXED(x,cosPhi) - MUL_FIXED(y,sinPhi);
-
-				if(Fast2dMagnitude(x,y2)<ONE_FIXED)
-				{				
-					BLTSonarBlipToHUD
-					(
-						x,
-				   		y2,
-						SonarBlips[i].Brightness,
-						SonarBlips[i].Color
-					);
-				}
-			}
-            i++;
-		}
-		/* now fade or kill blips */
-		i = NoOfMTBlips;
-		while(i--) /* scan through all blips, starting with the last in the list */
-		{
-			/* decrease blip's brightness */
-			MotionTrackerBlips[i].Brightness-=MUL_FIXED(MOTIONTRACKER_SPEED/6,NormalFrameTime);
-			if (MotionTrackerBlips[i].Brightness<0)	/* then kill blip */
-			{
-				/* Kill ith blip by copying the last blip in the list over the ith
-				   and decreasing the number of blips */
-				NoOfMTBlips--;
-				MotionTrackerBlips[i] = MotionTrackerBlips[NoOfMTBlips];
-			} 
-		}
-	}
-	return;
-}
-
 /*ELD*********************************************************
 * Functions for Waveform Analyzer                            *
 *************************************************************/
@@ -1314,68 +1195,6 @@ extern int ObjectShouldAppearOnMotionTracker(STRATEGYBLOCK *sbPtr)
 	return 1;
 }
 
-extern int ObjectShouldAppearOnSonar(STRATEGYBLOCK *sbPtr)
-{
-	DYNAMICSBLOCK *objectDynPtr = sbPtr->DynPtr;
-
-	/* KJL 12:45:54 21/08/98 - objects which will never appear on the MT */
-	if((sbPtr->I_SBtype == I_BehaviourInanimateObject)
-		||(sbPtr->I_SBtype == I_BehaviourRubberDuck)) {
-		return 0;
-	}
-
-	if (sbPtr->SBflags.not_on_motiontracker) {
-		return(0);
-	}
-
-	/* KJL 12:46:28 21/08/98 - objects which need more checks */
-	if (sbPtr->I_SBtype == I_BehaviourNetGhost)
-	{
-		NETGHOSTDATABLOCK *ghostData;
-
-		ghostData = (NETGHOSTDATABLOCK *)sbPtr->SBdataptr;
-		LOCALASSERT(ghostData);
-		
-		if((ghostData->type == I_BehaviourAlienPlayer || 
-			ghostData->type == I_BehaviourMarinePlayer ||
-			ghostData->type == I_BehaviourPredatorPlayer))
-			return 1;
-	}
-	else if (sbPtr->I_SBtype == I_BehaviourFragment)
-	{
-		return 0;
-	}
-	else if (sbPtr->I_SBtype == I_BehaviourHierarchicalFragment)
-	{
-		return 0;
-	}
-	else if (sbPtr->I_SBtype == I_BehaviourNetCorpse)
-	{
-		return 1;
-	}
-	else if (sbPtr->I_SBtype == I_BehaviourMarine)
-	{
-		return 1;
-	}
-	else if (sbPtr->I_SBtype == I_BehaviourAlien)
-	{
-		return 1;
-	}
-	else if (sbPtr->I_SBtype == I_BehaviourPredator)
-	{
-		return 1;
-	}
-	else if (sbPtr->I_SBtype == I_BehaviourPlatform)
-	{
-		return 0;
-	}
-	else if (sbPtr->I_SBtype == I_BehaviourProximityDoor)
-	{
-		return 0;
-	}
-	return 0;
-}
-
 static int DoMotionTrackerBlips(void)
 {
 	DYNAMICSBLOCK *playerDynPtr = Player->ObStrategyBlock->DynPtr;
@@ -1502,87 +1321,6 @@ int DetermineSpeciesColor(STRATEGYBLOCK *sbPtr)
 		}
 	}
 	return 1;
-}
-
-static int DoSonarBlips(void)
-{
-	DYNAMICSBLOCK *playerDynPtr = Player->ObStrategyBlock->DynPtr;
-	int numberOfObjects = NumActiveStBlocks;
-	int cosPhi, sinPhi;
-	int nearestDistance=MOTIONTRACKER_RANGE;
-	{
-		int phi = playerDynPtr->OrientEuler.EulerY;
-		cosPhi = MUL_FIXED(GetCos(phi),MOTIONTRACKER_SCALE);
-		sinPhi = MUL_FIXED(GetSin(phi),MOTIONTRACKER_SCALE);
-	}
-	
-	while (numberOfObjects--)
-	{
-		STRATEGYBLOCK *objectPtr = ActiveStBlockList[numberOfObjects];
-		DYNAMICSBLOCK *objectDynPtr = objectPtr->DynPtr;
-		
-		if (NoOfMTBlips==MOTIONTRACKER_MAXBLIPS) break;
-  		
-  		if (ObjectShouldAppearOnSonar(objectPtr))
-		{
-		    /* 2d vector from player to object */
-			int dx = objectDynPtr->Position.vx-playerDynPtr->Position.vx;
-			int dz = objectDynPtr->Position.vz-playerDynPtr->Position.vz;
-			
-			{
-				int absdx=dx;
-				int absdz=dz;
-				if (absdx<0) absdx=-absdx;
-				if (absdz<0) absdz=-absdz;
-				
-				/* ignore objects past MT's detection distance */
-				/* do quick box check */
-				if (absdx>MOTIONTRACKER_RANGE || absdz>MOTIONTRACKER_RANGE)	continue;
-			}
-					
-			{
-				int y = MUL_FIXED(dx,sinPhi) + MUL_FIXED(dz,cosPhi);
-				
-				/* ignore objects 'behind' MT */
-				/*if (y>=0)    Actually, dont, since this is the Alien Sonar */
-				{
-//				  	int x = MUL_FIXED(dx,cosPhi) - MUL_FIXED(dz,sinPhi);
-					int dist = Fast2dMagnitude(dx,dz);
-					int radius = MUL_FIXED(dist,MOTIONTRACKER_SCALE);
-					int color;
-
-					color = DetermineSpeciesColor(objectPtr);
-					
-					if (radius<=MTScanLineSize)
-					{
-						int prevRadius;
-					 	{
-							int dx = objectDynPtr->PrevPosition.vx-playerDynPtr->PrevPosition.vx;
-							int dz = objectDynPtr->PrevPosition.vz-playerDynPtr->PrevPosition.vz;
-							prevRadius = MUL_FIXED(Fast2dMagnitude(dx,dz),MOTIONTRACKER_SCALE);
-						}
-						
-						if ((radius>PreviousMTScanLineSize)
-					 	  ||(radius<PreviousMTScanLineSize && prevRadius>PreviousMTScanLineSize))
-						{						
-							/* remember distance for possible display on HUD */
-							if (nearestDistance>dist) nearestDistance=dist;
-
-							/* create new blip */
-				//			MotionTrackerBlips[NoOfMTBlips].X = x;
-				//			MotionTrackerBlips[NoOfMTBlips].Y = y;
-							SonarBlips[NoOfMTBlips].X = objectDynPtr->Position.vx;
-							SonarBlips[NoOfMTBlips].Y = objectDynPtr->Position.vz;
-							SonarBlips[NoOfMTBlips].Brightness = 65536;
-							SonarBlips[NoOfMTBlips].Color = color;
-						 	NoOfMTBlips++;
-						 }
-					}  		   		
-				}
-			}
-		}
-	}
-	return nearestDistance;
 }
 
 static void DisplayHealthAndArmour(void)
@@ -2865,10 +2603,60 @@ static void RenderFacehuggerBelly(void)
 	displayblock.SpecialFXFlags = 0;
 	displayblock.SfxPtr=0;
 
-	displayblock.ObShape=GetLoadedShapeMSL("huggerbelly");
+	displayblock.ObShape=GetLoadedShapeMSL("struggle01");
+	/* Make it mooove, to da groove! */
+	displayblock.ObWorld.vx = (FastRandom()%100)-50;//0;
+	displayblock.ObWorld.vy = (FastRandom()%100)-50;//0;
+	displayblock.ObWorld.vz = -100;
+
+	displayblock.ObView = displayblock.ObWorld;
+	{
+	   MATRIXCH myMat = Global_VDB_Ptr->VDB_Mat;
+	   TransposeMatrixCH(&myMat);
+	   RotateVector(&(displayblock.ObWorld), &(myMat));	
+	   displayblock.ObWorld.vx += Global_VDB_Ptr->VDB_World.vx;
+	   displayblock.ObWorld.vy += Global_VDB_Ptr->VDB_World.vy;
+	   displayblock.ObWorld.vz += Global_VDB_Ptr->VDB_World.vz;
+	}
+	RenderThisDisplayblock(&displayblock);
+}
+
+static void RenderGrabHand(void)
+{
+	DISPLAYBLOCK displayblock;
+
+	displayblock.ObMat=Global_VDB_Ptr->VDB_Mat;
+
+	TransposeMatrixCH(&displayblock.ObMat);
+	displayblock.name=NULL;
+	displayblock.ObEuler.EulerX=0;
+	displayblock.ObEuler.EulerY=0;
+	displayblock.ObEuler.EulerZ=0;
+	displayblock.ObFlags=ObFlag_ArbRot;
+	displayblock.ObFlags2=0;
+	displayblock.ObFlags3=0;
+	displayblock.ObNumLights=0;
+	displayblock.ObRadius=0;
+	displayblock.ObMaxX=0;
+	displayblock.ObMinX=0;
+	displayblock.ObMaxY=0;
+	displayblock.ObMinY=0;
+	displayblock.ObMaxZ=0;
+	displayblock.ObMinZ=0;
+	displayblock.ObTxAnimCtrlBlks=NULL;
+	displayblock.ObEIDPtr=NULL;
+	displayblock.ObMorphCtrl=NULL;
+	displayblock.ObStrategyBlock=NULL;
+	displayblock.ShapeAnimControlBlock=NULL;
+	displayblock.HModelControlBlock=NULL;
+	displayblock.ObMyModule=NULL;		
+	displayblock.SpecialFXFlags = 0;
+	displayblock.SfxPtr=0;
+
+	displayblock.ObShape=GetLoadedShapeMSL("lh");
 	displayblock.ObWorld.vx = 0;
 	displayblock.ObWorld.vy = 0;
-	displayblock.ObWorld.vz = 110;
+	displayblock.ObWorld.vz = 5000;
 
 	displayblock.ObView = displayblock.ObWorld;
 	{
@@ -2916,9 +2704,9 @@ static void RenderNetting(void)
 
 	displayblock.ObShape=GetLoadedShapeMSL("hudnetting");
 
-	displayblock.ObWorld.vx = AMPGunX;
-	displayblock.ObWorld.vy = AMPGunY;
-	displayblock.ObWorld.vz = AMPGunZ;
+	displayblock.ObWorld.vx = 0;
+	displayblock.ObWorld.vy = 0;
+	displayblock.ObWorld.vz = 100;
 
 	displayblock.ObView = displayblock.ObWorld;
 	{
@@ -2938,16 +2726,37 @@ static void DrawAMPSpecificWeapons(void)
 	PLAYER_WEAPON_DATA *pwPtr = &(psPtr->WeaponSlot[psPtr->SelectedWeaponSlot]);
 	DISPLAYBLOCK displayblock;
 	extern float CameraZoomScale;
+	extern DPID GrabPlayer;
 
 	// Special-case... yuck!
-	if (AvP.Network != I_No_Network && HuggedBy)
+	if ((AvP.Network != I_No_Network) && (AvP.PlayerType != I_Alien) && (HuggedBy))
 	{
 		RenderFacehuggerBelly();
 		return;
 	}
-	if (psPtr->Immobilized)
+	if (psPtr->Immobilized && (AvP.PlayerType != I_Alien))
 	{
 		RenderNetting();
+	}
+	if ((AvP.Network != I_No_Network) && (AvP.PlayerType == I_Alien) && (!GrabPlayer))
+	{
+		RenderGrabHand();
+	}
+
+	/* Swapping In means that it should set -1000 as the starting value. */
+	if ((pwPtr->CurrentState == WEAPONSTATE_SWAPPING_IN) && (wFlipIn.vx > -1000) &&
+		(wFlipIn.vy == 0))
+	{
+		wFlipIn.vx = -1000;
+		wFlipIn.vy = 1; // means that we should now start our animation.
+	}
+
+	/* Swapping Out means that it should go backwards. */
+	if ((pwPtr->CurrentState == WEAPONSTATE_UNREADYING) && (wFlipIn.vx > -1000) &&
+		(wFlipOut.vy == 0))
+	{
+		wFlipOut.vx = wFlipIn.vx;
+		wFlipOut.vy = 1;
 	}
 
 	/* Only count the below list if you're not in an APC */
@@ -2990,7 +2799,9 @@ static void DrawAMPSpecificWeapons(void)
 			pwPtr->WeaponIDNumber == WEAPON_PRED_PISTOL ||
 			pwPtr->WeaponIDNumber == WEAPON_PRED_MEDICOMP ||
 			pwPtr->WeaponIDNumber == WEAPON_PRED_DISC)
+		{
 			return;
+		}
 	}
 	displayblock.ObMat=Global_VDB_Ptr->VDB_Mat;
 
@@ -3023,15 +2834,23 @@ static void DrawAMPSpecificWeapons(void)
 	/* Only draw the below mentioned weapons if you're not in an APC */
 	if (!psPtr->Honor)
 	{
+		VECTORCH target;
+
 		// Marine Stuff
 		if (pwPtr->WeaponIDNumber == WEAPON_SADAR)
 		{
 			if (CameraZoomScale == 1.0f)
 			{
 				displayblock.ObShape=GetLoadedShapeMSL("ScopeRifle");
-				displayblock.ObWorld.vx = 300;
+				
+				if (LocalDetailLevels.CenteredWeapons)
+					displayblock.ObWorld.vx = 50;
+				else
+					displayblock.ObWorld.vx = 300;
+
 				displayblock.ObWorld.vy = 500;
-				displayblock.ObWorld.vz = 1000;
+				//displayblock.ObWorld.vz = 1000;
+				target.vx = 1000;
 			}
 			else
 			{
@@ -3068,6 +2887,7 @@ static void DrawAMPSpecificWeapons(void)
 			displayblock.ObWorld.vx = 0;
 			displayblock.ObWorld.vy = 150;
 			displayblock.ObWorld.vz = 400;
+			//target.vx = 400;
 		}
 		if (pwPtr->WeaponIDNumber == WEAPON_PLASMAGUN)
 		{
@@ -3075,6 +2895,7 @@ static void DrawAMPSpecificWeapons(void)
 			displayblock.ObWorld.vx = 0;
 			displayblock.ObWorld.vy = 150;
 			displayblock.ObWorld.vz = 400;
+			//target.vx = 400;
 		}
 
 		// Predator Stuff
@@ -3082,36 +2903,111 @@ static void DrawAMPSpecificWeapons(void)
 		{
 			displayblock.ObShape=GetLoadedShapeMSL("combistick");
 			displayblock.ObWorld.vx = 150;
-			displayblock.ObWorld.vy = 100;
-			displayblock.ObWorld.vz = 0;
+			displayblock.ObWorld.vy = 300;
+			//displayblock.ObWorld.vz = -300;
+			target.vx = -300;
 			
 			if (pwPtr->CurrentState == WEAPONSTATE_FIRING_PRIMARY)
 			{
-				displayblock.ObWorld.vx = 150;
-				displayblock.ObWorld.vy = 100;
-				displayblock.ObWorld.vz = 1300;
+				//displayblock.ObWorld.vx = 150;
+				//displayblock.ObWorld.vy = 300;
+				displayblock.ObWorld.vz = 50;
+			}
+			else
+			{
+				if ((wFlipIn.vy == 0) && (wFlipOut.vy == 0))
+					displayblock.ObWorld.vz = -300;
 			}
 		}
 		if (pwPtr->WeaponIDNumber == WEAPON_SONICCANNON)
 		{
 			displayblock.ObShape=GetLoadedShapeMSL("spear_gun");
-			displayblock.ObWorld.vx = 150;
+
+			if (LocalDetailLevels.CenteredWeapons)
+				displayblock.ObWorld.vx = -50;
+			else
+				displayblock.ObWorld.vx = 150;
+
 			displayblock.ObWorld.vy = 300;
-			displayblock.ObWorld.vz = 0;
+			//displayblock.ObWorld.vz = 0;
+			target.vx = 0;
+
+			if (pwPtr->CurrentState == WEAPONSTATE_FIRING_PRIMARY)
+			{
+				//displayblock.ObWorld.vx = 150;
+				displayblock.ObWorld.vy = 275;
+				displayblock.ObWorld.vz = -75;
+			}
+			else
+			{
+				if ((wFlipIn.vy == 0) && (wFlipOut.vy == 0))
+					displayblock.ObWorld.vz = 0;
+			}
 		}
 		if (pwPtr->WeaponIDNumber == WEAPON_BEAMCANNON)
 		{
 			displayblock.ObShape=GetLoadedShapeMSL("WristLauncher");
 			displayblock.ObWorld.vx = 150;
 			displayblock.ObWorld.vy = 300;
-			displayblock.ObWorld.vz = 0;
+			//displayblock.ObWorld.vz = 0;
+			target.vx = 0;
 		}
 		if (pwPtr->WeaponIDNumber == WEAPON_MYSTERYGUN)
 		{
 			displayblock.ObShape=GetLoadedShapeMSL("DartLauncher");
 			displayblock.ObWorld.vx = 150;
 			displayblock.ObWorld.vy = 300;
-			displayblock.ObWorld.vz = 0;
+			//displayblock.ObWorld.vz = 0;
+			target.vx = 0;
+		}
+
+		target.vz = wFlipIn.vx;
+		target.vy = wFlipOut.vx;
+
+		/* Animate! */
+		if (wFlipIn.vy == 1)
+		{
+			displayblock.ObWorld.vz = target.vz;
+
+			if (target.vz < target.vx)
+			{
+				target.vz += 100;
+			}
+			else
+			{
+				displayblock.ObWorld.vz = target.vx;
+				wFlipIn.vx = target.vz = target.vx;
+				wFlipIn.vy = 0; // means: do not animate.
+				pwPtr->CurrentState = WEAPONSTATE_IDLE;
+			}
+
+			wFlipIn.vx = target.vz;
+		}
+
+		/* Animate backwards! */
+		if (wFlipOut.vy == 1)
+		{
+			displayblock.ObWorld.vz = target.vy;
+
+			if (target.vy > -2000)
+			{
+				target.vy -= 100;
+			}
+			else
+			{
+				displayblock.ObWorld.vz = target.vx;
+				wFlipOut.vx = target.vy = -2000;
+				wFlipOut.vy = 0;
+				pwPtr->CurrentState = WEAPONSTATE_SWAPPING_OUT;
+			}
+
+			wFlipOut.vx = target.vy;
+		}
+
+		/* For proofing. */
+		if ((pwPtr->CurrentState == WEAPONSTATE_SWAPPING_OUT) && (wFlipOut.vy == 0))
+		{
+			displayblock.ObWorld.vz = -2000;
 		}
 	}
 	if (psPtr->Honor)
@@ -3120,6 +3016,11 @@ static void DrawAMPSpecificWeapons(void)
 		displayblock.ObWorld.vx = 0;
 		displayblock.ObWorld.vy = 0;
 		displayblock.ObWorld.vz = 300;
+	}
+
+	// Crouching decreases y.
+	if (PlayerStatusPtr->ShapeState == PMph_Crouching) {
+		displayblock.ObWorld.vy -= 50;
 	}
 
 	displayblock.ObView = displayblock.ObWorld;

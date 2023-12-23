@@ -37,7 +37,7 @@ COLLISION_EXTENTS CollisionExtents[MAX_NO_OF_COLLISION_EXTENTS] =
 	{550,0, -2626, -1276},
 						 
 	/* CE_FACEHUGGER */
-	{300,0, -302, 27},
+	{300,0, -1080, -1080},
 
 	/* CE_QUEEN */
 	{1300,0, -4000, -867},
@@ -46,6 +46,6 @@ COLLISION_EXTENTS CollisionExtents[MAX_NO_OF_COLLISION_EXTENTS] =
 	{700,0, -200, -200},
 
 	/* CE_APC */
-	{3200,0, -2950, -1200},
+	{2200,0, -2950, -1200},
 };
 

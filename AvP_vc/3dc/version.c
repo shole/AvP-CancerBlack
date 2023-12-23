@@ -6,6 +6,6 @@ extern void NewOnScreenMessage(unsigned char *messagePtr);
 void GiveVersionDetails(void)
 {
 	/* KJL 15:54:25 29/03/98 - give version details; this is not language localised since I thought that would be a little odd */
-	NewOnScreenMessage("Cancer Black \nPublic Beta 1.0 \nBuild 5.1"); //11:25
+	NewOnScreenMessage("Cancer Black \nPublic Beta 1.1 \nBuild 5.3"); //11:25
 
 }

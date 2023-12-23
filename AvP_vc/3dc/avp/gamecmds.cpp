@@ -11,7 +11,7 @@
 #define UseLocalAssert Yes
 #include "ourasert.h"
 
-#define NOT_PUBLIC_RELEASE 1
+#define NOT_PUBLIC_RELEASE 0
 
 extern "C"
 {
@@ -48,13 +48,17 @@ extern "C"
 
 #include "load_shp.h"
 #include "bh_alien.h"
+#include "pldghost.h"
 
 int DebuggingCommandsActive=0;
 int RamAttackInProgress;
 int GrabAttackInProgress;
 int DisplayRadioMenu;
 int DisplayClasses;
+int DisplayWeapons;
+int DisplayKits;
 int InfLamp = 0;
+int FloatingCamera;
 STRATEGYBLOCK *DropWeapon(VECTORCH *location, int type, char *name);
 
 extern void GimmeCharge(void);
@@ -64,9 +68,12 @@ extern void PCSelfDestruct(void);
 extern void NewOnScreenMessage(unsigned char *messagePtr);
 extern void ToggleShoulderLamp();
 extern void GADGET_NewOnScreenMessage( ProjChar* messagePtr );
+extern void Toggle_Ambience(void);
 extern DPID GrabPlayer;
+extern DPID GrabbedPlayer;
 extern HMODELCONTROLLER PlayersWeaponHModelController;
 extern int ThirdPersonActive;
+int ThirdPersonActiveTest;
 
 // just change these to prototypes etc.
 extern void QuickLoad()
@@ -111,13 +118,26 @@ void ToggleAPC(void)
 	if (playerStatusPtr->Honor) {
 		playerStatusPtr->Honor = 0;
 		playerStatusPtr->IAmUsingShoulderLamp=0;
-		ThirdPersonActive = 0;
+		//dynPtr->ToppleForce = TOPPLE_FORCE_NONE;
+		//ThirdPersonActive = 0;
 	} else {
 		playerStatusPtr->Honor = 1;
 		playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Faster = 0;
 		playerStatusPtr->ViewPanX = 0;
 		playerStatusPtr->IAmUsingShoulderLamp=1;
-		ThirdPersonActive = 1;
+		//dynPtr->ToppleForce = TOPPLE_FORCE_ALIEN;
+		//ThirdPersonActive = 1;
+	}
+}
+
+void ToggleFloatingCamera(void)
+{
+	if (FloatingCamera) {
+		FloatingCamera = 0;
+		// Teleport player to starting position.
+	} else {
+		FloatingCamera = 1;
+		// Teleport player to camera position.
 	}
 }
 
@@ -149,7 +169,48 @@ void Ram(void)
 
 	if (AvP.PlayerType != I_Alien) return;
 	if (!Player->ObStrategyBlock->DynPtr->IsInContactWithFloor) return;
-	if (GrabPlayer) return;
+	if (playerStatusPtr->Class == CLASS_MEDIC_PR) return;
+	if (playerStatusPtr->Class == CLASS_CHESTBURSTER) return;
+
+	if (GrabPlayer)
+	{
+		/*extern int NumActiveStBlocks;
+		extern STRATEGYBLOCK *ActiveStBlockList[];
+		extern DPID AVPDPNetID;
+		STRATEGYBLOCK *sbPtr;
+		int sbIndex=0;
+
+		//MODULE *modulePtr = Player->ObStrategyBlock->containingModule;
+
+		//if (!modulePtr) return;
+		//if (!modulePtr->name) return;
+
+		// module must be named *hive*.
+		//if (strstr(modulePtr->name, "hive")) return;
+
+		while (sbIndex < NumActiveStBlocks)
+		{
+			sbPtr = ActiveStBlockList[sbIndex++];
+
+			if (sbPtr->I_SBtype == I_BehaviourNetGhost)
+			{
+				NETGHOSTDATABLOCK *ghostData = (NETGHOSTDATABLOCK *) sbPtr->SBdataptr;
+
+				if (ghostData->Grab == AVPDPNetID)
+				{
+					DAMAGE_PROFILE Headbite = TemplateAmmo[AMMO_ALIEN_SPIT].MaxDamage[AvP.Difficulty];
+					AddNetMsg_LocalObjectDamaged(sbPtr, &Headbite, ONE_FIXED, 0, 0, 0, NULL);
+
+					if (playerStatusPtr->soundHandle == SOUND_NOACTIVEINDEX)
+						Sound_Play(SID_BODY_BEING_HACKED_UP_0,"de",&(Player->ObStrategyBlock->DynPtr->Position),&playerStatusPtr->soundHandle);
+
+					// Reset this. bugfix!
+					GrabPlayer = 0;
+				}
+			}
+		}*/
+		return;
+	}
 
 	/* Facehuggers hug instead of ram */
 	if (playerStatusPtr->Class == CLASS_EXF_W_SPEC)
@@ -178,6 +239,10 @@ void Grab(void)
 	if (playerStatusPtr->Immobilized) return;
 	if (GrabPlayer) return;
 
+	if ((playerStatusPtr->Class == CLASS_EXF_SNIPER) ||
+		(playerStatusPtr->Class == CLASS_MEDIC_PR))
+		return;
+	
 	MeleeWeapon_90Degree_Front_Core(&TemplateAmmo[AMMO_FRISBEE_FIRE].MaxDamage[AvP.PlayerType],ONE_FIXED,TemplateAmmo[AMMO_FRISBEE_FIRE].MaxRange);
 	GrabAttackInProgress=1;
 	InitHModelTweening(&PlayersWeaponHModelController,(ONE_FIXED>>4),HMSQT_AlienHUD,(int)AHSS_Both_Down,(ONE_FIXED/6),0);
@@ -191,6 +256,7 @@ void UseMotionTracker(void)
 
 	if (AvP.PlayerType!=I_Marine) return;
 	if (playerStatusPtr->Honor) return;
+	if (GrabbedPlayer) return;
 
 	if (weaponPtr->WeaponIDNumber == WEAPON_SMARTGUN ||
 		weaponPtr->WeaponIDNumber == WEAPON_FRISBEE_LAUNCHER ||
@@ -226,13 +292,16 @@ void InfLampToggle(void)
 
 void Toggle3rdPerson(void)
 {
-	if (AvP.Network != I_No_Network)
-		return;
+	//if (AvP.Network != I_No_Network)
+		//return;
+	extern void Create3rdPersonPlayer();
 
-	if (ThirdPersonActive)
-		ThirdPersonActive = 0;
+	if (ThirdPersonActiveTest)
+		ThirdPersonActiveTest = 0;
 	else
-		ThirdPersonActive = 1;
+		ThirdPersonActiveTest = 1;
+
+	Create3rdPersonPlayer();
 }
 
 void UseMedikit(void)
@@ -244,6 +313,7 @@ void UseMedikit(void)
 	NPC_TYPES PlayerType;
 
 	if (playerStatusPtr->Honor) return;
+	if (GrabbedPlayer) return;
 
 	switch(AvP.PlayerType) 
 	{
@@ -287,8 +357,7 @@ void UseMedikit(void)
 
 	if(AvP.PlayerType!=I_Marine) return;
 
-	if (playerStatusPtr->Class == CLASS_MEDIC_PR ||
-		playerStatusPtr->Class == CLASS_MEDIC_FT ||
+	if (playerStatusPtr->Class == CLASS_MEDIC_FT ||
 		playerStatusPtr->Class == CLASS_ENGINEER)
 		return;
 
@@ -520,7 +589,8 @@ void ChangeSpecies()
 	} else {
 		ChangeToPredator();
 	}
-	psPtr->Class = 20; //CLASS_SPECIES_CHANGE...
+	psPtr->Class = 20;	//CLASS_SPECIES_CHANGE...
+	DisplayClasses = 0;	// Bug-fix
 }
 void ChangeClass()
 {
@@ -700,6 +770,13 @@ void CreateGameSpecificConsoleCommands(void)
 			"GIVEALLWEAPONS",
 			"BE CAREFUL WHAT YOU WISH FOR",
 			GiveAllWeaponsCheat
+		);
+
+		ConsoleCommand::Make
+		(
+			"PAINTBALL",
+			"TOGGLES PAINTBALLMODE ON/OFF",
+			TogglePaintBallMode
 		);
 
 
@@ -897,12 +974,6 @@ void CreateGameSpecificConsoleCommands(void)
 		NewPlanet
 	);
 	#endif
-	ConsoleCommand::Make
-	(
-		"PAINTBALL",
-		"TOGGLES PAINTBALLMODE ON/OFF",
-		TogglePaintBallMode
-	);
 
 	ConsoleCommand::Make
 	(
@@ -961,50 +1032,6 @@ void CreateGameSpecificConsoleCommands(void)
 		"TRIGGER_PLOT_FMV",
 		"",
 		StartTriggerPlotFMV
-	);
-
-	
-	ConsoleCommand::Make
-	(
-		"SPECIALISTMARINE_PULSERIFLE",
-		"Become a pulserifle marine",
-		ChangeToSpecialist_PulseRifle
-	);
-	ConsoleCommand::Make
-	(
-		"SPECIALISTMARINE_SMARTGUN",
-		"Become a smartgun marine",
-		ChangeToSpecialist_Smartgun
-	);
-	ConsoleCommand::Make
-	(
-		"SPECIALISTMARINE_FLAMER",
-		"Become a flamethrower marine",
-		ChangeToSpecialist_Flamer
-	);
-	ConsoleCommand::Make
-	(
-		"SPECIALISTMARINE_SADAR",
-		"Become a sadar marine",
-		ChangeToSpecialist_Sadar
-	);
-	ConsoleCommand::Make
-	(
-		"SPECIALISTMARINE_GRENADELAUNCHER",
-		"Become a grenade launcher marine",
-		ChangeToSpecialist_GrenadeLauncher
-	);
-	ConsoleCommand::Make
-	(
-		"SPECIALISTMARINE_MINIGUN",
-		"Become a minigun marine",
-		ChangeToSpecialist_Minigun
-	);
-	ConsoleCommand::Make
-	(
-		"SPECIALISTMARINE_SD",
-		"Become an SD marine",
-		ChangeToSpecialist_Frisbee
 	);
 	
 	#if 1
@@ -1185,13 +1212,19 @@ void CreateGameSpecificConsoleCommands(void)
 		"Change to 3rd-person viewmode.",
 		Toggle3rdPerson
 	);
-	#endif
 	ConsoleCommand::Make
 	(
 		"MPRESTART",
 		"RESTARTS A NETWORK GAME FROM SCRATCH",
 		RestartMultiplayer
 	);
+	ConsoleCommand::Make
+	(
+		"FLOATCAM",
+		"CALL FLOATING CAMERA MODE.",
+		ToggleFloatingCamera
+	);
+#endif
 }	
 
 

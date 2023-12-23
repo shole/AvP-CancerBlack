@@ -18,6 +18,7 @@ typedef struct
 	unsigned int WeatherFX;
 	unsigned int MuzzleSmoke;
 	unsigned int Shells;
+	unsigned int CenteredWeapons;
 
 } DETAIL_LEVELS;
 
@@ -35,6 +36,7 @@ typedef struct
 	int WeatherFX;
 	int MuzzleSmoke;
 	int Shells;
+	int CenteredWeapons;
 
 } MENU_DETAIL_LEVEL_OPTIONS;
 

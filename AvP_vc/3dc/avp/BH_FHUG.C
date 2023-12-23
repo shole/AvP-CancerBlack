@@ -324,14 +324,17 @@ void FacehuggerBehaviour(STRATEGYBLOCK *sbPtr)
 	// Target definitions...
 	if (facehuggerStatusPointer->nearBehaviourState != FHNS_Floating &&
 		facehuggerStatusPointer->nearBehaviourState != FHNS_Attack &&
-		facehuggerStatusPointer->nearBehaviourState != FHNS_Dying) {
+		facehuggerStatusPointer->nearBehaviourState != FHNS_Dying) 
+	{
 		if (!poorvictim)
 			poorvictim = Alien_GetNewTarget(&sbPtr->DynPtr->Position, sbPtr);
 
 		if (poorvictim==Player->ObStrategyBlock)
 			poorvictim = Alien_GetNewTarget(&sbPtr->DynPtr->Position, sbPtr);
 
-	} else if ((poorvictim) && (facehuggerStatusPointer->health)) {
+	} 
+	else if ((poorvictim) && (facehuggerStatusPointer->health)) 
+	{
 		if (poorvictim != Player->ObStrategyBlock)
 		{
 			// Hugging an AI.. align to head.
@@ -872,7 +875,7 @@ static void Execute_FHNS_Approach(STRATEGYBLOCK *sbPtr)
 
 	#if 1
 	/* should we jump at the player? */
-	if (sbPtr->SBDamageBlock.IsOnFire==0) {
+	if ((sbPtr->SBDamageBlock.IsOnFire==0) && (poorvictim)) {
 		int distanceToPlayer = VectorDistance(&(dynPtr->Position),&(poorvictim->DynPtr->Position));
 		if((distanceToPlayer<=FACEHUGGER_JUMPDISTANCE)&&(dynPtr->IsInContactWithFloor))
 		{
@@ -1032,8 +1035,8 @@ static void Execute_FHNS_Attack(STRATEGYBLOCK *sbPtr)
 		facehuggerStatusPointer->stateTimer = FACEHUGGER_NEARATTACKTIME;
 
 		// Only cause damage to AI since players get impregnated... hihihi -- Eldritch
-		if (poorvictim != Player->ObStrategyBlock)
-			CauseDamageToObject(poorvictim, &TemplateAmmo[AMMO_FACEHUGGER].MaxDamage[AvP.Difficulty], ONE_FIXED,NULL);
+		/*if (poorvictim != Player->ObStrategyBlock)
+			CauseDamageToObject(poorvictim, &TemplateAmmo[AMMO_FACEHUGGER].MaxDamage[AvP.Difficulty], ONE_FIXED,NULL);*/
 	}
 }
 

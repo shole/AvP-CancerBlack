@@ -38,6 +38,7 @@ extern "C++"
 #include "pcmenus.h"
 //#include "projload.hpp" // c++ header which ignores class definitions/member functions if __cplusplus is not defined ?
 #include "chnkload.hpp" // c++ header which ignores class definitions/member functions if __cplusplus is not defined ?
+extern void D3D_RenderHUDString(char *stringPtr, int x, int y, int colour);
 extern void D3D_RenderHUDString_Centred(char *stringPtr, int centreX, int y, int colour);
 extern void D3D_RenderHUDNumber_Centred(unsigned int number,int x,int y,int colour);
 
@@ -81,6 +82,8 @@ extern int HackPool;
 extern int WeldPool;
 extern int WeldMode;
 extern int StrugglePool;
+extern DPID GrabbedPlayer;
+extern DPID GrabPlayer;
 
 extern enum HUD_RES_ID HUDResolution;
 
@@ -96,7 +99,6 @@ static HUDImageDesc BlueBar;
 
 
 int HUDImageNumber;
-int SonarImageNumber;
 int SpecialFXImageNumber;
 int SmokyImageNumber;
 int ChromeImageNumber;
@@ -122,12 +124,6 @@ int WaveScan2ImageNumber;
 int WaveScan3ImageNumber;
 
 // Marine HUD items
-int SmartgunIRImageNumber;
-int HelmetImageNumber;
-int IRImageNumber;
-int UVImageNumber;
-int ZoomImageNumber;
-int Zoom2ImageNumber;
 int AirImageNumber;
 int TargetingImageNumber;
 int MarineHealthImageNumber;
@@ -137,20 +133,11 @@ int LampOnImageNumber;
 int LampOffImageNumber;
 int LampBatteryImageNumber;
 int HepImageNumber;
-int APCImageNumber;
 int OperateImageNumber;
 int NoOperateImageNumber;
 int ComTechOperateImageNumber;
 
-// Predator HUD items
-int PredatorHealthImageNumber;
-int PredatorEnergyImageNumber;
-int PredatorAmmoImageNumber;
-
 // Class menu stuff
-int AlienMenuImageNumber;
-int MarineMenuImageNumber;
-int PredatorMenuImageNumber;
 int CellImageNumber;
 
 int HUDScaleFactor;
@@ -310,14 +297,10 @@ void LoadCommonTextures(void)
 				WaveScan1ImageNumber = CL_LoadImageOnce("HUDs\\Predator\\wave_scan1.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
 				WaveScan2ImageNumber = CL_LoadImageOnce("HUDs\\Predator\\wave_scan2.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
 				WaveScan3ImageNumber = CL_LoadImageOnce("HUDs\\Predator\\wave_scan3.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
-				PredatorHealthImageNumber = CL_LoadImageOnce("HUDs\\Predator\\gfx.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
-				PredatorEnergyImageNumber = CL_LoadImageOnce("HUDs\\Predator\\energy.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
-				PredatorAmmoImageNumber = CL_LoadImageOnce("HUDs\\Predator\\netdart.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
 				break;
 			}
 			case I_Alien:
 			{
-				SonarImageNumber = CL_LoadImageOnce("HUDs\\Alien\\sonar.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
 				AlienTongueImageNumber = CL_LoadImageOnce("HUDs\\Alien\\AlienTongue.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
 				OperateImageNumber = CL_LoadImageOnce("HUDs\\Marine\\operate.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
 				NoOperateImageNumber = CL_LoadImageOnce("HUDs\\Marine\\no_operate.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
@@ -327,12 +310,6 @@ void LoadCommonTextures(void)
 			case I_Marine:
 			{
 				StaticImageNumber = CL_LoadImageOnce("Common\\static.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE|LIO_TRANSPARENT);
-				SmartgunIRImageNumber = CL_LoadImageOnce("HUDs\\Marine\\SmartIR.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
-				HelmetImageNumber = CL_LoadImageOnce("HUDs\\Marine\\Helmetoverlay.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
-				IRImageNumber = CL_LoadImageOnce("HUDs\\Marine\\IRoverlay.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
-				UVImageNumber = CL_LoadImageOnce("HUDs\\Marine\\UVoverlay.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
-				ZoomImageNumber = CL_LoadImageOnce("HUDs\\Marine\\ZoomReticle.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
-				Zoom2ImageNumber = CL_LoadImageOnce("HUDs\\Marine\\PIGReticle.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
 				TargetingImageNumber = CL_LoadImageOnce("HUDs\\Marine\\SmartgunReticle.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
 				AirImageNumber = CL_LoadImageOnce("HUDs\\Marine\\tracker_battery.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
 				MarineHealthImageNumber = CL_LoadImageOnce("HUDs\\Marine\\health.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
@@ -342,7 +319,6 @@ void LoadCommonTextures(void)
 				LampOffImageNumber = CL_LoadImageOnce("HUDs\\Marine\\lamp_off.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
 				LampBatteryImageNumber = CL_LoadImageOnce("HUDs\\Marine\\lamp_battery.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
 				HepImageNumber = CL_LoadImageOnce("HUDs\\Marine\\hep.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
-				APCImageNumber = CL_LoadImageOnce("HUDs\\Marine\\apc.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
 				OperateImageNumber = CL_LoadImageOnce("HUDs\\Marine\\operate.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
 				NoOperateImageNumber = CL_LoadImageOnce("HUDs\\Marine\\no_operate.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
 				ComTechOperateImageNumber = CL_LoadImageOnce("HUDs\\Marine\\lockpick_operate.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
@@ -355,15 +331,11 @@ void LoadCommonTextures(void)
 	else
 	{
 		// load menu gfx
-		AlienMenuImageNumber = CL_LoadImageOnce("Menus\\biomechmenu.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
-		MarineMenuImageNumber = CL_LoadImageOnce("Menus\\starfield.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
-		PredatorMenuImageNumber = CL_LoadImageOnce("Menus\\loading.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
 		CellImageNumber = CL_LoadImageOnce("Menus\\cell.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
 
 		OperateImageNumber = CL_LoadImageOnce("HUDs\\Marine\\operate.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
 		NoOperateImageNumber = CL_LoadImageOnce("HUDs\\Marine\\no_operate.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
 		ComTechOperateImageNumber = CL_LoadImageOnce("HUDs\\Marine\\lockpick_operate.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
-		SonarImageNumber = CL_LoadImageOnce("HUDs\\Alien\\sonar.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
    		PredatorNumbersImageNumber = CL_LoadImageOnce("HUDs\\Predator\\predNumbers.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
    		StaticImageNumber = CL_LoadImageOnce("Common\\static.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE|LIO_TRANSPARENT);
 		AlienTongueImageNumber = CL_LoadImageOnce("HUDs\\Alien\\AlienTongue.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
@@ -371,12 +343,6 @@ void LoadCommonTextures(void)
 		WaveScan1ImageNumber = CL_LoadImageOnce("HUDs\\Predator\\wave_scan1.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
 		WaveScan2ImageNumber = CL_LoadImageOnce("HUDs\\Predator\\wave_scan2.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
 		WaveScan3ImageNumber = CL_LoadImageOnce("HUDs\\Predator\\wave_scan3.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
-		SmartgunIRImageNumber = CL_LoadImageOnce("HUDs\\Marine\\SmartIR.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
-		HelmetImageNumber = CL_LoadImageOnce("HUDs\\Marine\\Helmetoverlay.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
-		IRImageNumber = CL_LoadImageOnce("HUDs\\Marine\\IRoverlay.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
-		UVImageNumber = CL_LoadImageOnce("HUDs\\Marine\\UVoverlay.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
-		ZoomImageNumber = CL_LoadImageOnce("HUDs\\Marine\\ZoomReticle.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
-		Zoom2ImageNumber = CL_LoadImageOnce("HUDs\\Marine\\PIGReticle.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
 		TargetingImageNumber = CL_LoadImageOnce("HUDs\\Marine\\SmartgunReticle.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
 		AirImageNumber = CL_LoadImageOnce("HUDs\\Marine\\tracker_battery.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
 		MarineHealthImageNumber = CL_LoadImageOnce("HUDs\\Marine\\health.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
@@ -386,10 +352,6 @@ void LoadCommonTextures(void)
 		LampOffImageNumber = CL_LoadImageOnce("HUDs\\Marine\\lamp_off.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
 		LampBatteryImageNumber = CL_LoadImageOnce("HUDs\\Marine\\lamp_battery.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
 		HepImageNumber = CL_LoadImageOnce("HUDs\\Marine\\hep.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
-		APCImageNumber = CL_LoadImageOnce("HUDs\\Marine\\apc.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
-		PredatorHealthImageNumber = CL_LoadImageOnce("HUDs\\Predator\\gfx.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
-		PredatorEnergyImageNumber = CL_LoadImageOnce("HUDs\\Predator\\energy.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
-		PredatorAmmoImageNumber = CL_LoadImageOnce("HUDs\\Predator\\netdart.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
 	}
 	
 	HUDFontsImageNumber = CL_LoadImageOnce("Common\\HUDfonts.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
@@ -400,6 +362,8 @@ void LoadCommonTextures(void)
 	SkyImageNumber = CL_LoadImageOnce("Common\\cloudy.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE);
 	{
 		extern char LevelName[];
+
+		ChromeImageNumber = CL_LoadImageOnce("Common\\Glass.RIM",LIO_D3DTEXTURE|LIO_RELATIVEPATH|LIO_RESTORABLE|LIO_TRANSPARENT);
 
 		// Custom Skies -- AMP Addition
 		//sprintf(tex, "Envrnmts\\%s\\Asky.RIM", LevelName);
@@ -761,7 +725,7 @@ void D3D_BLTMotionTrackerToHUD(int scanLineSize)
 		imageDesc.Red = 255;
 		imageDesc.Green = 255;
 		imageDesc.Blue = 255;
-		imageDesc.Translucency = 255; //HUDTranslucencyLevel;
+		imageDesc.Translucency = 128;//255; //HUDTranslucencyLevel;
 
  		Draw_HUDImage(&imageDesc);
 	}
@@ -769,7 +733,7 @@ void D3D_BLTMotionTrackerToHUD(int scanLineSize)
 
 	/* KJL 16:14:29 30/01/98 - draw bottom bar of MT */
 	{
-		BlueBar.Translucency = 255; //HUDTranslucencyLevel;
+		BlueBar.Translucency = 128;//255; //HUDTranslucencyLevel;
 		Draw_HUDImage(&BlueBar);
 	}
 	
@@ -797,39 +761,6 @@ void D3D_BLTDrawCell(int X, int Y)
 	imageDesc.Translucency = 255;
 
  	Draw_HUDImage(&imageDesc);
-}
-
-void D3D_BLTSonarToHUD(int scanLineSize)
-{
-	return;
-
-	//BlueBar.TopLeftY = ScreenDescriptorBlock.SDB_Height-MUL_FIXED(MotionTrackerScale,40);
-	MotionTrackerCentreY = 128;//BlueBar.TopLeftY;
-	MotionTrackerCentreX = 128;//BlueBar.TopLeftX+MUL_FIXED(MotionTrackerScale,(BlueBar.Width/2));
-	//BlueBar.Scale = 65536;
-
-	int motionTrackerScaledHalfWidth = MUL_FIXED(65536*3,(127/2)/2);
-
-	#if 1
-	{
-		HUDImageDesc imageDesc;
-
-		imageDesc.ImageNumber = SonarImageNumber;
-		imageDesc.Scale = 65536*6;//MUL_FIXED(65536*3,scanLineSize/2);
-		imageDesc.TopLeftX = 128;
-		imageDesc.TopLeftY = 0;
-		imageDesc.TopLeftU = 0;
-		imageDesc.TopLeftV = 0;
-		imageDesc.Height = 128;//64;
-		imageDesc.Width = 128;
-		imageDesc.Red = 255;
-		imageDesc.Green = 255;
-		imageDesc.Blue = 255;
-		imageDesc.Translucency = 255; //HUDTranslucencyLevel;
-
- 		Draw_HUDImage(&imageDesc);
-	}
-	#endif
 }
 
 void D3D_BLTMotionTrackerBlipToHUD(int x, int y, int brightness)
@@ -861,61 +792,6 @@ void D3D_BLTMotionTrackerBlipToHUD(int x, int y, int brightness)
 	imageDesc.Red = 255;
 	imageDesc.Green = 255;
 	imageDesc.Blue = 255;
-	if (imageDesc.TopLeftX<0) /* then we need to clip */
-	{
-		imageDesc.Width += imageDesc.TopLeftX;
-		imageDesc.TopLeftU -= imageDesc.TopLeftX;
-		imageDesc.TopLeftX = 0;
-	}
-	Draw_HUDImage(&imageDesc);
-}
-
-void D3D_BLTSonarBlipToHUD(int x, int y, int brightness, int color)
-{
-	HUDImageDesc imageDesc;
-	//int screenX,screenY; /* in 16.16 */
-	int frame;
-	int motionTrackerScaledHalfWidth = MUL_FIXED(65536*3,(127/2)/2);
-    
-	GLOBALASSERT(brightness<=65536);
-	
-	frame = (brightness*5)/65537;
-	GLOBALASSERT(frame>=0 && frame<5);
-	
-    frame = 4 - frame; // frames bloody wrong way round
-	imageDesc.ImageNumber = SonarImageNumber;
-	imageDesc.Scale = ONE_FIXED*2;//MUL_FIXED(65536*3,(brightness+ONE_FIXED)/4);
-	imageDesc.TopLeftX = (ScreenDescriptorBlock.SDB_Width/2)/*MotionTrackerCentreX*/ - MUL_FIXED(6,imageDesc.Scale) + MUL_FIXED(x,motionTrackerScaledHalfWidth);
-	imageDesc.TopLeftY = (ScreenDescriptorBlock.SDB_Height/2)/*MotionTrackerCentreY*/ - MUL_FIXED(6,imageDesc.Scale) - MUL_FIXED(y,motionTrackerScaledHalfWidth);
-	imageDesc.TopLeftU = 227;
-	imageDesc.TopLeftV = 187;
-	imageDesc.Height = 12;
-	imageDesc.Width = 12;
-	{
-		int trans = MUL_FIXED(brightness*2,HUDTranslucencyLevel);
-		if (trans>255) trans = 255;
-		imageDesc.Translucency = 255; //trans;
-	}
-
-	if (color==1)
-	{
-		imageDesc.Red = 255;
-		imageDesc.Green = 0;
-		imageDesc.Blue = 0;
-	}
-	else if (color==2)
-	{
-		imageDesc.Red = 255;
-		imageDesc.Green = 255;
-		imageDesc.Blue = 0;
-	}
-	else if (color==3)
-	{
-		imageDesc.Red = 0;
-		imageDesc.Green = 255;
-		imageDesc.Blue = 0;
-	}
-
 	if (imageDesc.TopLeftX<0) /* then we need to clip */
 	{
 		imageDesc.Width += imageDesc.TopLeftX;
@@ -1018,69 +894,6 @@ void D3D_DrawHUDDigit(HUDCharDesc *charDescPtr)
 
 	Draw_HUDImage(&imageDesc);
 	
-}
-void D3D_DrawHUDPredatorHealth(HUDCharDesc *charDescPtr, int scale)
-{
-	HUDImageDesc imageDesc;
-
-	imageDesc.ImageNumber = PredatorHealthImageNumber;
-
-	imageDesc.TopLeftX = ScreenDescriptorBlock.SDB_Width-256;
-	imageDesc.TopLeftY = charDescPtr->Y;
-	imageDesc.TopLeftU = 0;
-	imageDesc.TopLeftV = 0;
-
-	imageDesc.Height = 128;
-	imageDesc.Width = 256;
-	imageDesc.Scale = ONE_FIXED;
-	imageDesc.Translucency = charDescPtr->Alpha;
-	imageDesc.Red = charDescPtr->Red;
-	imageDesc.Green = charDescPtr->Green;
-	imageDesc.Blue = charDescPtr->Blue;
-
-	Draw_HUDImage(&imageDesc);	
-}
-void D3D_DrawHUDPredatorEnergy(HUDCharDesc *charDescPtr, int scale)
-{
-	HUDImageDesc imageDesc;
-
-	imageDesc.ImageNumber = PredatorHealthImageNumber;
-
-	imageDesc.TopLeftX = ScreenDescriptorBlock.SDB_Width-200;
-	imageDesc.TopLeftY = ScreenDescriptorBlock.SDB_Height-128;
-	imageDesc.TopLeftU = 0;
-	imageDesc.TopLeftV = 128;
-
-	imageDesc.Height = 128;
-	imageDesc.Width = 200;
-	imageDesc.Scale = ONE_FIXED;
-	imageDesc.Translucency = charDescPtr->Alpha;
-	imageDesc.Red = charDescPtr->Red;
-	imageDesc.Green = charDescPtr->Green;
-	imageDesc.Blue = charDescPtr->Blue;
-
-	Draw_HUDImage(&imageDesc);	
-}
-void D3D_DrawHUDPredatorNetDart(HUDCharDesc *charDescPtr, int scale)
-{
-	HUDImageDesc imageDesc;
-
-	imageDesc.ImageNumber = PredatorAmmoImageNumber;
-
-	imageDesc.TopLeftX = charDescPtr->X;
-	imageDesc.TopLeftY = charDescPtr->Y;
-	imageDesc.TopLeftU = 0;
-	imageDesc.TopLeftV = 0;
-
-	imageDesc.Height = 50;
-	imageDesc.Width = 50;
-	imageDesc.Scale = scale;
-	imageDesc.Translucency = charDescPtr->Alpha;
-	imageDesc.Red = charDescPtr->Red;
-	imageDesc.Green = charDescPtr->Green;
-	imageDesc.Blue = charDescPtr->Blue;
-
-	Draw_HUDImage(&imageDesc);	
 }
 
 void D3D_DrawHUDPredatorDigit(HUDCharDesc *charDescPtr, int scale)
@@ -1352,18 +1165,29 @@ void Render_HealthAndArmour(unsigned int health, unsigned int armour, unsigned i
 				}
 			}
 		}
+
+		if (GrabbedPlayer)
+		{
+			D3D_RenderHUDString_Centred
+			(
+				"Press Operate to struggle free.",
+				(ScreenDescriptorBlock.SDB_Width/2),
+				(ScreenDescriptorBlock.SDB_Height/2),
+				HUDLayout_Colour_BrightWhite
+			);
+		}
 		// Struggle success indicator
 		if (StrugglePool)
 		{
 			unsigned int h;
 			{
-				h = StrugglePool;
+				h = (StrugglePool/ONE_FIXED);
 
 				r2rect rectangle
 				(
-					(ScreenDescriptorBlock.SDB_Width/2)-50,
+					(ScreenDescriptorBlock.SDB_Width/2)-250,
 					(ScreenDescriptorBlock.SDB_Height/2)+40,
-					((ScreenDescriptorBlock.SDB_Width/2)-50)+(h*10),
+					((ScreenDescriptorBlock.SDB_Width/2)-250)+(h*10),
 					(ScreenDescriptorBlock.SDB_Height/2)+52
 				);
 				rectangle . AlphaFill
@@ -1434,7 +1258,18 @@ void Render_HealthAndArmour(unsigned int health, unsigned int armour, unsigned i
 		}
 	}
 	else
-	{										  
+	{
+		if (GrabPlayer)
+		{
+			D3D_RenderHUDString_Centred
+			(
+				"Primary Fire to kill grabbed victim. Secondary Fire to release.",
+				(ScreenDescriptorBlock.SDB_Width/2),
+				(ScreenDescriptorBlock.SDB_Height)-100,
+				HUDLayout_Colour_BrightWhite
+			);
+		}
+
 		if (health>100)
 		{
 			healthColour = HUDLayout_Colour_BrightWhite;
@@ -1496,7 +1331,7 @@ void Render_HealthAndArmour(unsigned int health, unsigned int armour, unsigned i
 			(
 				SpecialFXImageNumber,// AlienEnergyBarImageNumber,
 				quadVertices,
-				0xfffdd017
+				0x20fd4817
 			);
 		
 			health = (health/2);
@@ -1529,7 +1364,7 @@ void Render_HealthAndArmour(unsigned int health, unsigned int armour, unsigned i
 			(
 				SpecialFXImageNumber,// AlienEnergyBarImageNumber,
 				quadVertices,
-				0xffffff00
+				0x20ff0000
 			);
 			
 		}
@@ -1549,6 +1384,7 @@ void Render_MarineAmmo(enum TEXTSTRING_ID ammoText, enum TEXTSTRING_ID magazines
 	weaponPtr = &(psPtr->WeaponSlot[psPtr->SelectedWeaponSlot]);
 	if(!primaryAmmo) xCentre+=MUL_FIXED(HUDScaleFactor,HUDLayout_RightmostTextCentre*2);
 
+#if 0
 	/* Display weapon */
 	if (primaryAmmo) {
 		D3D_RenderHUDString_Centred
@@ -1559,6 +1395,7 @@ void Render_MarineAmmo(enum TEXTSTRING_ID ammoText, enum TEXTSTRING_ID magazines
 			HUDLayout_Colour_MarineGreen
 		);
 	}
+#endif
 	/* Electronic Bypass Kit and Hand Welder will not display any mags */
 	if (weaponPtr->WeaponIDNumber == WEAPON_AUTOSHOTGUN ||
 		weaponPtr->WeaponIDNumber == WEAPON_PLASMAGUN)
@@ -1586,6 +1423,7 @@ void Render_MarineAmmo(enum TEXTSTRING_ID ammoText, enum TEXTSTRING_ID magazines
 		}
 		return;
 	}
+#if 0
 	/* Display magazines */
 	if (weaponPtr->WeaponIDNumber == WEAPON_PULSERIFLE ||
 		weaponPtr->WeaponIDNumber == WEAPON_MARINE_PISTOL ||
@@ -1601,6 +1439,8 @@ void Render_MarineAmmo(enum TEXTSTRING_ID ammoText, enum TEXTSTRING_ID magazines
 			);
 		}
 	}
+#endif
+	/* Replace magazine to AFTER rounds. */
 	if (weaponPtr->WeaponIDNumber == WEAPON_PULSERIFLE ||
 		weaponPtr->WeaponIDNumber == WEAPON_MARINE_PISTOL ||
 		weaponPtr->WeaponIDNumber == WEAPON_GRENADELAUNCHER ||
@@ -1609,8 +1449,8 @@ void Render_MarineAmmo(enum TEXTSTRING_ID ammoText, enum TEXTSTRING_ID magazines
 			D3D_RenderHUDNumber_Centred
 			(
 				magazines,
-				xCentre,
-				ScreenDescriptorBlock.SDB_Height - MUL_FIXED(HUDScaleFactor,HUDLayout_Magazines_TopY - HUDLayout_Linespacing),
+				xCentre+25,
+				ScreenDescriptorBlock.SDB_Height - MUL_FIXED(HUDScaleFactor,HUDLayout_Rounds_TopY - HUDLayout_Linespacing),
 				HUDLayout_Colour_MarineGreen
 			);
 		}
@@ -1626,10 +1466,34 @@ void Render_MarineAmmo(enum TEXTSTRING_ID ammoText, enum TEXTSTRING_ID magazines
 	D3D_RenderHUDNumber_Centred
 	(
 		rounds,
-		xCentre,
+		xCentre-25,
 		ScreenDescriptorBlock.SDB_Height - MUL_FIXED(HUDScaleFactor,HUDLayout_Rounds_TopY - HUDLayout_Linespacing),
-		HUDLayout_Colour_MarineGreen
+		HUDLayout_Colour_BrightWhite
 	);
+
+	if ((AvP.Network != I_No_Network) && (primaryAmmo))
+	{
+		xCentre = xCentre-50;
+	/* Display radio stuff. */
+	D3D_RenderHUDString
+	("[1] Backup     ", xCentre, ScreenDescriptorBlock.SDB_Height-MUL_FIXED(HUDScaleFactor,HUDLayout_Rounds_TopY+100),HUDLayout_Colour_BrightWhite);
+	D3D_RenderHUDString
+	("[2] Enemy      ", xCentre, ScreenDescriptorBlock.SDB_Height-MUL_FIXED(HUDScaleFactor,HUDLayout_Rounds_TopY+90),HUDLayout_Colour_BrightWhite);
+	D3D_RenderHUDString
+	("[3] Secure     ", xCentre, ScreenDescriptorBlock.SDB_Height-MUL_FIXED(HUDScaleFactor,HUDLayout_Rounds_TopY+80),HUDLayout_Colour_BrightWhite);
+	D3D_RenderHUDString
+	("[4] Acknowledge", xCentre, ScreenDescriptorBlock.SDB_Height-MUL_FIXED(HUDScaleFactor,HUDLayout_Rounds_TopY+70),HUDLayout_Colour_BrightWhite);
+	D3D_RenderHUDString
+	("[5] Disregard  ", xCentre, ScreenDescriptorBlock.SDB_Height-MUL_FIXED(HUDScaleFactor,HUDLayout_Rounds_TopY+60),HUDLayout_Colour_BrightWhite);
+	D3D_RenderHUDString
+	("[6] Medic      ", xCentre, ScreenDescriptorBlock.SDB_Height-MUL_FIXED(HUDScaleFactor,HUDLayout_Rounds_TopY+50),HUDLayout_Colour_BrightWhite);
+	D3D_RenderHUDString
+	("[7] Movement   ", xCentre, ScreenDescriptorBlock.SDB_Height-MUL_FIXED(HUDScaleFactor,HUDLayout_Rounds_TopY+40),HUDLayout_Colour_BrightWhite);
+	D3D_RenderHUDString
+	("[8] Bypass     ", xCentre, ScreenDescriptorBlock.SDB_Height-MUL_FIXED(HUDScaleFactor,HUDLayout_Rounds_TopY+30),HUDLayout_Colour_BrightWhite);
+	D3D_RenderHUDString
+	("[9] Trackers   ", xCentre, ScreenDescriptorBlock.SDB_Height-MUL_FIXED(HUDScaleFactor,HUDLayout_Rounds_TopY+20),HUDLayout_Colour_BrightWhite);
+	}
 } 
 void DrawPredatorEnergyBar(void)
 {

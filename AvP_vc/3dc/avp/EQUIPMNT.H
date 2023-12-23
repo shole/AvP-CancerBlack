@@ -75,6 +75,15 @@ enum WEAPON_STATE
 #define CLASS_ALIEN_DRONE	17
 #define CLASS_ALIEN_WARRIOR	18
 #define CLASS_TANK_ALIEN	19
+#define CLASS_CHESTBURSTER	21	// 20 taken by species change state.
+
+// Multiplayer Kits
+
+#define KIT_ASSAULT			1
+#define KIT_SCOUT			2
+#define KIT_COMTECH			3
+#define KIT_TECH			4
+#define KIT_DEMO			5
 
 // Weapon Icons for Weapon Browser system
 

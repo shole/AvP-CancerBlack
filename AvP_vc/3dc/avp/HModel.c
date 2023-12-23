@@ -127,8 +127,12 @@ void ModExSys(HMODELCONTROLLER *hmodel, char *model1, char *model2)
 	SECTION_DATA *sec;
 
 	sec = GetThisSectionData(hmodel->section_data, model1);
-	sec->ShapeNum = GetLoadedShapeMSL(model2);
-	sec->Shape = GetShapeData(sec->ShapeNum);
+
+	if (sec)
+	{
+		sec->ShapeNum = GetLoadedShapeMSL(model2);
+		sec->Shape = GetShapeData(sec->ShapeNum);
+	}
 }
 
 SEQUENCE *GetSequencePointer(int sequence_type,int sub_sequence,SECTION *this_section) {

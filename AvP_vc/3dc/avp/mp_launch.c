@@ -97,7 +97,19 @@ FileExists(char *file)
 int
 LaunchMplayer()
 {
-	char mplayer_url[]="http://www.mplayer.com/mic/avp.html";
+	// if serverposter.exe exists
+	if (FileExists("serverposter.exe"))
+	{
+		// launch it
+		return Execute("serverposter.exe -list");
+	}
+	else
+	{
+		// otherwise go to the CB URL and display download
+		return Execute("rundll32.exe url.dll,FileProtocolHandler http://avp.gamegossip.com");
+	}
+
+	/*char mplayer_url[]="http://www.mplayer.com/mic/avp.html";
 	char cmdline[MAX_PATH], mplaunch_exe[MAX_PATH], mplayer_directory[MAX_PATH];
 
 	if (GetMplayerDirectory(mplayer_directory))
@@ -111,5 +123,5 @@ LaunchMplayer()
 	}
 
 	sprintf(cmdline, "rundll32.exe url.dll,FileProtocolHandler %s", mplayer_url);
-	return Execute(cmdline);
+	return Execute(cmdline);*/
 }

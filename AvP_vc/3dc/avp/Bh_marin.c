@@ -399,7 +399,7 @@ MARINE_WEAPON_DATA NPC_Marine_Weapons[] = {
 		"gren mag",							/* ClipName */
 		0,									/* MinRange (Don't fire when closer) */
 		MARINE_CLOSE_APPROACH_DISTANCE,		/* ForceFireRange (Fire if closer) */
-		18000,								/* MaxRange (Don't fire if further) */
+		9000,								/* MaxRange (Don't fire if further) */
 		0,									/* Accuracy */
 		1,									/* Firing Rate */
 		-1,									/* Firing Time */
@@ -501,7 +501,7 @@ MARINE_WEAPON_DATA NPC_Marine_Weapons[] = {
 		NULL,								/* ClipName */
 		0,									/* MinRange (Don't fire when closer) */
 		MARINE_CLOSE_APPROACH_DISTANCE,		/* ForceFireRange (Fire if closer) */
-		18000,								/* MaxRange (Don't fire if further) */
+		9000,								/* MaxRange (Don't fire if further) */
 		0,									/* Accuracy */
 		1,									/* Firing Rate */
 		-1,									/* Firing Time */
@@ -5515,7 +5515,10 @@ void KillMarine(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int multiple, int 
 		Remove_Delta_Sequence(&marineStatusPointer->HModelController,"Minigun");
 		Remove_Delta_Sequence(&marineStatusPointer->HModelController,"sprintheaddelta");
 		
-		Convert_Marine_To_Corpse(sbPtr,this_death);
+		if (damage->Id == AMMO_FRISBEE)
+			Extreme_Gibbing(sbPtr, marineStatusPointer->HModelController.section_data, ONE_FIXED);
+		//else*/
+			Convert_Marine_To_Corpse(sbPtr,this_death);
 	}
 
 	/* See if anyone saw that? */
@@ -10775,7 +10778,7 @@ static STATE_RETURN_CONDITION Execute_MNS_DischargeFlamethrower(STRATEGYBLOCK *s
 
 	/* Lighting? */
 	if (sbPtr->SBdptr) {
-		AddLightingEffectToObject(sbPtr->SBdptr,LFX_MUZZLEFLASH);
+		AddLightingEffectToObject(sbPtr->SBdptr,LFX_OBJECTONFIRE);
 	}
 
 	if (marineStatusPointer->clipammo>0) {
@@ -15841,7 +15844,7 @@ static STATE_RETURN_CONDITION Execute_MNS_PanicFireFlamethrower(STRATEGYBLOCK *s
 
 	/* Lighting? */
 	if (sbPtr->SBdptr) {
-		AddLightingEffectToObject(sbPtr->SBdptr,LFX_MUZZLEFLASH);
+		AddLightingEffectToObject(sbPtr->SBdptr,LFX_OBJECTONFIRE);
 	}
 
 	if (marineStatusPointer->clipammo>0) {
@@ -17076,6 +17079,7 @@ static void Marine_EnterLesserPanicAnimation(STRATEGYBLOCK *sbPtr) {
 
 static STATE_RETURN_CONDITION Execute_MNS_PanicFireUnarmed(STRATEGYBLOCK *sbPtr)
 {
+#if 0
 	MARINE_STATUS_BLOCK *marineStatusPointer;    
 	VECTORCH orientationDirn;
 
@@ -17303,7 +17307,7 @@ static STATE_RETURN_CONDITION Execute_MNS_PanicFireUnarmed(STRATEGYBLOCK *sbPtr)
 			}
 		}
 	}
-
+#endif
 	return(SRC_No_Change);
 
 }

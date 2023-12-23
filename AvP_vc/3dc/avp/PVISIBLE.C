@@ -1631,13 +1631,26 @@ void InanimateObjectIsDamaged(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int 
 					}
 					case 3:
         		    {
-        		        //molotov explosion
-						MakeVolumetricExplosionAt(&(sbPtr->DynPtr->Position),EXPLOSION_MOLOTOV);
+						//if (strstr(sbPtr->SBdptr->name, "fragging"))
+						{
+							HandleEffectsOfExplosion
+							(
+								sbPtr,
+								&(sbPtr->DynPtr->Position),
+								TemplateAmmo[AMMO_FRISBEE].MaxRange,
+								&TemplateAmmo[AMMO_FRISBEE].MaxDamage[AvP.Difficulty],
+								TemplateAmmo[AMMO_FRISBEE].ExplosionIsFlat
+							);
+						}
+						/*else
+						{
+	        		        //molotov explosion
+							MakeVolumetricExplosionAt(&(sbPtr->DynPtr->Position),EXPLOSION_MOLOTOV);
 
-						Explosion_SoundData.position=sbPtr->DynPtr->Position;
+							Explosion_SoundData.position=sbPtr->DynPtr->Position;
 						
-						Sound_Play(SID_NADEEXPLODE,"n",&Explosion_SoundData);
-						
+							Sound_Play(SID_NADEEXPLODE,"n",&Explosion_SoundData);
+						}*/		
 						break;
 					}
 				}
@@ -1737,7 +1750,7 @@ void InanimateObjectIsDamaged(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int 
                                 {
 									FragmentInanimateObject(sbPtr);
                                     if(AvP.Network==I_No_Network) DestroyAnyStrategyBlock(sbPtr);
-                                    else KillInanimateObjectForRespawn(sbPtr);
+                                    else KillFragmentalObjectForRespawn(sbPtr);
 
 									if (sbPtr->SBDamageBlock.IsOnFire)
 										sbPtr->SBDamageBlock.IsOnFire=0;
@@ -1752,8 +1765,7 @@ void InanimateObjectIsDamaged(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int 
                                 if(sbPtr->SBDamageBlock.Health <= 0)
                                 {
                                         FragmentInanimateObject(sbPtr);
-                                        if(AvP.Network==I_No_Network) DestroyAnyStrategyBlock(sbPtr);
-                                        else KillInanimateObjectForRespawn(sbPtr);
+                                        DestroyAnyStrategyBlock(sbPtr);
 
 										if (sbPtr->SBDamageBlock.IsOnFire)
 											sbPtr->SBDamageBlock.IsOnFire=0;
@@ -1808,8 +1820,9 @@ void InanimateObjectIsDamaged(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int 
                         if(sbPtr->SBDamageBlock.Health <= 0) 
                         {
                                 FragmentInanimateObject(sbPtr);
-                                if(AvP.Network==I_No_Network) DestroyAnyStrategyBlock(sbPtr);
-                                else KillInanimateObjectForRespawn(sbPtr);
+                                //if(AvP.Network==I_No_Network) 
+								DestroyAnyStrategyBlock(sbPtr);
+                                //else KillInanimateObjectForRespawn(sbPtr);
 								
 								if (sbPtr->SBDamageBlock.IsOnFire)
 									sbPtr->SBDamageBlock.IsOnFire=0;
@@ -1918,8 +1931,9 @@ void InanimateObjectIsDamaged(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int 
                         	if(sbPtr->SBDamageBlock.Health <= 0) 
                         	{
                         	        FragmentInanimateObject(sbPtr);
-                        	        if(AvP.Network==I_No_Network) DestroyAnyStrategyBlock(sbPtr);
-                        	        else KillInanimateObjectForRespawn(sbPtr);
+                        	        //if(AvP.Network==I_No_Network)
+									DestroyAnyStrategyBlock(sbPtr);
+                        	        //else KillInanimateObjectForRespawn(sbPtr);
 									
 									if (sbPtr->SBDamageBlock.IsOnFire)
 										sbPtr->SBDamageBlock.IsOnFire=0;
@@ -1932,8 +1946,9 @@ void InanimateObjectIsDamaged(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int 
                         if(sbPtr->SBDamageBlock.Health <= 0) 
                         {
                         	    FragmentInanimateObject(sbPtr);
-                        	    if(AvP.Network==I_No_Network) DestroyAnyStrategyBlock(sbPtr);
-                        	    else KillInanimateObjectForRespawn(sbPtr);
+                        	    //if(AvP.Network==I_No_Network)
+								DestroyAnyStrategyBlock(sbPtr);
+                        	    //else KillInanimateObjectForRespawn(sbPtr);
 								
 								if (sbPtr->SBDamageBlock.IsOnFire)
 									sbPtr->SBDamageBlock.IsOnFire=0;

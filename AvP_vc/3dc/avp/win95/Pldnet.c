@@ -52,6 +52,9 @@
 #include "db.h"
 
 #define CalculateBytesSentPerSecond 0
+
+/* New synch stuff: Platform Lifts;   did not work :P */
+#define UseNewSynch 0
 							  
 /*----------------------------------------------------------------------
   Some globals for use in this file
@@ -94,11 +97,11 @@ NETGAME_GAMEDATA netGameData=
 	0,	//int sendTimer;
 
 	//player type limits
-	8,	//unsigned int maxPredator;
-	8,	//unsigned int maxAlien;
-	8,	//unsigned int maxMarine;
+	16,	//unsigned int maxPredator;
+	16,	//unsigned int maxAlien;
+	16,	//unsigned int maxMarine;
 
-	8,	//unsigned int maxMarineGeneral;
+	16,	//unsigned int maxMarineGeneral;
 	0,	//unsigned int maxMarinePulseRifle;
 	0,	//unsigned int maxMarineSmartgun;
 	0,	//unsigned int maxMarineFlamer;
@@ -144,7 +147,7 @@ NETGAME_GAMEDATA netGameData=
 	1,	//BOOL pistolInfiniteAmmo;
 	1,	//BOOL specialistPistols;
 	0,	//BOOL LifeCycle;
-	0,	//BOOL InstantSpawn;
+	1,	//BOOL InstantSpawn;
 	0,	//int MinimumPlayers;
 	0,	//int myStrategyCheckSum; 
 
@@ -155,8 +158,9 @@ NETGAME_GAMEDATA netGameData=
 	0,	//NETGAME_CONNECTIONTYPE connectionType;
 
 	0,	//landingNoise:1;
-	0,	//trackerNoise:1;
+	0,	//trackerNoise:5;
 	0,	//footstepNoise:1;
+	0,	//specialCase:5;
 	0,	//int joiningGameStatus;
 	"", //char customLevelName[];
 };
@@ -187,10 +191,10 @@ void SetDefaultMultiplayerConfig()
 	netGameData.aiKillValues[1]=1;
 	netGameData.aiKillValues[2]=1;
 
-	netGameData.maxMarine=8;
-	netGameData.maxAlien=8;
-	netGameData.maxPredator=8;
-	netGameData.maxMarineGeneral=8;
+	netGameData.maxMarine=16;
+	netGameData.maxAlien=16;
+	netGameData.maxPredator=16;
+	netGameData.maxMarineGeneral=16;
 	netGameData.maxMarinePulseRifle=0;
 	netGameData.maxMarineSmartgun=0;
 	netGameData.maxMarineFlamer=0;
@@ -213,8 +217,8 @@ void SetDefaultMultiplayerConfig()
 	netGameData.allowSmartDisc=1;
 	netGameData.allowPistols=1;
 
-	netGameData.maxLives=0;
-	netGameData.useSharedLives=0;
+	netGameData.maxLives=5;
+	netGameData.useSharedLives=TRUE;
 	netGameData.pointsForRespawn=0;
 	netGameData.timeForRespawn=60;
 
@@ -226,7 +230,7 @@ void SetDefaultMultiplayerConfig()
 	netGameData.pistolInfiniteAmmo=FALSE;
 	netGameData.specialistPistols=FALSE;
 	netGameData.LifeCycle=FALSE;
-	netGameData.InstantSpawn=FALSE;
+	netGameData.InstantSpawn=TRUE;
 	netGameData.MinimumPlayers=0;
 }
 
@@ -235,6 +239,7 @@ int NoClass;
 int RecentlyJoined;
 int DestrSound;
 void KickPlayer(int Index);
+HRESULT KickThisPlayer(LPDIRECTPLAY4 lpDP2A, DPID DP_PlayerId);
 
 static char sendBuffer[NET_MESSAGEBUFFERSIZE];
 static char *endSendBuffer;
@@ -255,7 +260,6 @@ static int numMessagesReceived = 0;
 static int numMessagesTransmitted = 0;
 
 static char OnScreenMessageBuffer[300];
-
 static unsigned char FragmentalObjectStatus[NUMBER_OF_FRAGMENTAL_OBJECTS];
 static unsigned char StrategySynchArray[NUMBER_OF_STRATEGIES_TO_SYNCH>>2];
 
@@ -292,6 +296,13 @@ extern int TimeScale;
 extern int PrevNormalFrameTime;
 extern int DisplayRadioMenu;
 extern int DisplayClasses;
+extern int DisplayWeapons;
+extern int DisplayKits;
+extern int StrugglePool;
+extern int Kit[3];
+extern int ChangedMyClass;
+extern int RamAttackInProgress;
+extern int evolution;
 
 extern void UpdateAlienAIGhostAnimSequence(STRATEGYBLOCK *sbPtr,HMODEL_SEQUENCE_TYPES type, int subtype, int length, int tweeningtime);
 extern void RemovePickedUpObject(STRATEGYBLOCK *objectPtr);
@@ -326,7 +337,10 @@ extern int DeterminePredatorVoice(unsigned int Class);
 extern void BLTDrawCell(int X, int Y);
 extern void ChangeClass();
 extern void SetAlternateAlienSkin(HMODELCONTROLLER *HModelController, unsigned int Class);
+extern void SetAlternateCharacterSkin(HMODELCONTROLLER *HModelController, unsigned int Class);
+extern void ChangeGhostMarineAccoutrementSet(HMODELCONTROLLER *HModelController, DPID playerId, unsigned int Class);
 extern int ThirdPersonActive;
+
 /*----------------------------------------------------------------------
   Some protoypes for this file
   ----------------------------------------------------------------------*/
@@ -405,6 +419,7 @@ static void Handle_LastManStanding_LastMan(DPID marineID);
 static void Handle_LastManStanding_RestartTimer(unsigned char time);
 
 static void CheckSpeciesTagState();
+static void CheckQueenState();
 static void Handle_SpeciesTag_NewPersonIt(DPID predatorID);
 static int CountPlayersOfType(NETGAME_CHARACTERTYPE species);
 
@@ -456,6 +471,7 @@ void CheckStateOfHuggedBy();
 void ShowTeamNames_Marine();
 void ShowTeamNames_Alien();
 void ShowTeamNames_Predator();
+void CheckStateOfMissionObjectives();
 
 int EnoughPlayersAreHere(void);
 /*----------------------------------------------------------------------
@@ -1058,6 +1074,12 @@ void NetCollectMessages(void)
 	if (HuggedBy)
 	{
 		CheckStateOfHuggedBy();
+	}
+
+	/* Cancer Black -- Adding Mission Objectives for maps. */
+	if ((AvP.Network==I_Host) && (netGameData.myGameState==NGS_Playing))
+	{
+		CheckStateOfMissionObjectives();
 	}
 }
 
@@ -1784,6 +1806,16 @@ void NetSendMessages(void)
 							
 				PeriodicScoreUpdate();
 
+				// Check for queens in special levels.
+				/*{
+					extern char LevelName[];
+
+					if (!stricmp("Custom\\ap_jockey_ship", &LevelName))
+					{
+						CheckQueenState();
+					}
+				}*/
+
 				// Do not check these things.. -- Eldritch
 				/*if(netGameData.gameType==NGT_LastManStanding)
 				{
@@ -2448,8 +2480,15 @@ void AddNetMsg_PlayerState(STRATEGYBLOCK *sbPtr)
 		if (playerStatusPtr->Class == CLASS_EXF_SNIPER)
 			messagePtr->characterSubType = NGSCT_Frisbee;
 
-		if (playerStatusPtr->Class == CLASS_EXF_W_SPEC)
+		if ((playerStatusPtr->Class == CLASS_EXF_W_SPEC) ||
+			(playerStatusPtr->Class == CLASS_CHESTBURSTER))
 			messagePtr->characterSubType = NGSCT_Minigun;
+
+		if (playerStatusPtr->Class == CLASS_MEDIC_PR)
+			messagePtr->characterSubType = NGSCT_Pistols;
+
+		if (playerStatusPtr->ChestbursterTimer)
+			messagePtr->characterSubType = NGSCT_PulseRifle;
 
 		// SHOULDER LAMP IN MULTI - whether we are using shoulder lamp or not
 		messagePtr->IAmUsingShoulderLamp = playerStatusPtr->IAmUsingShoulderLamp;
@@ -2621,7 +2660,10 @@ void AddNetMsg_PlayerState(STRATEGYBLOCK *sbPtr)
 		LOCALASSERT(playerStatusPtr);    	        
 
 		/* Grab Test */
-		messagePtr->Grab = GrabbedPlayer;
+		if (GrabbedPlayer)
+			messagePtr->Grab = GrabbedPlayer;
+		else
+			messagePtr->Grab = -1;
 
 		/* Armor Type */
 		messagePtr->ArmorType=playerStatusPtr->Destr;
@@ -2692,6 +2734,19 @@ void AddNetMsg_PlayerState(STRATEGYBLOCK *sbPtr)
 	/* AMP - Add footstep noises */
 	messagePtr->footstepNoise=netGameData.footstepNoise;
 	netGameData.footstepNoise=0;
+
+	/* AMP - Add specialCase */
+	messagePtr->specialCase = netGameData.specialCase;
+	netGameData.specialCase=0;
+
+	/* AMP - Add ChangedMyClass */
+	if (ChangedMyClass)
+	{
+		messagePtr->modelToUpdate = 0;
+		ChangedMyClass = 0;
+	}
+	else
+		messagePtr->modelToUpdate = 1;
 
 	/* AMP - Add radio commands */
 	{
@@ -2818,13 +2873,29 @@ void AddNetMsg_PlayerState_Minimal(STRATEGYBLOCK *sbPtr,BOOL sendOrient)
 		LOCALASSERT(playerStatusPtr);    	   
 
 		/* Grab Test */
-		messagePtr->Grab = GrabbedPlayer;
+		if (GrabbedPlayer)
+			messagePtr->Grab = GrabbedPlayer;
+		else
+			messagePtr->Grab = -1;
 
 		/* Armor Type */
 		messagePtr->ArmorType=playerStatusPtr->Destr;
 		
 		/* Class */
 		messagePtr->Class=playerStatusPtr->Class;
+
+		/* AMP - Add ChangedMyClass */
+		if (ChangedMyClass)
+		{
+			messagePtr->modelToUpdate = 0;
+			ChangedMyClass = 0;
+		}
+		else
+			messagePtr->modelToUpdate = 1;
+
+		/* Special Case */
+		messagePtr->specialCase = netGameData.specialCase;
+		netGameData.specialCase = 0;
 		
 		/* whether or not I'm a cloaked predator */
 		if(playerStatusPtr->cloakOn) 
@@ -3672,7 +3743,7 @@ void AddNetMsg_LocalObjectDamaged(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, 
 			messageProfile->Fire = damage->Fire;
 			messageProfile->Electrical = damage->Electrical;
 			messageProfile->Acid = damage->Acid;
-		
+
 			messageProfile->ExplosivePower=damage->ExplosivePower;
 			messageProfile->Slicing=damage->Slicing;
 			messageProfile->ProduceBlood=damage->ProduceBlood;
@@ -4839,7 +4910,12 @@ void AddNetMsg_StrategySynch(void)
 
 			if(sbPtr->I_SBtype == I_BehaviourBinarySwitch ||
 			   sbPtr->I_SBtype == I_BehaviourLinkSwitch ||
-			   sbPtr->I_SBtype == I_BehaviourTrackObject)
+			   sbPtr->I_SBtype == I_BehaviourTrackObject
+			   
+#if UseNewSynch
+			   || sbPtr->I_SBtype == I_BehaviourPlatform
+#endif
+			   )
 			{
 				
 				if(objectsToSkip>0)
@@ -4859,6 +4935,12 @@ void AddNetMsg_StrategySynch(void)
 					case I_BehaviourTrackObject :
 			 			WriteStrategySynch(objectNumber++,TrackObjectGetSynchData(sbPtr));
 						break;
+
+#if UseNewSynch
+					case I_BehaviourPlatform :
+						WriteStrategySynch(objectNumber++,PlatformLiftGetSynchData(sbPtr));
+						break;
+#endif
 				}
 				
 			}
@@ -5978,7 +6060,7 @@ static void ProcessNetMsg_StartGame(void)
 static void ProcessNetMsg_PlayerState(NETMESSAGE_PLAYERSTATE *messagePtr, DPID senderId)
 {
 	VECTORCH position;
-	int playerIndex;
+	int playerIndex, GhostIsCocooned=0;
 	STRATEGYBLOCK *sbPtr;
 #if 0
 	/* state check: if we're in startup and we've received this message from the host, we
@@ -6053,12 +6135,16 @@ static void ProcessNetMsg_PlayerState(NETMESSAGE_PLAYERSTATE *messagePtr, DPID s
 				}
 				break;
 		}
-
 		// SHOULDER LAMP IN MULTI - update ghost shoulder lamp on/off.
 		ghostData->IAmUsingShoulderLamp = messagePtr->IAmUsingShoulderLamp;
 		// END OF SHOULDER LAMP IN MULTI
 
 		ghostData->Class = messagePtr->Class;
+
+		ghostData->modelUpdated = messagePtr->modelToUpdate;
+
+		if (messagePtr->specialCase == 1) // cocooned
+			GhostIsCocooned = 1;
 
 		if (ghostData->Class == CLASS_ALIEN_DRONE)
 			SetAlternateAlienSkin(&ghostData->HModelController, CLASS_ALIEN_DRONE);
@@ -6074,6 +6160,18 @@ static void ProcessNetMsg_PlayerState(NETMESSAGE_PLAYERSTATE *messagePtr, DPID s
 			SetAlternateCharacterSkin(&ghostData->HModelController, CLASS_ELDER);
 		else if (ghostData->Class == CLASS_TANK_ALIEN)
 			SetAlternateCharacterSkin(&ghostData->HModelController, CLASS_TANK_ALIEN);
+		else if (ghostData->Class == CLASS_RIFLEMAN)
+			ChangeGhostMarineAccoutrementSet(&ghostData->HModelController, netGameData.playerData[playerIndex].playerId, CLASS_RIFLEMAN);
+		else if (ghostData->Class == CLASS_SMARTGUNNER)
+			ChangeGhostMarineAccoutrementSet(&ghostData->HModelController, netGameData.playerData[playerIndex].playerId, CLASS_SMARTGUNNER);
+		else if (ghostData->Class == CLASS_INC_SPEC)
+			ChangeGhostMarineAccoutrementSet(&ghostData->HModelController, netGameData.playerData[playerIndex].playerId, CLASS_INC_SPEC);
+		else if (ghostData->Class == CLASS_ENGINEER)
+			ChangeGhostMarineAccoutrementSet(&ghostData->HModelController, netGameData.playerData[playerIndex].playerId, CLASS_ENGINEER);
+		else if (ghostData->Class == CLASS_COM_TECH)
+			ChangeGhostMarineAccoutrementSet(&ghostData->HModelController, netGameData.playerData[playerIndex].playerId, CLASS_COM_TECH);
+		else if (ghostData->Class == CLASS_MEDIC_FT)
+			ChangeGhostMarineAccoutrementSet(&ghostData->HModelController, netGameData.playerData[playerIndex].playerId, CLASS_MEDIC_FT);
 	}
 
 	if(!MultiplayerObservedPlayer)
@@ -6084,7 +6182,7 @@ static void ProcessNetMsg_PlayerState(NETMESSAGE_PLAYERSTATE *messagePtr, DPID s
 			sbPtr->SBdptr->ObFlags&=~ObFlag_NotVis;
 		}
 	}
-	
+
 	{
 		EULER orientation;
 		int sequence;
@@ -6092,9 +6190,18 @@ static void ProcessNetMsg_PlayerState(NETMESSAGE_PLAYERSTATE *messagePtr, DPID s
 		int firingPrimary;
 		int firingSecondary;
 		
+		if (GhostIsCocooned)
+		{
+			messagePtr->xOrient=0;
+			messagePtr->yOrient=0;
+			messagePtr->zOrient=0;
+			messagePtr->Elevation=0;
+		}
+
 		orientation.EulerX = (messagePtr->xOrient<<NET_EULERSCALESHIFT);
 		orientation.EulerY = (messagePtr->yOrient<<NET_EULERSCALESHIFT);
 		orientation.EulerZ = (messagePtr->zOrient<<NET_EULERSCALESHIFT);			
+
 		sequence = (int)messagePtr->sequence;
 		weapon = (int)messagePtr->currentWeapon;
 		firingPrimary = (int)messagePtr->IAmFiringPrimary;
@@ -6118,6 +6225,7 @@ static void ProcessNetMsg_PlayerState(NETMESSAGE_PLAYERSTATE *messagePtr, DPID s
 
 					if (messagePtr->characterSubType==NGSCT_Frisbee) subtype = AT_Predalien;
 					if (messagePtr->characterSubType==NGSCT_Minigun) subtype = AT_Praetorian;
+					if (messagePtr->characterSubType==NGSCT_Pistols) subtype = 3;
 
 					sbPtr = CreateNetGhost(senderId,GHOST_PLAYEROBJECTID,&position,&orientation,type,IOT_Non,subtype);
 					if(sbPtr) 
@@ -6258,6 +6366,8 @@ static void ProcessNetMsg_PlayerState(NETMESSAGE_PLAYERSTATE *messagePtr, DPID s
 					case NGCT_Alien :
 						if (messagePtr->Class == CLASS_EXF_SNIPER)
 							PlayAlienSound(1,(ALIEN_SOUND_CATEGORY)messagePtr->scream,0,&ghostData->SoundHandle2,&position);
+						else if (messagePtr->Class == CLASS_MEDIC_PR)
+							PlayAlienSound(2,(ALIEN_SOUND_CATEGORY)messagePtr->scream,0,&ghostData->SoundHandle2,&position);
 						else
 							PlayAlienSound(0,(ALIEN_SOUND_CATEGORY)messagePtr->scream,0,&ghostData->SoundHandle2,&position);
 						break;
@@ -6280,7 +6390,13 @@ static void ProcessNetMsg_PlayerState(NETMESSAGE_PLAYERSTATE *messagePtr, DPID s
 					sbPtr->SBdptr->ObFlags|=ObFlag_NotVis;
 				}
 				GrabPlayer = messagePtr->Grab;
+				ghostData->Grab = messagePtr->Grab;
 			}
+			else
+			{
+				ghostData->Grab = 0;
+			}
+
 
 			/* Laughing noise when self-destruct is activated */
 			if (messagePtr->ArmorType) {
@@ -6358,7 +6474,8 @@ static void ProcessNetMsg_PlayerState(NETMESSAGE_PLAYERSTATE *messagePtr, DPID s
 						Sound_Play(SID_ED_JETPACK_END,"d",&position);
 						break;
 					case NGCT_Alien:
-						if (messagePtr->Class == CLASS_EXF_W_SPEC)
+						if ((messagePtr->Class == CLASS_EXF_W_SPEC) ||
+							(messagePtr->Class == CLASS_CHESTBURSTER))
 						{
 							//Sound_Play(SID_FHUG_MOVE, "d", &position);
 						} else
@@ -6370,7 +6487,24 @@ static void ProcessNetMsg_PlayerState(NETMESSAGE_PLAYERSTATE *messagePtr, DPID s
 				}
 			}
 
-			/* Special Sequences */
+			/* Special Cases
+			 *
+			 * 0 = nothing
+			 * 1 = cocooned
+			 * 2 = netted
+			 * 3 = escaping
+			 *
+			 */
+			if (messagePtr->specialCase)
+			{
+				ghostData->specialCase = messagePtr->specialCase;
+			}
+			else
+			{
+				ghostData->specialCase = 0;
+			}
+
+			/* Radio Commands */
 			if (messagePtr->SpecialSequence) {
 				if (AvP.PlayerType == I_Marine)
 					Sound_Play(messagePtr->SpecialSequence,"hv",127);
@@ -6604,7 +6738,40 @@ static void ProcessNetMsg_PlayerState_Minimal(NETMESSAGE_PLAYERSTATE_MINIMAL *me
 			return;
 		}
 		
-		messagePtr->Grab = 0;
+		{
+			NETGHOSTDATABLOCK *ghostData;
+			ghostData = (NETGHOSTDATABLOCK *)sbPtr->SBdataptr;
+
+			if (messagePtr->Grab == AVPDPNetID)
+			{
+				//don't draw the victim
+				if(sbPtr && sbPtr->SBdptr)
+				{
+					sbPtr->SBdptr->ObFlags|=ObFlag_NotVis;
+				}
+				GrabPlayer = messagePtr->Grab;
+				ghostData->Grab = messagePtr->Grab;
+			}
+			else
+			{
+				ghostData->Grab = 0;
+			}
+		}
+
+#if 1
+		if ((messagePtr->Class == CLASS_NONE) || (messagePtr->Class == 20))
+		{
+			// do nothing special... model validation is checked in playerstate.
+		}
+		else
+#endif
+		{
+			NETGHOSTDATABLOCK *ghostData;
+			ghostData = (NETGHOSTDATABLOCK *)sbPtr->SBdataptr;
+
+			ghostData->Class = messagePtr->Class;
+			ghostData->modelUpdated = messagePtr->modelToUpdate;
+		}
 
 		if(sbPtr && messagePtr->IAmAlive)
 		{
@@ -6733,6 +6900,8 @@ static void ProcessNetMsg_PlayerKilled(NETMESSAGE_PLAYERKILLED *messagePtr, DPID
 			NETGHOSTDATABLOCK *ghostData = (NETGHOSTDATABLOCK *) sbPtr->SBdataptr;
 			if (ghostData->Class == CLASS_EXF_SNIPER)
 				PlayAlienSound(1,ASC_Scream_Dying,0,NULL,&(sbPtr->DynPtr->Position));
+			else if (ghostData->Class == CLASS_MEDIC_PR)
+				PlayAlienSound(2,ASC_Scream_Dying,0,NULL,&(sbPtr->DynPtr->Position));
 			else
 				PlayAlienSound(0,ASC_Scream_Dying,0,NULL,&(sbPtr->DynPtr->Position));
 			break;
@@ -7164,6 +7333,33 @@ static void ProcessNetMsg_LocalObjectDamaged(char *messagePtr, DPID senderId)
 			HuggedBy = senderId;
 			psPtr->ChestbursterTimer = (ONE_FIXED*20);
 		}
+
+		// Cocoon player based on damage id.
+		/*if (messageHeader->ammo_id == AMMO_ALIEN_SPIT)
+		{
+			PLAYER_STATUS *psPtr = Player->ObStrategyBlock->SBdataptr;
+			
+			psPtr->Immobilized = (ONE_FIXED*333); // cocooned ident, half as evil ;P
+			Sound_Play(SID_BODY_BEING_HACKED_UP_0,"d",&(Player->ObStrategyBlock->DynPtr->Position));
+			
+			GrabbedPlayer = 0;
+			StrugglePool = 0;
+
+			//reset dynamics
+			{
+				EULER zeroEuler = {0,0,0};
+				VECTORCH zeroVec = {0,0,0};
+				DYNAMICSBLOCK *dynPtr = Player->ObStrategyBlock->DynPtr;
+
+				dynPtr->Position = Player->ObStrategyBlock->DynPtr->Position;
+				dynPtr->OrientEuler = zeroEuler;
+				dynPtr->LinVelocity = zeroVec;
+				dynPtr->LinImpulse = zeroVec;
+
+				CreateEulerMatrix(&dynPtr->OrientEuler, &dynPtr->OrientMat);
+				TransposeMatrixCH(&dynPtr->OrientMat);
+			}
+		}*/
 
 		/* check if we have found an sb: if not the object has probably been 
 		destroyed already, so just ignore it */
@@ -7971,7 +8167,12 @@ static void ProcessNetMsg_StrategySynch(NETMESSAGE_STRATEGYSYNCH *messagePtr)
 
 		if(sbPtr->I_SBtype == I_BehaviourBinarySwitch ||
 		   sbPtr->I_SBtype == I_BehaviourLinkSwitch ||
-		   sbPtr->I_SBtype == I_BehaviourTrackObject)
+		   sbPtr->I_SBtype == I_BehaviourTrackObject
+		   
+#if UseNewSynch
+		   || sbPtr->I_SBtype == I_BehaviourPlatform
+#endif
+		   )
 		{
 			
 			if(objectsToSkip>0)
@@ -7991,6 +8192,11 @@ static void ProcessNetMsg_StrategySynch(NETMESSAGE_STRATEGYSYNCH *messagePtr)
 				case I_BehaviourTrackObject :
 		 			TrackObjectSetSynchData(sbPtr,ReadStrategySynch(objectNumber++));
 					break;
+#if UseNewSynch
+				case I_BehaviourPlatform :
+					PlatformLiftSetSynchData(sbPtr,ReadStrategySynch(objectNumber++));
+					break;
+#endif
 			}
 			
 		}
@@ -8862,7 +9068,7 @@ static void UpdateNetworkGameScores(DPID playerKilledId, DPID killerId,NETGAME_C
 		AddNetMsg_ScoreChange(killerIndex,playerKilledIndex);
 	}
 
-	//AddNetMsg_PlayerScores(killerIndex);			
+	//AddNetMsg_PlayerScores(killerIndex);
 
 	// Removing this also... -- Eldritch
 	#if 0
@@ -8968,8 +9174,12 @@ static MARINE_SEQUENCE GetMyMarineSequence(void)
 	int playerIsCrouching = 0;
 	int playerIsAlive = 0;
 	int playerIsJumping = 0;
+	int playerIsReloading = 0;
 	int usingCloseAttackWeapon;
-	extern int StaffAttack;		
+	extern int StaffAttack;
+	PLAYER_WEAPON_DATA *weaponPtr;	// fixing reload animation
+
+	weaponPtr = &(PlayerStatusPtr->WeaponSlot[PlayerStatusPtr->SelectedWeaponSlot]);
 		
 	/* sort out what state we're in */
 	if(PlayerStatusPtr->IsAlive) playerIsAlive = 1;
@@ -9003,12 +9213,16 @@ static MARINE_SEQUENCE GetMyMarineSequence(void)
 	
 	if((PlayerStatusPtr->WeaponSlot[PlayerStatusPtr->SelectedWeaponSlot].CurrentState==WEAPONSTATE_FIRING_PRIMARY)||
 	   (PlayerStatusPtr->WeaponSlot[PlayerStatusPtr->SelectedWeaponSlot].CurrentState==WEAPONSTATE_RECOIL_PRIMARY)) {
-			playerIsFiring = 1;
+
+			if (weaponPtr->PrimaryRoundsRemaining != 0)
+				playerIsFiring = 1;
 	} else {
 		if(PlayerStatusPtr->WeaponSlot[PlayerStatusPtr->SelectedWeaponSlot].WeaponIDNumber==WEAPON_MARINE_PISTOL) {
 			if((PlayerStatusPtr->WeaponSlot[PlayerStatusPtr->SelectedWeaponSlot].CurrentState==WEAPONSTATE_FIRING_SECONDARY)||
 			   (PlayerStatusPtr->WeaponSlot[PlayerStatusPtr->SelectedWeaponSlot].CurrentState==WEAPONSTATE_RECOIL_SECONDARY)) {
-				playerIsFiring = 1;
+
+					if (weaponPtr->PrimaryRoundsRemaining != 0)
+						playerIsFiring = 1;
 			} else {
 				playerIsFiring = 0;
 			}
@@ -9034,7 +9248,14 @@ static MARINE_SEQUENCE GetMyMarineSequence(void)
 		DYNAMICSBLOCK *dynPtr = Player->ObStrategyBlock->DynPtr;
 		if (!dynPtr->IsInContactWithFloor && (dynPtr->TimeNotInContactWithFloor==0))
 			playerIsJumping=1;
-	}	
+	}
+
+	/* Reloading. */
+	if(PlayerStatusPtr->WeaponSlot[PlayerStatusPtr->SelectedWeaponSlot].CurrentState==WEAPONSTATE_RELOAD_PRIMARY)
+	{
+		playerIsFiring = 0;
+		playerIsReloading = 1;
+	}
 
 	/* and deduce the sequence */
 	if(playerIsAlive==0) 
@@ -9048,6 +9269,10 @@ static MARINE_SEQUENCE GetMyMarineSequence(void)
 
 	if(playerIsJumping) {
 		return MSQ_Jump;
+	}
+
+	if ((playerIsReloading) && (!playerIsMoving) && (!playerIsCrouching)) {
+		return M_RELOAD;
 	}
 
 	/* Put this in here... no running cudgel attacks yet. */
@@ -9121,12 +9346,17 @@ static ALIEN_SEQUENCE GetMyAlienSequence(void)
 	int playerIsJumping = 0;
 	BOOL isPA=FALSE;
 	BOOL isFH=FALSE;
+	BOOL isQU=FALSE;
 
 	if (PlayerStatusPtr->Class == CLASS_EXF_SNIPER)
 		isPA=TRUE;
 
-	if (PlayerStatusPtr->Class == CLASS_EXF_W_SPEC)
+	if ((PlayerStatusPtr->Class == CLASS_EXF_W_SPEC) ||
+		(PlayerStatusPtr->Class == CLASS_CHESTBURSTER))
 		isFH=TRUE;
+
+	if (PlayerStatusPtr->Class == CLASS_MEDIC_PR)
+		isQU=TRUE;
 		
 	/* sort out what state we're in */
 	if(PlayerStatusPtr->IsAlive) playerIsAlive = 1;
@@ -9183,7 +9413,6 @@ static ALIEN_SEQUENCE GetMyAlienSequence(void)
 			break;
 	}
 			
-
 	/* KJL 14:27:14 10/29/97 - deal with jumping & falling */
 	{
 		DYNAMICSBLOCK *dynPtr = Player->ObStrategyBlock->DynPtr;
@@ -9387,7 +9616,6 @@ static ALIEN_SEQUENCE GetMyAlienSequence(void)
 			}
 			break;
 	}
-
 } 
 
 static PREDATOR_SEQUENCE GetMyPredatorSequence(void)
@@ -9477,6 +9705,35 @@ static PREDATOR_SEQUENCE GetMyPredatorSequence(void)
 			return PredSQ_CrouchDie;
 		} else {
 			return PredSQ_StandDie;
+		}
+	}
+
+	/* Self-Destruct animations. */
+	if (PlayerStatusPtr->Destr > (ONE_FIXED*6))
+	{
+		return(P_ACTIVATE_BOMB);
+	}
+	else if (PlayerStatusPtr->Destr > (ONE_FIXED))
+	{
+		return(P_LAUGH);
+	}
+
+	/* Adding combi-stick animations here. */
+	if (PlayerStatusPtr->WeaponSlot[PlayerStatusPtr->SelectedWeaponSlot].WeaponIDNumber==WEAPON_PRED_RIFLE)
+	{
+		if (playerIsCrouching)
+		{
+			if (playerIsFiring)
+			{
+				return(P_CROUCH_SPEAR_STAB);
+			}
+		}
+		else
+		{
+			if (playerIsFiring)
+			{
+				return(P_SPEAR_STAB);
+			}
 		}
 	}
 
@@ -9771,11 +10028,24 @@ void TeleportNetPlayerToAStartingPosition(STRATEGYBLOCK *playerSbPtr, int startO
 	
 	PLAYER_STATUS *psPtr=(PLAYER_STATUS*)playerSbPtr->SBdataptr;
 
+	/* Newly bursted alien players spawn at their present location. */
+	if (startOfGame == 5)
+	{
+		Player->ObWorld= Player->ObStrategyBlock->DynPtr->Position = Player->ObStrategyBlock->DynPtr->PrevPosition;
+		return;
+	}
+
 	if(MultiplayerRestartSeed)
 	{
 		StartOfGame_PlayerPlacement(playerSbPtr,MultiplayerRestartSeed);
 		MultiplayerRestartSeed=0;	
 		return;
+	}
+
+	// possible fix for instant spawn bug
+	if (netGameData.InstantSpawn && EnoughPlayersAreHere())
+	{
+		RecentlyJoined = 0;
 	}
 
 	if (RecentlyJoined)
@@ -9915,6 +10185,9 @@ void StartOfGame_PlayerPlacement(STRATEGYBLOCK *playerSbPtr,int seed)
 	psPtr->invulnerabilityTimer=netGameData.invulnerableTime*ONE_FIXED;
 	
 	SetSeededFastRandom(seed);
+
+	// re-read spawn points, for migrating spawn points.
+	//setup_generators(env_rif->envd); cannot seem to locate env_rif riffhandle.
 
 	for(i=0;i<NET_MAXPLAYERS;i++)
 	{
@@ -10112,6 +10385,11 @@ void Create3rdPersonPlayer(void)
 
 			if (psPtr->Class == CLASS_EXF_SNIPER)
 				CreateAlienHModel(ghostData, AT_Predalien);
+			else if ((psPtr->Class == CLASS_EXF_W_SPEC) ||
+					 (psPtr->Class == CLASS_CHESTBURSTER))
+				CreateAlienHModel(ghostData, AT_Praetorian);
+			else if (psPtr->Class == CLASS_MEDIC_PR)
+				CreateAlienHModel(ghostData, 3);
 			else
 				CreateAlienHModel(ghostData, 0);
 			break;
@@ -10228,7 +10506,7 @@ void Render3rdPersonPlayer(void)
 	/* Change accoutrement set */
 	if (AvP.PlayerType == I_Marine)
 	{
-		extern void ChangeGhostMarineAccoutrementSet(HMODELCONTROLLER *HModelController,DPID playerId, unsigned int Class);
+		//extern void ChangeGhostMarineAccoutrementSet(HMODELCONTROLLER *HModelController,DPID playerId, unsigned int Class);
 		PLAYER_STATUS *psPtr = (PLAYER_STATUS *) Player->ObStrategyBlock->SBdataptr;
 		ChangeGhostMarineAccoutrementSet(&ThirdPersonPlayerGhost.HModelController,ghostData->playerId,psPtr->Class);
 	}
@@ -10519,6 +10797,9 @@ void RestartNetworkGame(int seed)
 	if(!MultiplayerRestartSeed) MultiplayerRestartSeed=1;
 
 	RecentlyJoined = 0;
+
+	/* Print out a string... */
+	PrintStringTableEntryInConsole(TEXTSTRING_MULTIPLAYER_LMS_GO);
 }
 
 
@@ -10530,8 +10811,6 @@ static void Inform_PlayerHasDied(DPID killer, DPID victim,NETGAME_CHARACTERTYPE 
 {
 	int victimIndex = PlayerIdInPlayerList(victim);
 
-	return;
-
 	/* KJL 15:35:38 09/04/98 - not knowing who the victim is what make things a bit awkward... */
 	if(victimIndex==NET_IDNOTINPLAYERLIST) return;
 
@@ -10540,19 +10819,19 @@ static void Inform_PlayerHasDied(DPID killer, DPID victim,NETGAME_CHARACTERTYPE 
 	{
 		case NGCT_AI_Alien :
 		{
-			//NetworkGameConsoleMessage(TEXTSTRING_MULTIPLAYERCONSOLE_KILLEDBY_ALIEN,netGameData.playerData[victimIndex].name,0);
+			NetworkGameConsoleMessage(TEXTSTRING_MULTIPLAYERCONSOLE_KILLEDBY_ALIEN,netGameData.playerData[victimIndex].name,0);
 			break;
 		}
 		
 		case NGCT_AI_Predalien :
 		{
-			//NetworkGameConsoleMessage(TEXTSTRING_MULTIPLAYERCONSOLE_KILLEDBY_PREDALIEN,netGameData.playerData[victimIndex].name,0);
+			NetworkGameConsoleMessage(TEXTSTRING_MULTIPLAYERCONSOLE_KILLEDBY_PREDALIEN,netGameData.playerData[victimIndex].name,0);
 			break;
 		}
 		
 		case NGCT_AI_Praetorian :
 		{
-			//NetworkGameConsoleMessage(TEXTSTRING_MULTIPLAYERCONSOLE_KILLEDBY_PRAETORIAN,netGameData.playerData[victimIndex].name,0);
+			NetworkGameConsoleMessage(TEXTSTRING_MULTIPLAYERCONSOLE_KILLEDBY_PRAETORIAN,netGameData.playerData[victimIndex].name,0);
 			break;
 		}
 
@@ -10571,12 +10850,12 @@ static void Inform_PlayerHasDied(DPID killer, DPID victim,NETGAME_CHARACTERTYPE 
 					{
 						sprintf(weaponSymbol," %c",weaponIcon);
 					}
-					//NetworkGameConsoleMessageWithWeaponIcon(TEXTSTRING_MULTIPLAYERCONSOLE_KILLEDBY,netGameData.playerData[victimIndex].name,netGameData.playerData[killerIndex].name,weaponSymbol);
+					NetworkGameConsoleMessageWithWeaponIcon(TEXTSTRING_MULTIPLAYERCONSOLE_KILLEDBY,netGameData.playerData[victimIndex].name,netGameData.playerData[killerIndex].name,weaponSymbol);
 				}
 			}
 			else
 			{
-				//NetworkGameConsoleMessage(TEXTSTRING_MULTIPLAYERCONSOLE_SUICIDE,netGameData.playerData[victimIndex].name,0);
+				NetworkGameConsoleMessage(TEXTSTRING_MULTIPLAYERCONSOLE_SUICIDE,netGameData.playerData[victimIndex].name,0);
 			}
 			break;
 		}
@@ -10586,8 +10865,6 @@ static void Inform_PlayerHasDied(DPID killer, DPID victim,NETGAME_CHARACTERTYPE 
 static void Inform_AiHasDied(DPID killer,ALIEN_TYPE type,char weaponIcon)
 {
 	int killerIndex = PlayerIdInPlayerList(killer);
-
-	return;
 	
 	if(killerIndex!=NET_IDNOTINPLAYERLIST)
 	{
@@ -10600,19 +10877,19 @@ static void Inform_AiHasDied(DPID killer,ALIEN_TYPE type,char weaponIcon)
 		{
 			case AT_Standard :
 			{
-				//NetworkGameConsoleMessageWithWeaponIcon(TEXTSTRING_MULTIPLAYERCONSOLE_ALIEN_KILLED,netGameData.playerData[killerIndex].name,0,weaponSymbol);
+				NetworkGameConsoleMessageWithWeaponIcon(TEXTSTRING_MULTIPLAYERCONSOLE_ALIEN_KILLED,netGameData.playerData[killerIndex].name,0,weaponSymbol);
 	  			break;
 			}
 			
 			case AT_Predalien :
 			{
-				//NetworkGameConsoleMessageWithWeaponIcon(TEXTSTRING_MULTIPLAYERCONSOLE_PREDALIEN_KILLED,netGameData.playerData[killerIndex].name,0,weaponSymbol);
+				NetworkGameConsoleMessageWithWeaponIcon(TEXTSTRING_MULTIPLAYERCONSOLE_PREDALIEN_KILLED,netGameData.playerData[killerIndex].name,0,weaponSymbol);
 				break;
 			}
 			
 			case AT_Praetorian :
 			{
-				//NetworkGameConsoleMessageWithWeaponIcon(TEXTSTRING_MULTIPLAYERCONSOLE_PRAETORIAN_KILLED,netGameData.playerData[killerIndex].name,0,weaponSymbol);
+				NetworkGameConsoleMessageWithWeaponIcon(TEXTSTRING_MULTIPLAYERCONSOLE_PRAETORIAN_KILLED,netGameData.playerData[killerIndex].name,0,weaponSymbol);
 				break;
 			}
 		}
@@ -10809,7 +11086,7 @@ static int GetNetScoreForKill(int playerKilledIndex,int killerIndex)
 	if(playerKilledIndex==killerIndex)	
 	{
 		//suicide
-		return -netGameData.baseKillValue;
+		//return -netGameData.baseKillValue;
 	}
 	/*if(netGameData.gameType==NGT_PredatorTag)
 	{
@@ -11107,6 +11384,68 @@ static int CountPlayersOfType(NETGAME_CHARACTERTYPE species)
 	return numPredators;
 }
 
+static void CheckQueenState()
+{
+	int i;
+	BOOL found=FALSE;
+
+	if (netGameData.stateCheckTimeDelay>0)
+	{
+		netGameData.stateCheckTimeDelay-=RealFrameTime;
+		return;
+	}
+
+	if (PlayerStatusPtr->Class == CLASS_MEDIC_PR) found=TRUE;
+
+	if (!found)
+	{
+		for (i=0; i < NET_MAXPLAYERS; i++)
+		{
+			if ((netGameData.playerData[i].playerId) &&
+				//(netGameData.playerData[i].playerId != PlayerIdInPlayerList(AVPDPNetID)) &&
+				(netGameData.playerData[i].characterType == NGCT_Alien))
+			{
+				STRATEGYBLOCK *sbPtr;
+				NETGHOSTDATABLOCK *ghostData;
+
+				sbPtr = FindGhost(netGameData.playerData[i].playerId,GHOST_PLAYEROBJECTID);
+
+				if (sbPtr)
+					ghostData = sbPtr->SBdataptr;
+
+				if (ghostData)
+				{
+					if (ghostData->Class)
+					{
+						if (ghostData->Class == CLASS_MEDIC_PR)
+						{
+							found=TRUE;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	if (found) return;
+
+	//we need to choose a random Queen player
+	{
+		DPID predID=0;
+		//for(i=0;i<(NET_MAXPLAYERS);i++)
+
+		i = (FastRandom()%NET_MAXPLAYERS);
+
+		if ((netGameData.playerData[i].playerId) &&
+			(netGameData.playerData[i].characterType == NGCT_Alien))
+		{	
+			predID=netGameData.playerData[i].playerId;
+		}
+		AddNetMsg_PlayerID(predID,NetMT_PredatorTag_NewPredator);
+		Handle_SpeciesTag_NewPersonIt(predID);
+	}
+}
+
 static void CheckSpeciesTagState()
 {
 	int i;
@@ -11155,6 +11494,13 @@ static void Handle_SpeciesTag_NewPersonIt(DPID predatorID)
 		
 	if(AVPDPNetID==predatorID)
 	{
+		// change me to a Queen!
+		PlayerStatusPtr->Class = CLASS_MEDIC_PR;
+		ChangeToAlien();
+		netGameData.myCharacterSubType=NGSCT_Pistols;
+		PlayerStatusPtr->Cocoons = CLASS_MEDIC_PR;
+
+#if 0
 		//become aa predator or alien
 		if(netGameData.gameType==NGT_PredatorTag)
 		{
@@ -11166,8 +11512,8 @@ static void Handle_SpeciesTag_NewPersonIt(DPID predatorID)
 			extern void ChangeToAlien();
 			ChangeToAlien();
 		}
+#endif
 	}
-
 	netGameData.stateCheckTimeDelay=5*ONE_FIXED;
 }
 
@@ -11290,7 +11636,7 @@ void CheckIfClassIsAvailable()
 	int i, valid=1;
 	int numRif=0, numSG=0, numInc=0, numCom=0, numEng=0, numOff=0, numMed=0;
 	int numWarP=0, numHun=0, numBad=0, numEld=0, numFem=0;
-	int numWarA=0, numDro=0, numPA=0;
+	int numWarA=0, numDro=0, numPA=0, numQ=0;
 
 	for (i=0; i < NET_MAXPLAYERS; i++)
 	{
@@ -11309,10 +11655,6 @@ void CheckIfClassIsAvailable()
 				numRif++;
 			if (ghostData->Class == CLASS_SMARTGUNNER)
 				numSG++;
-			if (ghostData->Class == CLASS_INC_SPEC)
-				numInc++;
-			if (ghostData->Class == CLASS_COM_TECH)
-				numCom++;
 			if (ghostData->Class == CLASS_ENGINEER)
 				numEng++;
 			if (ghostData->Class == CLASS_AA_SPEC)
@@ -11339,6 +11681,8 @@ void CheckIfClassIsAvailable()
 				numDro++;
 			if (ghostData->Class == CLASS_EXF_SNIPER)
 				numPA++;
+			if (ghostData->Class == CLASS_MEDIC_PR)
+				numQ++;
 		}
 	}
 	/* Marines */
@@ -11347,15 +11691,7 @@ void CheckIfClassIsAvailable()
 			valid=0;
 	}
 	if (psPtr->Class == CLASS_SMARTGUNNER) {
-		if (numSG == 2)
-			valid=0;
-	}
-	if (psPtr->Class == CLASS_INC_SPEC) {
-		if (numInc == 2)
-			valid=0;
-	}
-	if (psPtr->Class == CLASS_COM_TECH) {
-		if (numCom == 2)
+		if (numSG == 1)
 			valid=0;
 	}
 	if (psPtr->Class == CLASS_ENGINEER) {
@@ -11367,7 +11703,7 @@ void CheckIfClassIsAvailable()
 			valid=0;
 	}
 	if (psPtr->Class == CLASS_MEDIC_FT) {
-		if (numMed == 2)
+		if (numMed == 1)
 			valid=0;
 	}
 
@@ -11377,33 +11713,37 @@ void CheckIfClassIsAvailable()
 			valid=0;
 	}
 	if (psPtr->Class == CLASS_PRED_HUNTER) {
-		if (numMed == 1)
+		if (numHun == 1)
 			valid=0;
 	}
 	if (psPtr->Class == CLASS_RENEGADE) {
-		if (numMed == 1)
+		if (numBad == 1)
 			valid=0;
 	}
 	if (psPtr->Class == CLASS_ELDER) {
-		if (numMed == 1)
+		if (numEld == 1)
 			valid=0;
 	}
 	if (psPtr->Class == CLASS_TANK_ALIEN) {
-		if (numMed == 1)
+		if (numFem == 1)
 			valid=0;
 	}
 
 	/* Aliens */
 	if (psPtr->Class == CLASS_ALIEN_WARRIOR) {
-		if (numMed == 2)
+		if (numWarA == 2)
 			valid=0;
 	}
 	if (psPtr->Class == CLASS_ALIEN_DRONE) {
-		if (numMed == 2)
+		if (numDro == 2)
 			valid=0;
 	}
 	if (psPtr->Class == CLASS_EXF_SNIPER) {
-		if (numMed == 1)
+		if (numPA == 1)
+			valid=0;
+	}
+	if (psPtr->Class == CLASS_MEDIC_PR) {
+		if (numQ == 1)
 			valid=0;
 	}
 
@@ -11438,11 +11778,39 @@ int DetermineAvailableCharacterTypes(BOOL ConsiderUsedCharacters)
 	// initalise available species
 	if(netGameData.gameType!=NGT_Coop)
 	{
-		netGameData.maxAlien = 8;
-		netGameData.maxPredator=8;
-		netGameData.maxMarine=8;
+		/*netGameData.maxAlien = 8;
+		netGameData.maxPredator = 8;
+		netGameData.maxMarine = 8;*/
 
-		netGameData.maxMarineGeneral=8;
+		if (strstr(netGameData.customLevelName, "am_"))	// am_ equals no predators.
+		{
+			netGameData.maxAlien = 16;//8;
+			netGameData.maxPredator = 0;
+			netGameData.maxMarine = 16;//8;
+			netGameData.maxMarineGeneral = 16;//8;
+		}
+		else if (strstr(netGameData.customLevelName, "mp_"))	// mp_ equals no aliens.
+		{
+			netGameData.maxAlien = 0;
+			netGameData.maxPredator = 16;//8;
+			netGameData.maxMarine = 16;//8;
+			netGameData.maxMarineGeneral = 16;//8;
+		}
+		else if (strstr(netGameData.customLevelName, "ap_"))	// ap_ equals no marines.
+		{
+			netGameData.maxAlien = 16;//8;
+			netGameData.maxPredator = 16;//8;
+			netGameData.maxMarine = 0;
+			netGameData.maxMarineGeneral = 0;
+		}
+		else if (strstr(netGameData.customLevelName, "amp_")) // amp_ equals all species
+		{
+			netGameData.maxAlien = 16;//8;
+			netGameData.maxPredator = 16;//8;
+			netGameData.maxMarine = 16;//8;
+			netGameData.maxMarineGeneral = 16;//8;
+		}
+
 		netGameData.maxMarinePulseRifle=0;
 		netGameData.maxMarineSmartgun=0;
 		netGameData.maxMarineFlamer=0;
@@ -11463,15 +11831,21 @@ int DetermineAvailableCharacterTypes(BOOL ConsiderUsedCharacters)
 		netGameData.useSharedLives = FALSE;
 	}
 
+	// Set "Infinite" billets (caused by bug) to 5.
+	if ((netGameData.maxLives < 1) || (netGameData.maxLives > 5))
+	{
+		netGameData.maxLives = 5;
+	}
+
 
 	if(netGameData.skirmishMode || netGameData.gameType==NGT_Coop)
 	{
 		//Skirmish mode - player can be anything except an alien
 		netGameData.maxAlien = 0;
-		netGameData.maxPredator=8;
-		netGameData.maxMarine=8;
+		netGameData.maxPredator=16;//8;
+		netGameData.maxMarine=16;//8;
 
-		netGameData.maxMarineGeneral=8;
+		netGameData.maxMarineGeneral=16;//8;
 		netGameData.maxMarinePulseRifle=0;
 		netGameData.maxMarineSmartgun=0;
 		netGameData.maxMarineFlamer=0;
@@ -12242,7 +12616,26 @@ static int CountMultiplayerLivesLeft()
 		if(index==NET_IDNOTINPLAYERLIST) return FALSE;
 
 		if (netGameData.playerData[index].characterType == NGCT_Alien)
-			livesUsed = livesUsed/5;
+		{
+			/* Drones, Warriors and Facehuggers count a life as 3. */
+			if (PlayerStatusPtr->Class == CLASS_ALIEN_DRONE ||
+				PlayerStatusPtr->Class == CLASS_ALIEN_WARRIOR ||
+				PlayerStatusPtr->Class == CLASS_EXF_W_SPEC)
+			{
+				livesUsed = livesUsed/3;
+			}
+			/* Predaliens count a life as 2. */
+			else if (PlayerStatusPtr->Class == CLASS_EXF_SNIPER)
+			{
+				livesUsed = livesUsed/2;
+			}
+		}
+	}
+
+	/* Queens ALWAYS only have one life. */
+	if (PlayerStatusPtr->Class == CLASS_MEDIC_PR)
+	{
+		return 0;
 	}
 
 	if(livesUsed>netGameData.maxLives)
@@ -12309,7 +12702,7 @@ void DoMultiplayerEndGameScreen(void)
 		
 	//draw headings
 	y=150;
-	x=350;
+	x=500;
 
 	for(i=0;i<NET_MAXPLAYERS;i++)
 	{
@@ -12366,7 +12759,146 @@ void DoMultiplayerEndGameScreen(void)
 			RenderStringCentred(text,200,y,GetSpeciesColor(netGameData.playerData[i].characterType));
 
 			RenderStringCentred(netGameData.playerData[i].name,250,y,GetSpeciesColor(netGameData.playerData[i].characterType));
+
+			if (netGameData.playerData[i].playerId == AVPDPNetID)
+			{
+							if (PlayerStatusPtr->Class) {
+								switch (PlayerStatusPtr->Class)
+								{
+									case CLASS_NONE:
+										strcpy(text,"(None)");
+										break;
+									case CLASS_RIFLEMAN:
+										strcpy(text,"(Rifleman)");
+										break;
+									case CLASS_SMARTGUNNER:
+										strcpy(text,"(Smartgunner)");
+										break;
+									case CLASS_MEDIC_PR:
+										strcpy(text,"(Queen)");
+										break;
+									case CLASS_MEDIC_FT:
+										strcpy(text,"(Medic)");
+										break;
+									case CLASS_AA_SPEC:
+										strcpy(text,"(Field Officer)");
+										break;
+									case CLASS_ENGINEER:
+										strcpy(text,"(Engineer)");
+										break;
+									case CLASS_EXF_W_SPEC:
+										strcpy(text,"(Facehugger)");
+										break;
+									case CLASS_EXF_SNIPER:
+										strcpy(text,"(Predalien)");
+										break;
+									case CLASS_PRED_WARRIOR:
+										strcpy(text,"(Warrior)");
+										break;
+									case CLASS_PRED_HUNTER:
+										strcpy(text,"(Hunter)");
+										break;
+									case CLASS_RENEGADE:
+										strcpy(text,"(Bad Blood)");
+										break;
+									case CLASS_ELDER:
+										strcpy(text,"(Elder)");
+										break;
+									case CLASS_ALIEN_DRONE:
+										strcpy(text,"(Drone)");
+										break;
+									case CLASS_ALIEN_WARRIOR:
+										strcpy(text,"(Warrior)");
+										break;
+									case CLASS_TANK_ALIEN:
+										strcpy(text,"(Female Hunter)");
+										break;
+									case CLASS_CHESTBURSTER:
+										strcpy(text,"(Chestburster)");
+										break;
+									default:
+										strcpy(text,"");
+										break;
+								}
+								RenderStringCentred(text, 350, y, GetSpeciesColor(netGameData.playerData[i].characterType));
+							}
+			}
 			
+#if 1
+			// Add player's class, for testing.
+			{
+				STRATEGYBLOCK *sbPtr = FindGhost(netGameData.playerData[i].playerId, GHOST_PLAYEROBJECTID);
+
+				if (sbPtr) {
+					if (sbPtr->I_SBtype) {
+						if (sbPtr->I_SBtype == I_BehaviourNetGhost) {
+							NETGHOSTDATABLOCK *ghostData = (NETGHOSTDATABLOCK *) sbPtr->SBdataptr;
+
+							if (ghostData->Class) {
+								switch (ghostData->Class)
+								{
+									case CLASS_NONE:
+										strcpy(text,"(None)");
+										break;
+									case CLASS_RIFLEMAN:
+										strcpy(text,"(Rifleman)");
+										break;
+									case CLASS_SMARTGUNNER:
+										strcpy(text,"(Smartgunner)");
+										break;
+									case CLASS_MEDIC_PR:
+										strcpy(text,"(Queen)");
+										break;
+									case CLASS_MEDIC_FT:
+										strcpy(text,"(Medic)");
+										break;
+									case CLASS_AA_SPEC:
+										strcpy(text,"(Field Officer)");
+										break;
+									case CLASS_ENGINEER:
+										strcpy(text,"(Engineer)");
+										break;
+									case CLASS_EXF_W_SPEC:
+										strcpy(text,"(Facehugger)");
+										break;
+									case CLASS_EXF_SNIPER:
+										strcpy(text,"(Predalien)");
+										break;
+									case CLASS_PRED_WARRIOR:
+										strcpy(text,"(Warrior)");
+										break;
+									case CLASS_PRED_HUNTER:
+										strcpy(text,"(Hunter)");
+										break;
+									case CLASS_RENEGADE:
+										strcpy(text,"(Bad Blood)");
+										break;
+									case CLASS_ELDER:
+										strcpy(text,"(Elder)");
+										break;
+									case CLASS_ALIEN_DRONE:
+										strcpy(text,"(Drone)");
+										break;
+									case CLASS_ALIEN_WARRIOR:
+										strcpy(text,"(Warrior)");
+										break;
+									case CLASS_TANK_ALIEN:
+										strcpy(text,"(Female Hunter)");
+										break;
+									case CLASS_CHESTBURSTER:
+										strcpy(text,"(Chestburster)");
+										break;
+									default:
+										strcpy(text,"(unused)");
+										break;
+								}
+								RenderStringCentred(text, 350, y, GetSpeciesColor(netGameData.playerData[i].characterType));
+							}
+						}
+					}
+				}
+			}
+#else
 			//draw the player's species symbol
 			{
 				char symbol[2]={0,0};
@@ -12388,8 +12920,8 @@ void DoMultiplayerEndGameScreen(void)
 						break;
 				}
 			}
-			
-			x=350;
+#endif
+			x=500;
 			for(j=0;j<NET_MAXPLAYERS;j++)
 			{
 				if(netGameData.playerData[j].playerId)
@@ -12545,7 +13077,7 @@ void DoMultiplayerEndGameScreen(void)
 			netGameData.stateCheckTimeDelay=0;
 			
   			RenderStringCentred(GetTextString(TEXTSTRING_MULTIPLAYER_PRESSKEYTORESTARTGAME),ScreenDescriptorBlock.SDB_Width/2,ScreenDescriptorBlock.SDB_Height-20,0xffffffff);
-			if (PlayerStatusPtr->Mvt_InputRequests.Flags.Rqst_FirePrimaryWeapon)
+			if ((PlayerStatusPtr->Mvt_InputRequests.Flags.Rqst_FirePrimaryWeapon) || (RamAttackInProgress))
 			{
 				if (EnoughPlayersAreHere())
 				{
@@ -12668,90 +13200,35 @@ void DoMultiplayerSpecificHud()
 		RenderString(text,5,140,0xffffffff);
 	}
 
-	// Medics see Medikit charges
-	if (playerStatusPtr->Class == CLASS_MEDIC_PR ||
-		playerStatusPtr->Class == CLASS_MEDIC_FT)
+	/*if (AvP.PlayerType == I_Alien)
 	{
-		sprintf(text,"Medikit: %d", playerStatusPtr->Medikit);
+		sprintf(text,"Class: %d", playerStatusPtr->Class);
+		RenderString(text,5,200,0xffffffff);
+		sprintf(text,"Class2: %d", playerStatusPtr->Cocoons);
+		RenderString(text,5,250,0xffffffff);
+		sprintf(text,"Burst: %d / %d", playerStatusPtr->AirSupply, playerStatusPtr->ChestbursterTimer);
+		RenderString(text,5,300,0xffffffff);
+		sprintf(text,"Hug: %d", HuggedPlayer);
+		RenderString(text,55,350,0xffffffff);
+		sprintf(text,"Evolution: %d", evolution);
+		RenderString(text,5,400,0xffffffff);
+	}*/
+
+	// Medics see Medikit charges
+	if (playerStatusPtr->Class == CLASS_MEDIC_FT)
+	{
+		sprintf(text,"Medical Kit: %d", playerStatusPtr->Medikit);
 		RenderString(text,5,200,0xffffffff);
 	}
 	// Armorers see Repair-Kit charges
-	if (playerStatusPtr->Class == CLASS_ENGINEER)
+#if 0
+	if ((Kit[0] == KIT_TECH) || (Kit[1] == KIT_TECH))
 	{
-		sprintf(text,"Repair-Kit: %d", playerStatusPtr->Medikit);
+		sprintf(text,"Repair Kit: %d", playerStatusPtr->Medikit);
 		RenderString(text,5,200,0xffffffff);
 	}
-	//show radio commands
-	if (DisplayRadioMenu)
-	{
-		int x, y;
+#endif
 
-		x = 138;
-		y = 20;
-
-		RenderString("RADIO COMMANDS",x,y,0xffffffff);
-		y+=20;
-		BLTDrawCell(x,y);
-		RenderString(" [ F1  ]  HELP",x,y,0xffffffff);
-		y+=20;
-		BLTDrawCell(x,y);
-		RenderString(" [ F2  ]  ENGAGE",x,y,0xffffffff);
-		y+=20;
-		BLTDrawCell(x,y);
-		RenderString(" [ F3  ]  KILL",x,y,0xffffffff);
-		y+=20;
-		BLTDrawCell(x,y);
-		if (playerStatusPtr->Class != CLASS_AA_SPEC)
-			RenderString(" [ F4  ]  RESPONSE - YES",x,y,0xffffffff);
-		else
-			RenderString(" [ F4  ]  TAUNT",x,y,0xffffffff);
-		y+=20;
-		BLTDrawCell(x,y);
-		if (playerStatusPtr->Class != CLASS_AA_SPEC)
-			RenderString(" [ F5  ]  RESPONSE - NO",x,y,0xffffffff);
-		else
-			RenderString(" [ F5  ]  TEAM - ATTACK",x,y,0xffffffff);
-		y+=20;
-		BLTDrawCell(x,y);
-		if (playerStatusPtr->Class != CLASS_AA_SPEC)
-			RenderString(" [ F6  ]  TAUNT",x,y,0xffffffff);
-		else
-			RenderString(" [ F6  ]  TEAM - DEFENSE",x,y,0xffffffff);
-		y+=20;
-		BLTDrawCell(x,y);
-		if (playerStatusPtr->Class != CLASS_AA_SPEC)
-			RenderString(" [ F7  ]  CALL FOR MEDIC",x,y,0xffffffff);
-		else
-			RenderString(" [ F7  ]  TEAM - CONVERGE",x,y,0xffffffff);
-		y+=20;
-		BLTDrawCell(x,y);
-		if (playerStatusPtr->Class != CLASS_AA_SPEC)
-			RenderString(" [ F8  ]  FIRE IN THE HOLE!",x,y,0xffffffff);
-		else
-			RenderString(" [ F8  ]  TEAM - DISPERSE",x,y,0xffffffff);
-		y+=20;
-		BLTDrawCell(x,y);
-		if (playerStatusPtr->Class == CLASS_RIFLEMAN ||
-			playerStatusPtr->Class == CLASS_COM_TECH)
-			RenderString(" [ F9  ]  TRACKER",x,y,0xffffffff);
-		else if (playerStatusPtr->Class == CLASS_AA_SPEC)
-			RenderString(" [ F9  ]  TEAM - ATTENTION",x,y,0xffffffff);
-		if (playerStatusPtr->Class == CLASS_AA_SPEC)
-		{
-			y+=20;
-			BLTDrawCell(x,y);
-			RenderString(" [ F10 ]  TEAM - REQUEST GRENADES",x,y,0xffffffff);
-			y+=20;
-			BLTDrawCell(x,y);
-			RenderString(" [ F11 ]  TEAM - REQUEST BYPASS",x,y,0xffffffff);
-			y+=20;
-			BLTDrawCell(x,y);
-			RenderString(" [ F12 ]  TEAM - REQUEST TRACKER",x,y,0xffffffff);
-		}
-		y+=20;
-		BLTDrawCell(x,y);
-		RenderString(" [ ESC ]  CANCEL",x,y,0xffffffff);
-	}
 	//show species list
 	if (playerStatusPtr->Class == 20)
 	{
@@ -12772,72 +13249,249 @@ void DoMultiplayerSpecificHud()
 		RenderString(" [ F3  ]  PREDATOR",x,y,0xffffffff);
 	}
 	//show class list
-	if ((playerStatusPtr->Class == CLASS_NONE) || (DisplayClasses))
+	if ((playerStatusPtr->Cocoons == CLASS_NONE) || (DisplayClasses))
 	{
-		int x, y;
+		int x, y, z;
 
 		x = 10;
 		y = 10;
+		z = 280;
 
 		if (AvP.PlayerType == I_Marine)
 		{
 			RenderString("MARINE CLASSES",x,y,0xffffffff);
+			
 			y+=20;
 			BLTDrawCell(x,y);
 			RenderString(" [ F1  ]  RIFLEMAN",x,y,0xffffffff);
+			//x+=z;
+			//RenderString(" Pulse Rifle, Pistol, Motion Tracker, Grenades.",x,y,0xffffffff);
+			//x-=z;
+
 			y+=20;
 			BLTDrawCell(x,y);
 			RenderString(" [ F2  ]  SMARTGUNNER",x,y,0xffffffff);
+			//x+=z;
+			//RenderString(" Smartgun, Pistol.",x,y,0xffffffff);
+			//x-=z;
+
 			y+=20;
 			BLTDrawCell(x,y);
-			RenderString(" [ F3  ]  INCINERATOR SPECIALIST",x,y,0xffffffff);
+			RenderString(" [ F3  ]  ENGINEER",x,y,0xffffffff);
+			//x+=z;
+			//RenderString(" Flametrower, Pistol, Grenades.",x,y,0xffffffff);
+			//x-=z;
+
 			y+=20;
 			BLTDrawCell(x,y);
-			RenderString(" [ F4  ]  ENGINEER",x,y,0xffffffff);
+			RenderString(" [ F4  ]  MEDIC",x,y,0xffffffff);
+			//x+=z;
+			//RenderString(" Combat Shotgun, Pistol, Survey Charge, Hand Welder, Grenades, Repair-Kit.",x,y,0xffffffff);
+			//x-=z;
+
 			y+=20;
 			BLTDrawCell(x,y);
-			RenderString(" [ F5  ]  COM-TECH",x,y,0xffffffff);
-			y+=20;
+			RenderString(" [ F5  ]  FIELD OFFICER",x,y,0xffffffff);
+			//x+=z;
+			//RenderString(" Pulse Rifle, Pistol, Motion Tracker, Bypass Kit.",x,y,0xffffffff);
+			//x-=z;
+
+			/*y+=20;
 			BLTDrawCell(x,y);
 			RenderString(" [ F6  ]  MEDIC",x,y,0xffffffff);
-			y+=20;
+			x+=z;
+			RenderString(" Flamethrower, Pistol, Medikit.",x,y,0xffffffff);
+			x-=z;*/
+
+			/*y+=20;
 			BLTDrawCell(x,y);
-			RenderString(" [ F7  ]  OFFICER",x,y,0xffffffff);
+			RenderString(" [ F7  ]  OFFICER",x,y,0xffffffff);*/
 		}
 		if (AvP.PlayerType == I_Predator)
 		{
 			RenderString("PREDATOR CLASSES",x,y,0xffffffff);
 			y+=20;
+			RenderString(" All classes come equipped with Cloak and Self-Destruct unless written otherwise .",x,y,0xffffffff);
+
+			y+=20;
 			BLTDrawCell(x,y);
 			RenderString(" [ F1  ]  WARRIOR",x,y,0xffffffff);
+			x+=z;
+			RenderString(" Wristblades, Combistick, Plasmacaster, Medicomp.",x,y,0xffffffff);
+			x-=z;
+
 			y+=20;
 			BLTDrawCell(x,y);
 			RenderString(" [ F2  ]  HUNTER",x,y,0xffffffff);
+			x+=z;
+			RenderString(" Wristblades, Plasmacaster, Medicomp, Speargun. Faster speed.",x,y,0xffffffff);
+			x-=z;
+
 			y+=20;
 			BLTDrawCell(x,y);
 			RenderString(" [ F3  ]  BAD BLOOD",x,y,0xffffffff);
+			x+=z;
+			RenderString(" Wristblades, Plasmacaster, Medicomp, Netgun, Dart Launcher. No Self-Destruct.",x,y,0xffffffff);
+			x-=z;
+
 			y+=20;
 			BLTDrawCell(x,y);
 			RenderString(" [ F4  ]  ELDER",x,y,0xffffffff);
+			x+=z;
+			RenderString(" Wristblades, Plasmacaster, Medicomp, Smart Disc.",x,y,0xffffffff);
+			x-=z;
+
 			y+=20;
 			BLTDrawCell(x,y);
 			RenderString(" [ F5  ]  FEMALE HUNTER",x,y,0xffffffff);
+			x+=z;
+			RenderString(" Wristblades, Combistick. No Cloak. Faster speed.",x,y,0xffffffff);
+			x-=z;
 		}
 		if (AvP.PlayerType == I_Alien)
 		{
 			RenderString("ALIEN CLASSES",x,y,0xffffffff);
+
 			y+=20;
 			BLTDrawCell(x,y);
 			RenderString(" [ F1  ]  DRONE",x,y,0xffffffff);
+			x+=z;
+			RenderString(" Faster speed.",x,y,0xffffffff);
+			x-=z;
+
 			y+=20;
 			BLTDrawCell(x,y);
 			RenderString(" [ F2  ]  WARRIOR",x,y,0xffffffff);
+			x+=z;
+			RenderString(" Tougher.",x,y,0xffffffff);
+			x-=z;
+
 			y+=20;
 			BLTDrawCell(x,y);
 			RenderString(" [ F3  ]  PREDALIEN",x,y,0xffffffff);
-			/*y+=20;
-			BLTDrawCell(x,y);
-			RenderString(" [ F4  ]  FACEHUGGER",x,y,0xffffffff);*/
+			x+=z;
+			RenderString(" Much tougher and stronger. Cannot headbite or grab.",x,y,0xffffffff);
+			x-=z;
+
+			{
+				extern char LevelName[];
+
+				if (!stricmp("Custom\\ap_jockey_ship", &LevelName))
+				{
+					y+=20;
+					BLTDrawCell(x,y);
+					RenderString(" [ F4  ]  QUEEN",x,y,0xffffffff);
+				}
+			}
+		}
+	}
+	if (DisplayWeapons)
+	{
+		int x, y, z;
+
+		x = 10;
+		y = 10;
+		z = 280;
+
+		RenderString("SELECT WEAPON",x,y,0xffffffff);
+		y+=20;
+
+		switch(DisplayWeapons)
+		{
+			case CLASS_RIFLEMAN:
+			case CLASS_AA_SPEC:
+			{
+				BLTDrawCell(x,y);
+				RenderString(" [ F1  ] PULSE RIFLE",x,y,0xffffffff);
+				y+=20;
+				BLTDrawCell(x,y);
+				RenderString(" [ F2  ] FLAMETHROWER",x,y,0xffffffff);
+				y+=20;
+				BLTDrawCell(x,y);
+				RenderString(" [ F3  ] SHOTGUN",x,y,0xffffffff);
+				break;
+			}
+			case CLASS_ENGINEER:
+			{
+				BLTDrawCell(x,y);
+				RenderString(" [ F1  ] PULSE RIFLE",x,y,0xffffffff);
+				y+=20;
+				BLTDrawCell(x,y);
+				RenderString(" [ F2  ] SHOTGUN",x,y,0xffffffff);
+				break;
+			}
+			case CLASS_MEDIC_FT:
+			{
+				BLTDrawCell(x,y);
+				RenderString(" [ F1  ] PULSE RIFLE",x,y,0xffffffff);
+				y+=20;
+				BLTDrawCell(x,y);
+				RenderString(" [ F2  ] FLAMETHROWER",x,y,0xffffffff);
+				break;
+			}
+		}
+	}
+	if (DisplayKits)
+	{
+		int x, y, z;
+
+		x = 10;
+		y = 10;
+		z = 280;
+
+		RenderString("SELECT KIT",x,y,0xffffffff);
+		y+=20;
+
+		switch(DisplayKits)
+		{
+			case CLASS_RIFLEMAN:
+			{
+				BLTDrawCell(x,y);
+				RenderString(" [ F1  ] ASSAULT KIT",x,y,0xffffffff);
+				x+=z;
+				RenderString(" 2 Handgrenades, 1 Extra Ammo Clip.",x,y,0xffffffff);
+				x-=z;
+
+				y+=20;
+				BLTDrawCell(x,y);
+				RenderString(" [ F2  ] SCOUT KIT",x,y,0xffffffff);
+				x+=z;
+				RenderString(" Motion Tracker, 8 Flares.",x,y,0xffffffff);
+				x-=z;
+				break;
+			}
+			case CLASS_ENGINEER:
+			{
+				if (Kit[0] != KIT_COMTECH)
+				{
+					BLTDrawCell(x,y);
+					RenderString(" [ F1  ] COM-TECH KIT",x,y,0xffffffff);
+					x+=z;
+					RenderString(" Electronic Bypass Kit.",x,y,0xffffffff);
+					x-=z;
+
+					y+=20;
+				}
+				if (Kit[0] != KIT_TECH)
+				{
+					BLTDrawCell(x,y);
+					RenderString(" [ F2  ] TECH KIT",x,y,0xffffffff);
+					x+=z;
+					RenderString(" Hand Welder.",x,y,0xffffffff);
+					x-=z;
+
+					y+=20;
+				}
+				if (Kit[0] != KIT_DEMO)
+				{
+					BLTDrawCell(x,y);
+					RenderString(" [ F3  ] DEMOLITIONS KIT",x,y,0xffffffff);
+					x+=z;
+					RenderString(" 2 Handgrenades, Survey Charge.",x,y,0xffffffff);
+					x-=z;
+				}
+				break;
+			}
 		}
 	}
 }
@@ -12981,10 +13635,31 @@ void CheckStateOfGrabbed()
 	}
 
 	// Check if the victim has managed to struggle away from your grip.
+	// bugfix!
+	if (GrabPlayer)
 	{
-		NETGHOSTDATABLOCK *ghostData = FindGhost(netGameData.playerData[index].playerId, GHOST_PLAYEROBJECTID);
-		if ((GrabPlayer == netGameData.playerData[index].playerId) && 
-			(ghostData && ghostData->Grab != AVPDPNetID))
+		extern int NumActiveStBlocks;
+		extern STRATEGYBLOCK *ActiveStBlockList[];
+		extern DPID AVPDPNetID;
+		STRATEGYBLOCK *sbPtr;
+		int sbIndex=0;
+		int found=0;
+
+		while (sbIndex < NumActiveStBlocks)
+		{
+			sbPtr = ActiveStBlockList[sbIndex++];
+
+			if (sbPtr->I_SBtype == I_BehaviourNetGhost)
+			{
+				NETGHOSTDATABLOCK *ghostData = (NETGHOSTDATABLOCK *) sbPtr->SBdataptr;
+
+				if (ghostData->Grab == AVPDPNetID)
+				{
+					found++;
+				}
+			}
+		}
+		if (!found)
 		{
 			GrabPlayer = 0;
 			return;
@@ -13120,7 +13795,11 @@ static int GetStrategySynchObjectChecksum()
 
 		if(sbPtr->I_SBtype == I_BehaviourBinarySwitch ||
 		   sbPtr->I_SBtype == I_BehaviourLinkSwitch ||
-		   sbPtr->I_SBtype == I_BehaviourTrackObject)
+		   sbPtr->I_SBtype == I_BehaviourTrackObject
+#if UseNewSynch
+		   || sbPtr->I_SBtype == I_BehaviourPlatform
+#endif
+		   )
 		{
 			position++;
 			sum+=(*(int*)&sbPtr->SBname[0])*position;
@@ -13131,7 +13810,8 @@ static int GetStrategySynchObjectChecksum()
 }
 
 /***************** Player Kicking feature, yeeeha!! So long cheater bitches!! **********
- *****************                                                            **********/
+ *****************                                                            **********
+ *****************                  Modified by Sebultura                     *********/
 
 extern HRESULT DpKickPlayer(LPDIRECTPLAY4 *lpDP2A, DPID DP_PlayerId);
 
@@ -13141,15 +13821,29 @@ void KickPlayer(int Index)
 	HRESULT result;
 	char msg[100];
 
-	// Kick player from multiplayer game
+	/* Kick player from network game */
 	if (AvP.Network == I_No_Network)
 	{
 		NewOnScreenMessage("Who are you trying to kick? The AI?");
 		return;
 	}
-	if ((Index < 0) || (Index >= NET_MAXPLAYERS))
+
+	if (AvP.Network != I_Host)
 	{
-		NewOnScreenMessage("Invalid player number.");
+		NewOnScreenMessage("You are not the host!");
+		return;
+	}
+
+	if (netGameData.skirmishMode)
+	{
+		NewOnScreenMessage("Who are you trying to kick? The AI?");
+		return;
+	}
+
+	// I've added this first test to avoid to kick ourselves ;)
+	if ((Index < 1) || (Index >= NET_MAXPLAYERS))
+	{
+		NewOnScreenMessage("Invalid player number");
 		return;
 	}
 
@@ -13157,7 +13851,7 @@ void KickPlayer(int Index)
 
 	if (!DP_PlayerId)
 	{
-		NewOnScreenMessage("Invalid player number.");
+		NewOnScreenMessage("Invalid player number");
 		return;
 	}
 	if (glpDP == NULL)
@@ -13166,31 +13860,29 @@ void KickPlayer(int Index)
 		return;
 	}
 
-	sprintf(msg, "%s (#%d) has been kicked!", netGameData.playerData[Index].name, Index);
-	NewOnScreenMessage(msg);
+	result = KickThisPlayer(glpDP,DP_PlayerId); // Here's my new function...
 
-	sprintf(msg, "%s has been kicked!", netGameData.playerData[Index].name);
-	AddNetMsg_ChatBroadcast(msg, FALSE);
-
-	result = DpKickPlayer(&glpDP, DP_PlayerId); // Added a & to gldDP -- Eldritch
-
-	/*switch(result)
+	if(result == DP_OK)
 	{
-		case DP_OK:
-			sprintf(msg, "%s (#%d) has been kicked!", netGameData.playerData[Index].name, Index);
-			NewOnScreenMessage(msg);
-			break;
-		default:
-			sprintf(msg, "DirectPlay Error: %ld", result);
-			NewOnScreenMessage(msg);
-			break;
-	}*/
-	// Alert other players
-	/*if (result == DP_OK)
-	{
-		sprintf(msg, "%s has been kicked!", netGameData.playerData[Index].name);
+		sprintf(msg,"%s (#%d) has been kicked!", netGameData.playerData[Index].name, Index);
+		NewOnScreenMessage(msg);
+
+		sprintf(msg,"%s has been kicked!", netGameData.playerData[Index].name);
 		AddNetMsg_ChatBroadcast(msg, FALSE);
-	}*/
+	}
+}
+
+HRESULT KickThisPlayer(LPDIRECTPLAY4 lpDP2A, DPID DP_PlayerId)
+{
+	NETMESSAGEHEADER *headerPtr;
+	int headerSize = sizeof(NETMESSAGEHEADER);
+
+	headerPtr = (NETMESSAGEHEADER *) endSendBuffer;
+	endSendBuffer += headerSize;
+
+	headerPtr->type = (unsigned char) NetMT_EndGame;
+
+	return DpExtSend(lpDP2A,AVPDPNetID,DP_PlayerId,DPSEND_GUARANTEED,&sendBuffer,headerSize);
 }
 
 int EnoughPlayersAreHere(void)
@@ -13200,7 +13892,9 @@ int EnoughPlayersAreHere(void)
 
 	for(j=0;j<NET_MAXPLAYERS;j++)
 	{
-		if(netGameData.playerData[j].playerId)
+		if(netGameData.playerData[j].playerId &&
+		   netGameData.playerData[j].name &&
+		   netGameData.playerData[j].startFlag)
 		{
 			players++;
 		}
@@ -13210,4 +13904,121 @@ int EnoughPlayersAreHere(void)
 		return TRUE;
 
 	return FALSE;
+}
+
+void CheckStateOfMissionObjectives()
+{
+	extern int NumActiveStBlocks;
+	extern STRATEGYBLOCK *ActiveStBlockList[];
+	extern DPID AVPDPNetID;
+	extern char LevelName[];
+	STRATEGYBLOCK *sbPtr;
+	int sbIndex=0;
+	int found=0;
+
+	/* Rescue Missions */
+
+	if (!stricmp("Custom\\am_rescue", &LevelName))
+	{
+		while (sbIndex < NumActiveStBlocks)
+		{
+			sbPtr = ActiveStBlockList[sbIndex++];
+
+			if (sbPtr->I_SBtype == I_BehaviourInanimateObject)
+			{
+				INANIMATEOBJECT_STATUSBLOCK *objPtr = sbPtr->SBdataptr;
+
+				/* Locate unrescued hosts. */
+				if ((objPtr->typeId == IOT_Health) && (objPtr->subType == 2))
+				{
+					found++;
+				}
+			}
+		}
+		if (!found)
+		{
+			AddNetMsg_ChatBroadcast("(AUTO) All hosts rescued.", FALSE);
+			TransmitEndOfGameNetMsg();
+			return;
+		}
+	}
+
+	/* Escape Missions */
+
+	if (!stricmp("Custom\\coop_genshd1", &LevelName))
+	{
+		while(sbIndex < NumActiveStBlocks)
+		{
+			sbPtr = ActiveStBlockList[sbIndex++];
+
+			if (sbPtr->I_SBtype == I_BehaviourInanimateObject)
+			{
+				INANIMATEOBJECT_STATUSBLOCK *objPtr = sbPtr->SBdataptr;
+
+				/* Locate marine escape points. */
+				if ((objPtr->typeId == IOT_Key) && (objPtr->subType == 10))
+				{
+					found++;
+				}
+			}
+		}
+
+		/* Check for marines that are escaping. */
+		if (found)
+		{
+			int i=0, tot=0;
+			found = 0;
+
+			/* First count available marines. */
+			for(i=0;i<NET_MAXPLAYERS;i++)
+			{
+				if ((netGameData.playerData[i].characterType == NGCT_Marine) &&
+					(netGameData.playerData[i].playerAlive) &&
+					(netGameData.playerData[i].playerId))
+				{
+					found++;
+				}
+			}
+
+			/* Then query for escaping flag. */
+			for(i=0;i<NET_MAXPLAYERS;i++)
+			{
+				if ((netGameData.playerData[i].characterType == NGCT_Marine) &&
+					(netGameData.playerData[i].playerAlive) &&
+					(netGameData.playerData[i].playerId))
+				{
+					STRATEGYBLOCK *sbPtr = FindGhost(netGameData.playerData[i].playerId, GHOST_PLAYEROBJECTID);
+
+					if (sbPtr)
+					{
+						NETGHOSTDATABLOCK *ghostData = (NETGHOSTDATABLOCK *) sbPtr->SBdataptr;
+
+						if (ghostData)
+						{
+							if (ghostData->type == I_BehaviourMarinePlayer)
+							{
+								if (ghostData->specialCase == 3)
+								{
+									tot++;
+								}
+							}
+						}
+					}
+				}
+			}
+
+			/* Query yourself too. */
+			if (netGameData.specialCase == 3) tot++;
+
+			if ((tot > 0) && (found > 0))
+			{
+				if (tot >= found)
+				{
+					AddNetMsg_ChatBroadcast("(AUTO) All marines have escaped.", FALSE);
+					TransmitEndOfGameNetMsg();
+					return;
+				}
+			}
+		}
+	}
 }

@@ -73,6 +73,7 @@
 #define GREENFLASH_INTENSITY	(5*ONE_FIXED)
 
 #define CASTER_CHARGERATIO (2)
+#define FIREPREDPISTOL_FIELDCHARGE (ONE_FIXED*2)
 /* Was 3... */
 
 #define PRED_PISTOL_SECONDARY_FIRE_CHARGE	(ONE_FIXED<<1)
@@ -98,6 +99,7 @@ int WeldPool;
 int WeldMode;
 
 extern int Operable;
+extern DPID GrabbedPlayer;
 extern void OperateObjectInLineOfSight();
 
 int PredPistol_ShotCost=150000;  /* Changed from 60000 (Fox value), 1/3/99 */
@@ -134,6 +136,7 @@ extern int PlayerDamagedOverlayIntensity;
 extern int CameraZoomLevel;
 extern int ERE_Broken(void);
 extern int Underwater;
+extern int GrabPlayer;
 
 extern int NumOnScreenBlocks;
 extern int NumActiveBlocks;
@@ -842,6 +845,7 @@ void UpdateWeaponStateMachine(void)
 			    {
 			    	/* load a new magazine */
                     TEMPLATE_AMMO_DATA *templateAmmoPtr = &TemplateAmmo[twPtr->PrimaryAmmoID];
+
 					if (weaponPtr->PrimaryRoundsRemaining==0) {
 						if (weaponPtr->WeaponIDNumber==WEAPON_TWO_PISTOLS) {
 							/* Two pistols reloads BOTH primary and secondary. */
@@ -859,21 +863,22 @@ void UpdateWeaponStateMachine(void)
 		                	weaponPtr->PrimaryMagazinesRemaining--;
 						}
 					}
-               		weaponPtr->CurrentState = WEAPONSTATE_IDLE;
-			    	weaponPtr->StateTimeOutCounter=0;
-					playerStatusPtr->Encumberance=twPtr->Encum_Idle;
 
+					weaponPtr->CurrentState = WEAPONSTATE_IDLE;
+				    weaponPtr->StateTimeOutCounter=0;
+					playerStatusPtr->Encumberance=twPtr->Encum_Idle;
 		        	break;
 		        }
 			    case WEAPONSTATE_RELOAD_SECONDARY:
 			    {
 			    	/* load a new magazine */
                     TEMPLATE_AMMO_DATA *templateAmmoPtr = &TemplateAmmo[twPtr->SecondaryAmmoID];
-                	weaponPtr->SecondaryRoundsRemaining = templateAmmoPtr->AmmoPerMagazine;
-                	weaponPtr->SecondaryMagazinesRemaining--;
-               		weaponPtr->CurrentState = WEAPONSTATE_IDLE;
-			    	weaponPtr->StateTimeOutCounter=0;
-					
+
+					weaponPtr->SecondaryRoundsRemaining = templateAmmoPtr->AmmoPerMagazine;
+		            weaponPtr->SecondaryMagazinesRemaining--;
+			       	weaponPtr->CurrentState = WEAPONSTATE_IDLE;
+				    weaponPtr->StateTimeOutCounter=0;
+
 					playerStatusPtr->Encumberance=twPtr->Encum_Idle;
 
 		        	break;
@@ -1255,6 +1260,9 @@ static void WeaponStateIdle(PLAYER_STATUS *playerStatusPtr,PLAYER_WEAPON_DATA *w
 							}
 						} else if ((*twPtr->FirePrimaryFunction)(weaponPtr)) {
 							if (twPtr->PrimaryMuzzleFlash) {
+								if (twPtr->PrimaryAmmoID==AMMO_FLAMETHROWER) {
+									AddLightingEffectToObject(Player, LFX_OBJECTONFIRE);
+								} else
 								if (twPtr->PrimaryAmmoID==AMMO_PARTICLE_BEAM) {
 									AddLightingEffectToObject(Player,LFX_PARTICLECANNON);
 								} else {
@@ -2090,6 +2098,7 @@ void OverLoadDrill(PLAYER_WEAPON_DATA *weaponPtr)
 	GLOBALASSERT(playerStatusPtr);
 
 	if (playerStatusPtr->Honor) return;
+	if (GrabbedPlayer) return;
 
 	if (playerStatusPtr->Grenades) {
 		extern VECTORCH CentreOfMuzzleOffset;
@@ -2106,22 +2115,14 @@ void OverLoadDrill(PLAYER_WEAPON_DATA *weaponPtr)
 		playerStatusPtr->Grenades--;
 		GrenadeDelay = (ONE_FIXED * 4);
 		Sound_Play(SID_BORGON,"h");
+		CreateGrenadeKernel(I_BehaviourClusterGrenade,&position,&mat,1);
+
 		if (AvP.Network != I_No_Network)
 		{
-			// Incendiary Grenades for INC SPEC
-			if (playerStatusPtr->Class == CLASS_INC_SPEC)
-			{
-				CreateGrenadeKernel(I_BehaviourGrenade,&position,&mat,1);
-				return;
-			}
-			// Smoke Grenades for OFFICER
-			if (playerStatusPtr->Class == CLASS_AA_SPEC)
-			{
-				CreateGrenadeKernel(I_BehaviourFragmentationGrenade, &position, &mat, 1);
-				return;
-			}
+			AddNetMsg_ChatBroadcast("Fire in the hole!",TRUE);
+			Sound_Play(SID_SPEC_FIREHOLE,"hv",127);
+			playerStatusPtr->AirStatus = SID_SPEC_FIREHOLE;
 		}
-		CreateGrenadeKernel(I_BehaviourClusterGrenade,&position,&mat,1);
 	}
 }
 
@@ -2362,6 +2363,18 @@ int FireShotgun(PLAYER_WEAPON_DATA *weaponPtr)
 			NewPos.vy += ((FastRandom()%10)-5);
 			NewPos.vz += ((FastRandom()%10)-5);
 
+			// If we are running, increase the vector with an additional +/- 30.
+			{
+				int speed = Approximate3dMagnitude(&Player->ObStrategyBlock->DynPtr->LinVelocity);
+
+				if (speed > 5000)
+				{
+					NewPos.vx += ((FastRandom()%60)-30);
+					NewPos.vy += ((FastRandom()%60)-30);
+					NewPos.vz += ((FastRandom()%60)-30);
+				}
+			}
+
 			RotateAndCopyVector(&NewPos,&world_vec,&transpose);
 			CastLOSProjectile(Player->ObStrategyBlock,&Global_VDB_Ptr->VDB_World,&world_vec,twPtr->PrimaryAmmoID, 1,0);
 
@@ -2486,8 +2499,41 @@ static void PlayerFireLineOfSightAmmo(enum AMMO_ID AmmoID, int multiple)
 			GLOBALASSERT(PlayersTarget.DispPtr->HModelControlBlock==PlayersTarget.HModelSection->my_controller);
 		}
 
-		HandleWeaponImpact(&(PlayersTarget.Position),PlayersTarget.DispPtr->ObStrategyBlock,AmmoID,&GunMuzzleDirectionInWS, multiple*ONE_FIXED, PlayersTarget.HModelSection);
+		/* Decrease accuracy when moving and firing */
+		{
+			VECTORCH NewPos = {0,0,400};
+			VECTORCH world_vec;
+			MATRIXCH transpose;
 
+			int speed = Approximate3dMagnitude(&Player->ObStrategyBlock->DynPtr->LinVelocity);
+
+			transpose = Global_VDB_Ptr->VDB_Mat;
+			TransposeMatrixCH(&transpose);
+
+			/* Running decreases accuracy severely */
+			if (speed > 5000)
+			{
+				NewPos.vx += ((FastRandom()%80)-40);
+				NewPos.vy += ((FastRandom()%80)-40);
+				NewPos.vz += ((FastRandom()%80)-40);
+
+				RotateAndCopyVector(&NewPos,&world_vec,&transpose);
+				CastLOSProjectile(Player->ObStrategyBlock,&Global_VDB_Ptr->VDB_World,&world_vec,AmmoID, 1,0);
+			}
+			/* Walking decreases accuracy slightly */
+			else if (speed > 1000)
+			{
+				NewPos.vx += ((FastRandom()%40)-20);
+				NewPos.vy += ((FastRandom()%40)-20);
+				NewPos.vz += ((FastRandom()%40)-20);
+
+				RotateAndCopyVector(&NewPos,&world_vec,&transpose);
+				CastLOSProjectile(Player->ObStrategyBlock,&Global_VDB_Ptr->VDB_World,&world_vec,AmmoID, 1,0);
+			}
+			/* Standing still, or moving really slow, causes no modification */
+			else
+				HandleWeaponImpact(&(PlayersTarget.Position),PlayersTarget.DispPtr->ObStrategyBlock,AmmoID,&GunMuzzleDirectionInWS, multiple*ONE_FIXED, PlayersTarget.HModelSection);
+		}
 		/* Put in a target filter here? */
 		if (AccuracyStats_TargetFilter(PlayersTarget.DispPtr->ObStrategyBlock)) {
 			CurrentGameStats_WeaponHit(PlayerStatusPtr->SelectedWeaponSlot,multiple);
@@ -2522,21 +2568,27 @@ void HandleWeaponImpact(VECTORCH *positionPtr, STRATEGYBLOCK *sbPtr, enum AMMO_I
 				//if (sbPtr->SBdptr->HModelControlBlock && (sbPtr->I_SBtype != I_BehaviourNetGhost))
 				if (sbPtr->SBdptr->HModelControlBlock)
 				{
+					NETGHOSTDATABLOCK *ghostData = (NETGHOSTDATABLOCK *) sbPtr->SBdataptr;
+
 					/* Netghost case now handled properly. */
 					AddDecalToHModel(&LOS_ObjectNormal, &LOS_Point,this_section_data);
 
-					if (sbPtr->I_SBtype && sbPtr->I_SBtype == I_BehaviourAlien)
+					if (((sbPtr->I_SBtype) && (sbPtr->I_SBtype == I_BehaviourAlien)) ||
+						((ghostData) && (sbPtr->I_SBtype == I_BehaviourNetGhost) &&
+						(ghostData->type == I_BehaviourAlienPlayer)))
 					{
-						unsigned int Radius=16;
+						unsigned int Radius=64;
 						unsigned int Particles=5;
 
-						if (AmmoID == AMMO_SMARTGUN) {
-							Radius = 32;
-							Particles = 10;
+						if ((AmmoID == AMMO_SMARTGUN) ||
+							(AmmoID == AMMO_FRAGMENTATION_GRENADE))
+						{
+							Radius = 127;
+							Particles = 15;
 						}
 						if (AmmoID == AMMO_GRENADE) {
-							Radius = 32;
-							Particles = 5;
+							Radius = 95;
+							Particles = 10;
 						}
 						MakeSmallBloodExplosion(&LOS_Point,Radius,invec,Particles,PARTICLE_ALIEN_BLOOD);
 					}
@@ -2825,7 +2877,11 @@ void CauseDamageToObject(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int multi
 				damage->Id == AMMO_NPC_ALIEN_BITE ||
 				damage->Id == AMMO_SHOTGUN ||
 				damage->Id == AMMO_PRED_RIFLE) {
-				return;
+				damage->Cutting >>= 1;
+				damage->Slicing >>= 1;
+				damage->Electrical >>= 1;
+				damage->Acid >>= 1;
+				damage->Penetrative >>= 1;
 			} else {
 				damage->Cutting = 0;
 				damage->Slicing = 0;
@@ -2869,6 +2925,55 @@ void CauseDamageToObject(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int multi
 			use_multiple>>=1;
 		}
 		#endif
+
+		/* Try with damage reduction code here. */
+
+		if (AvP.Network != I_No_Network) {
+			if (sbPtr == Player->ObStrategyBlock) {
+
+		/* All damage sustained by Predaliens is modified by 75%. */
+		if(psPtr->Class == CLASS_EXF_SNIPER)
+		{
+			damage->Acid = 0; //damage->Acid>>2;
+			damage->Cutting >>= 2; //damage->Cutting>>2;
+			damage->Fire >>= 1; //damage->Fire>>1;
+			damage->Impact >>= 2; //damage->Impact>>2;
+			damage->Penetrative >>= 2; //damage->Penetrative>>2;
+			damage->Slicing >>= 2; //damage->Slicing>>2;
+		}
+		/* Facehuggers are sooo fragile... */
+		if ((psPtr->Class == CLASS_EXF_W_SPEC) ||
+			(psPtr->Class == CLASS_CHESTBURSTER))
+		{
+			damage->Acid = 0;
+			damage->Cutting <<= 3;
+			damage->Fire <<= 3;
+			damage->Impact <<= 3;
+			damage->Penetrative <<= 3;
+			damage->Slicing <<= 3;
+		}
+		/* Queen can sustain HEAVY damage! */
+		if (psPtr->Class == CLASS_MEDIC_PR)
+		{
+			damage->Acid = 0;
+			damage->Cutting >>= 3;
+			damage->Fire >>= 2;
+			damage->Impact >>= 3;
+			damage->Penetrative >>= 3;
+			damage->Slicing >>= 3;
+		}
+		/* All damage sustained by Alien Warriors is modified by 50%. */
+		else if(psPtr->Class == CLASS_ALIEN_WARRIOR)
+		{
+			damage->Acid = 0; //damage->Acid>>1;
+			damage->Cutting >>= 1; //damage->Cutting>>1;
+			damage->Fire >>= 1; //damage->Fire>>1;
+			damage->Impact >>= 1; //damage->Impact>>1;
+			damage->Penetrative >>= 1; //damage->Penetrative>>1;
+			damage->Slicing >>= 1; //damage->Slicing>>1;
+		}
+			} // player strategyblock
+		} // network
 	}
 
 	/* Friendly Fire? */
@@ -3255,6 +3360,35 @@ void PositionPlayersWeapon(void)
 	gunOffset.vy += weaponPtr->PositionOffset.vy;
 	gunOffset.vz += weaponPtr->PositionOffset.vz;
 
+	if (LocalDetailLevels.CenteredWeapons)
+	{
+		if (weaponPtr->WeaponIDNumber == WEAPON_PULSERIFLE)
+		{
+			gunOffset.vx -= 250;
+			gunOffset.vz -= 100;
+		}
+		if (weaponPtr->WeaponIDNumber == WEAPON_GRENADELAUNCHER)
+		{
+			gunOffset.vx -= 150;
+			gunOffset.vz -= 100;
+		}
+		if (weaponPtr->WeaponIDNumber == WEAPON_MARINE_PISTOL)
+		{
+			gunOffset.vx -= 350;
+			gunOffset.vz -= 50;
+		}
+		if (weaponPtr->WeaponIDNumber == WEAPON_FLAMETHROWER)
+		{
+			gunOffset.vx -= 150;
+			gunOffset.vz -= 20;
+		}
+	}
+
+	// Crouching decreases y.
+	if (PlayerStatusPtr->ShapeState == PMph_Crouching) {
+		gunOffset.vy -= 50;
+	}
+
    	if ( (!(twPtr->PrimaryIsMeleeWeapon || (weaponPtr->WeaponIDNumber == WEAPON_PRED_DISC)
 		||(weaponPtr->WeaponIDNumber == WEAPON_PRED_SHOULDERCANNON) 
 		||(weaponPtr->WeaponIDNumber == WEAPON_PRED_MEDICOMP) 
@@ -3357,6 +3491,9 @@ void PositionPlayersWeapon(void)
 	if (FirePrimaryLate) {
 		if ((*twPtr->FirePrimaryFunction)(weaponPtr)) {
 			if (twPtr->PrimaryMuzzleFlash) {
+				if (twPtr->PrimaryAmmoID==AMMO_FLAMETHROWER) {
+					AddLightingEffectToObject(Player, LFX_OBJECTONFIRE);
+				} else
 				if (twPtr->PrimaryAmmoID==AMMO_PARTICLE_BEAM) {
 					AddLightingEffectToObject(Player,LFX_PARTICLECANNON);
 				} else {
@@ -7025,7 +7162,7 @@ DISPLAYBLOCK *CauseDamageToHModel(HMODELCONTROLLER *HMC_Ptr, STRATEGYBLOCK *sbPt
 		//check for net (X Gun)
 		if (damage->Id == AMMO_SHOTGUN)
 		{
-			NewOnScreenMessage("You have been immobilized!");
+			//NewOnScreenMessage("You have been immobilized!");
 			psPtr->Immobilized = 10*ONE_FIXED;
 			if (AvP.PlayerType == I_Alien)
 				psPtr->Immobilized = 5*ONE_FIXED;
@@ -7804,6 +7941,10 @@ void FixAlienStrikeSpeed(int time) {
 
 	ACStrikeTime=MUL_FIXED(time,AC_Speed_Factor);
 
+	if ((PlayerStatusPtr->Class == CLASS_EXF_SNIPER) ||
+		(PlayerStatusPtr->Class == CLASS_MEDIC_PR))
+		ACStrikeTime <<= 2;
+
 	TemplateWeapon[WEAPON_ALIEN_CLAW].TimeOutRateForState[WEAPONSTATE_FIRING_PRIMARY]=
 		(DIV_FIXED(WEAPONSTATE_INITIALTIMEOUTCOUNT,ACStrikeTime));
 
@@ -8266,6 +8407,35 @@ void AlienTail_Strike(void *playerStatus, PLAYER_WEAPON_DATA *weaponPtr) {
 	XDelta=Get_Delta_Sequence(&PlayersWeaponHModelController,"XDelta");
 	YDelta=Get_Delta_Sequence(&PlayersWeaponHModelController,"YDelta");
 
+	if (GrabPlayer)
+	{
+		extern int NumActiveStBlocks;
+		extern STRATEGYBLOCK *ActiveStBlockList[];
+		extern DPID AVPDPNetID;
+		STRATEGYBLOCK *sbPtr;
+		int sbIndex=0;
+
+		while (sbIndex < NumActiveStBlocks)
+		{
+			sbPtr = ActiveStBlockList[sbIndex++];
+
+			if (sbPtr->I_SBtype == I_BehaviourNetGhost)
+			{
+				NETGHOSTDATABLOCK *ghostData = (NETGHOSTDATABLOCK *) sbPtr->SBdataptr;
+
+				if (ghostData->Grab == AVPDPNetID)
+				{
+					DAMAGE_PROFILE Release = TemplateAmmo[AMMO_CUDGEL].MaxDamage[AvP.Difficulty];
+					AddNetMsg_LocalObjectDamaged(sbPtr, &Release, ONE_FIXED, 0, 0, 0, NULL);
+
+					// Reset this. bugfix!
+					GrabPlayer = 0;
+				}
+			}
+		}
+		return;
+	}
+
 	if (weaponPtr->StateTimeOutCounter == WEAPONSTATE_INITIALTIMEOUTCOUNT) {
 
 		DISPLAYBLOCK *target;
@@ -8351,6 +8521,42 @@ void AlienClaw_Strike(void *playerStatus, PLAYER_WEAPON_DATA *weaponPtr)
 {
 	PLAYER_STATUS *psPtr = (PLAYER_STATUS *) Player->ObStrategyBlock->SBdataptr;
 
+	if (psPtr->Class == CLASS_CHESTBURSTER) return;
+
+	/* If we are grabbing a victim, press attack to headbite. */
+	if (GrabPlayer)
+	{
+		extern int NumActiveStBlocks;
+		extern STRATEGYBLOCK *ActiveStBlockList[];
+		extern DPID AVPDPNetID;
+		STRATEGYBLOCK *sbPtr;
+		int sbIndex=0;
+
+		while (sbIndex < NumActiveStBlocks)
+		{
+			sbPtr = ActiveStBlockList[sbIndex++];
+
+			if (sbPtr->I_SBtype == I_BehaviourNetGhost)
+			{
+				NETGHOSTDATABLOCK *ghostData = (NETGHOSTDATABLOCK *) sbPtr->SBdataptr;
+
+				if (ghostData->Grab == AVPDPNetID)
+				{
+					DAMAGE_PROFILE Headbite = TemplateAmmo[AMMO_ALIEN_BITE_KILLSECTION_SUPER].MaxDamage[AvP.Difficulty];
+					AddNetMsg_LocalObjectDamaged(sbPtr, &Headbite, ONE_FIXED, 0, 0, 0, NULL);
+
+					if (psPtr->soundHandle == SOUND_NOACTIVEINDEX)
+						Sound_Play(SID_ALIEN_JAW_ATTACK,"de",&(Player->ObStrategyBlock->DynPtr->Position),&PlayerStatusPtr->soundHandle);
+
+					// Reset this. bugfix!
+					GrabPlayer = 0;
+					BiteAttack_AwardHealth(sbPtr, sbPtr->I_SBtype);
+				}
+			}
+		}
+		return;
+	}
+
 	if (weaponPtr->StateTimeOutCounter == WEAPONSTATE_INITIALTIMEOUTCOUNT)
 	{
 		int alien_speed;
@@ -8387,7 +8593,7 @@ void AlienClaw_Strike(void *playerStatus, PLAYER_WEAPON_DATA *weaponPtr)
 
 		/* Setup base damage. */
 
-		if (psPtr->Class != CLASS_EXF_SNIPER)
+		if ((psPtr->Class != CLASS_EXF_SNIPER) && (psPtr->Class != CLASS_MEDIC_PR))
 			Player_Weapon_Damage=TemplateAmmo[AMMO_ALIEN_CLAW].MaxDamage[AvP.Difficulty];
 		else
 			Player_Weapon_Damage=TemplateAmmo[AMMO_NPC_PAQ_CLAW].MaxDamage[AvP.Difficulty];
@@ -8937,12 +9143,13 @@ int SecondaryFirePCPlasmaCaster(PLAYER_WEAPON_DATA *weaponPtr) {
 	}
 
 	// Fire! -- Eldritch
-	if (playerStatusPtr->FieldCharge > (MUL_FIXED(playerStatusPtr->PlasmaCasterCharge,Caster_ChargeRatio)))
+	if (playerStatusPtr->FieldCharge > FIREPREDPISTOL_FIELDCHARGE)
 	{
+		Sound_Play(SID_PRED_LAUNCHER,"hp",(FastRandom()&255)-128);
 		Player_Weapon_Damage=TemplateAmmo[AMMO_PRED_ENERGY_BOLT].MaxDamage[AvP.Difficulty];
 		InitialiseEnergyBoltBehaviour(&Player_Weapon_Damage,playerStatusPtr->PlasmaCasterCharge);
 		CurrentGameStats_WeaponFired(PlayerStatusPtr->SelectedWeaponSlot,1);
-		playerStatusPtr->FieldCharge-=MUL_FIXED((ONE_FIXED/4),Caster_ChargeRatio);
+		playerStatusPtr->FieldCharge-=FIREPREDPISTOL_FIELDCHARGE;
 		CurrentGameStats_ChargeUsed(MUL_FIXED(playerStatusPtr->PlasmaCasterCharge,Caster_ChargeRatio));
 	} else {
 		Sound_Play(SID_PREDATOR_PLASMACASTER_EMPTY,"h");
@@ -9019,10 +9226,12 @@ int PlasmacasterLockOn(PLAYER_WEAPON_DATA *weaponPtr)
 		SmartgunMode = I_Free;
 		playerStatusPtr->PlasmaCasterCharge = ONE_FIXED/4;
 		Sound_Play(SID_PREDATOR_PLASMACASTER_CHARGING,"h");
+		NewOnScreenMessage("Plasmacaster tracking off");
 	} else {
 		SmartgunMode = I_Track;
 		playerStatusPtr->PlasmaCasterCharge = ONE_FIXED;
 		Sound_Play(SID_PREDATOR_PLASMACASTER_CHARGING,"h");
+		NewOnScreenMessage("Plasmacaster tracking on");
 	}
 	weaponPtr->CurrentState = WEAPONSTATE_WAITING;
 	return(1);
@@ -9231,7 +9440,7 @@ int RunABypass(PLAYER_WEAPON_DATA *weaponPtr)
 	Sound_Play(SID_MINIGUN_LOOP,"h");
 
 	/* 20% chance to make a successful hacking attempt */
-	if ((FastRandom()%100) <= 20)
+	if ((FastRandom()%100) <= 60)
 		HackPool++;
 
 	/* If the HackPool is 10+, run an Operate command */
@@ -9278,7 +9487,7 @@ int Weld(PLAYER_WEAPON_DATA *weaponPtr)
 		MakeSprayOfSparks(&mat,&position);
 
 		/* 20% chance to make a successful welding attempt */
-		if ((FastRandom()%100) <= 20)
+		if ((FastRandom()%100) <= 60)
 			WeldPool++;
 
 		/* If the WeldPool is 10+, seal the door */
@@ -9292,7 +9501,7 @@ int Weld(PLAYER_WEAPON_DATA *weaponPtr)
 		MakeSprayOfRedSparks(&mat, &position);
 
 		/* 20% chance to make a successful cutting attempt */
-		if ((FastRandom()%100) <= 20)
+		if ((FastRandom()%100) <= 60)
 			WeldPool++;
 
 		/* If the WeldPool is 10+, open the door */
@@ -9319,8 +9528,6 @@ int SetWelderMode(PLAYER_WEAPON_DATA *weaponPtr)
 
 	return(1);
 }
-
-#define FIREPREDPISTOL_FIELDCHARGE (ONE_FIXED*2)
 
 int FirePredPistol(PLAYER_WEAPON_DATA *weaponPtr)
 {
@@ -9500,7 +9707,26 @@ int FireSpeargun(PLAYER_WEAPON_DATA *weaponPtr)
 					hitroll++;
 				}
 			} else {
-				HandleSpearImpact(&(PlayersTarget.Position),PlayersTarget.DispPtr->ObStrategyBlock,twPtr->PrimaryAmmoID,&GunMuzzleDirectionInWS, 1, PlayersTarget.HModelSection);
+				VECTORCH NewPos = {0,0,400};
+				VECTORCH world_vec;
+				MATRIXCH transpose;
+
+				int speed = Approximate3dMagnitude(&Player->ObStrategyBlock->DynPtr->LinVelocity);
+
+				transpose = Global_VDB_Ptr->VDB_Mat;
+				TransposeMatrixCH(&transpose);
+
+				if (speed > 5000)
+				{
+					NewPos.vx += ((FastRandom()%50)-25);
+					NewPos.vy += ((FastRandom()%50)-25);
+					NewPos.vz += ((FastRandom()%50)-25);
+
+					RotateAndCopyVector(&NewPos, &world_vec, &transpose);
+					CastLOSSpear(Player->ObStrategyBlock,&Global_VDB_Ptr->VDB_World,&world_vec, AMMO_PRED_RIFLE, 1, 0);
+				}
+				else
+					HandleSpearImpact(&(PlayersTarget.Position),PlayersTarget.DispPtr->ObStrategyBlock,twPtr->PrimaryAmmoID,&GunMuzzleDirectionInWS, 1, PlayersTarget.HModelSection);
 			}
 		}
 
@@ -10450,17 +10676,8 @@ void SpikeyThing_Use(void *playerStatus, PLAYER_WEAPON_DATA *weaponPtr) {
 
 		if (Player->ObStrategyBlock->SBDamageBlock.Health<(NpcData->StartingStats.Health<<ONE_FIXED_SHIFT))
 		{
-			if (AvP.Network != I_No_Network) {
-				// distinguish between Standard and Field types
-				if (playerStatusPtr->Class == CLASS_PRED_WARRIOR)
-				{
-					Player->ObStrategyBlock->SBDamageBlock.Health = NpcData->StartingStats.Health<<ONE_FIXED_SHIFT;
-				} else {
-					Player->ObStrategyBlock->SBDamageBlock.Health += (ONE_FIXED*100);
-				}
-			} else {
-				Player->ObStrategyBlock->SBDamageBlock.Health = NpcData->StartingStats.Health<<ONE_FIXED_SHIFT;
-			}
+			Player->ObStrategyBlock->SBDamageBlock.Health = NpcData->StartingStats.Health<<ONE_FIXED_SHIFT;
+
 			/* Ouch. */
 			if (Player->ObStrategyBlock->SBDamageBlock.Health>(NpcData->StartingStats.Health<<ONE_FIXED_SHIFT))
 			{
@@ -11106,11 +11323,12 @@ STRATEGYBLOCK *GetBitingTarget(void)
 
 	int numberOfObjects = NumOnScreenBlocks;
 	
-	/* Check for classes, Facehuggers should not be able to headbite */
+	/* Check for classes, Facehuggers, Predaliens and Queens should not be able to headbite */
 	{
 		PLAYER_STATUS *psPtr = (PLAYER_STATUS *)(Player->ObStrategyBlock->SBdataptr);
 
-		if (psPtr->Class == CLASS_EXF_W_SPEC)
+		if ((psPtr->Class == CLASS_EXF_W_SPEC) || (psPtr->Class == CLASS_EXF_SNIPER) ||
+			(psPtr->Class == CLASS_MEDIC_PR) || (psPtr->Class == CLASS_CHESTBURSTER))
 			return (NULL);
 	}
 
@@ -12025,9 +12243,11 @@ int FriendlyFireDamageFilter(DAMAGE_PROFILE *damage) {
 	BOOL VulnerableToMarineDamage = TRUE;
 	BOOL VulnerableToPredatorDamage = TRUE;
 
-	if(AvP.PlayerType == I_Alien)
+	/* Changed all values to TRUE to fix a bug with this system */
+
+	/*if(AvP.PlayerType == I_Alien)
 	{
-		VulnerableToAlienDamage = FALSE;
+		VulnerableToAlienDamage = TRUE;
 	}
 	else if(AvP.PlayerType == I_Marine)
 	{
@@ -12044,7 +12264,7 @@ int FriendlyFireDamageFilter(DAMAGE_PROFILE *damage) {
 		{
 			VulnerableToMarineDamage = FALSE;
 		}
-	}
+	}*/
 	
 	/* Does this damage type hurt you? */
 
@@ -12068,10 +12288,8 @@ int FriendlyFireDamageFilter(DAMAGE_PROFILE *damage) {
 		case AMMO_PROXIMITY_GRENADE:
 		case AMMO_SADAR_BLAST:
 		case AMMO_PULSE_GRENADE_STRIKE:
-		case AMMO_CUDGEL:
 		case AMMO_FRISBEE:
-		case AMMO_FRISBEE_BLAST:
-		case AMMO_FRISBEE_FIRE:
+		case AMMO_CUDGEL:
 		case AMMO_MARINE_PISTOL_PC:
 			return(VulnerableToMarineDamage);
 			break;
@@ -12091,7 +12309,6 @@ int FriendlyFireDamageFilter(DAMAGE_PROFILE *damage) {
 			return(VulnerableToPredatorDamage);
 			break;
 	}
-
 	return TRUE;
 }
 

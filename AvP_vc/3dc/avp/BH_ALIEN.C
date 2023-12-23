@@ -1742,7 +1742,10 @@ void KillAlien(STRATEGYBLOCK *sbPtr,int wounds,DAMAGE_PROFILE *damage, int multi
 		sbPtr->DynPtr->Mass	= 160;
 		/* Okay... */
 		#else
-		Convert_Alien_To_Corpse(sbPtr,this_death,damage);
+		if (damage->Id == AMMO_FRISBEE)
+			Extreme_Gibbing(sbPtr, alienStatusPointer->HModelController.section_data, ONE_FIXED);
+		//else*/
+			Convert_Alien_To_Corpse(sbPtr,this_death,damage);
 		#endif
 	}
 }
@@ -2168,10 +2171,6 @@ int Alien_TargetFilter(STRATEGYBLOCK *candidate) {
 	#endif
 		// A small test.. so Officers' Smoke Grenades confuse Alien AI.
 		case I_BehaviourFragmentationGrenade:
-			return(1);
-			break;
-		// Another test.. Aliens breaking down doors.
-		case I_BehaviourPlatform:
 			return(1);
 			break;
 		default:

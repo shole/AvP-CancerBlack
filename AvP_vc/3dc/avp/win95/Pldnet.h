@@ -15,7 +15,7 @@ extern "C" {
 /* ---------------------------------------------------------------------
   Some defines for multiplayer games
   ----------------------------------------------------------------------*/
-#define NET_MAXPLAYERS				(8)
+#define NET_MAXPLAYERS				(16)	//(8)
 #define NET_MAXPLAYEROBJECTS		(15)
 #define NET_MAXPLAYERSCORE			(500)
 #define NET_MAXGAMETIME				(255) /* minutes */
@@ -306,6 +306,7 @@ typedef struct netgame_gamedata
 	//AMP Additions
 	unsigned int trackerNoise:5;
 	unsigned int footstepNoise:1;
+	unsigned int specialCase:5;
 
 	int joiningGameStatus;
 
@@ -371,11 +372,11 @@ typedef struct netmessage_gamedescription
 	unsigned int allowPistols:1;
 
 	//player type limits
-	unsigned int maxPredator:4;
-	unsigned int maxAlien:4;
-	unsigned int maxMarine:4;
+	unsigned int maxPredator:8;
+	unsigned int maxAlien:8;
+	unsigned int maxMarine:8;
 
-	unsigned int maxMarineGeneral:4;
+	unsigned int maxMarineGeneral:8;
 	unsigned int maxMarinePulseRifle:4;
 	unsigned int maxMarineSmartgun:4;
 	unsigned int maxMarineFlamer:4;
@@ -461,9 +462,12 @@ typedef struct netmessage_playerstate
 	//AMP Additions
 	unsigned int trackerNoise:5;
 	unsigned int footstepNoise:1;
+	unsigned int specialCase:5;
 	// SHOULDER LAMP IN MULTI
 	unsigned int IAmUsingShoulderLamp:1;
 	// END OF SHOULDER LAMP IN MULTI
+
+	unsigned short modelToUpdate;
 
 }NETMESSAGE_PLAYERSTATE;
 
@@ -486,7 +490,10 @@ typedef struct netmessage_playerstate_minimal
 	unsigned char ArmorType;
 	unsigned int Class;
 	unsigned int SpecialSequence;
+	unsigned int specialCase:5;
 	DPID Grab;
+	unsigned short modelToUpdate;
+
 }NETMESSAGE_PLAYERSTATE_MINIMAL;
 
 typedef struct netmessage_playerstate_medium

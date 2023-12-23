@@ -11,6 +11,7 @@ PAINTBALLMODE PaintBallMode;
 
 extern int NormalFrameTime;
 extern void RenderDecal(DECAL *decalPtr);
+extern void NewOnScreenMessage(unsigned char *messagePtr);
 
 extern void TogglePaintBallMode(void)
 {
@@ -25,7 +26,10 @@ extern void TogglePaintBallMode(void)
 		PaintBallMode.CurrentDecalSize = DecalDescription[FIRST_PAINTBALL_DECAL].MinSize;
 		PaintBallMode.CurrentDecalRotation = 0;
 		PaintBallMode.DecalIsInverted = 0;
-	}
+
+		NewOnScreenMessage("Pre-Decal Mode active...");
+	} else
+		NewOnScreenMessage("Pre-Decal Mode disabled...");
 }
 
 DECAL CurrentDecal;

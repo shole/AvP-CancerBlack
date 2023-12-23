@@ -3577,12 +3577,12 @@ void HandleParticleSystem(void)
 									}
 									case VISION_MODE_IMAGEINTENSIFIER:
 									{
-										colour = 0xffcccccc;
+										colour = 0x00cccccc;
 										break;
 									}
 									case VISION_MODE_PRED_THERMAL:
 									{
-										colour = 0xffff0000;
+										colour = 0x00ff0000;
 										break;
 									}
 									case VISION_MODE_PRED_SEEALIENS:
@@ -3595,7 +3595,7 @@ void HandleParticleSystem(void)
 												)>>10;
 										if (b>255) b=255;
 
-										colour = 0xff000000+(b<<16)+((b>>1)<<8);
+										colour = 0x00000000+(b<<16)+((b>>1)<<8);
 									  	break;
 									}
 								}
@@ -4746,7 +4746,8 @@ void CheckForObjectsInWater(int minX, int maxX, int minZ, int maxZ, int averageY
 				/* KJL 16:37:29 27/08/98 - if object is on fire its now put out */
 				objectPtr->ObStrategyBlock->SBDamageBlock.IsOnFire=0;
 
-				if (objectPtr->ObStrategyBlock->I_SBtype == I_BehaviourFlareGrenade)
+				if ((objectPtr->ObStrategyBlock->I_SBtype == I_BehaviourFlareGrenade) ||
+					(objectPtr->ObStrategyBlock->I_SBtype == I_BehaviourClusterGrenade))
 				{
 					VECTORCH upwards = {0,-65536,0};
 					dynPtr->IsFloating = 1;
@@ -5765,7 +5766,7 @@ void MakeSmallBloodExplosion(VECTORCH *originPtr, int creationRadius, VECTORCH *
 		VECTORCH velocity;
 		VECTORCH position;
 		int phi = FastRandom()&4095;
-		int speed = 600+(FastRandom()&2048);
+		int speed = -4000+(FastRandom()&2048);
 		int r;
 
 		velocity.vz = (FastRandom()&16384) - 8192;

@@ -965,7 +965,6 @@ int DetermineMarineVoice(unsigned int Class)
 	case CLASS_ENGINEER:
 		return 0;
 		break;
-	case CLASS_MEDIC_PR:
 	case CLASS_MEDIC_FT:
 		return 0;
 		break;
@@ -1252,13 +1251,10 @@ void ChangeGhostMarineAccoutrementSet(HMODELCONTROLLER *HModelController,DPID pl
 			break;
 		case CLASS_MEDIC_FT:
 		case CLASS_COM_TECH:
+		case CLASS_AA_SPEC:
 		default:
 			// Soldier+Helmet, Face2
 			variant_data=GetHierarchyAlternateShapeSetCollectionFromLibrary("hnpcmarine",3);
-			break;
-		case CLASS_AA_SPEC:
-			// Officer+Cap, Face1
-			variant_data=GetHierarchyAlternateShapeSetCollectionFromLibrary("hnpcmarine",2);
 			break;
 		case CLASS_ENGINEER:
 		case CLASS_INC_SPEC:
@@ -1395,6 +1391,9 @@ void CreateMarineHModel(NETGHOSTDATABLOCK *ghostDataPtr, int weapon)
 	else if (ghostDataPtr->Class == CLASS_MEDIC_FT)
 		ModExSys(&ghostDataPtr->HModelController,"chest","medicchest");
 
+	if ((ghostDataPtr->Class) && (ghostDataPtr->IAmUsingShoulderLamp))
+		ModExSys(&ghostDataPtr->HModelController,"light ","sl");
+
 	/* KJL 11:09:38 27/01/98 - set a default anim sequence to use */
 	ghostDataPtr->currentAnimSequence = MSQ_Stand;
 	InitHModelSequence(&ghostDataPtr->HModelController,(int)HMSQT_MarineStand,(int)MSSS_Standard,ONE_FIXED);
@@ -1438,6 +1437,10 @@ void CreateAlienHModel(NETGHOSTDATABLOCK *ghostDataPtr,int alienType)
 			root_section=GetHierarchyFromLibrary("hnpchugger");
 			ghostDataPtr->hltable=GetThisHitLocationTable("alien");
 			break;
+		case 3:
+			root_section=GetNamedHierarchyFromLibrary("queen","Template");
+			ghostDataPtr->hltable=GetThisHitLocationTable("alien");
+			break;
 		default :
 			root_section = GetNamedHierarchyFromLibrary("hnpcalien","alien");
 			ghostDataPtr->hltable=GetThisHitLocationTable("alien");
@@ -1455,15 +1458,112 @@ void CreateAlienHModel(NETGHOSTDATABLOCK *ghostDataPtr,int alienType)
 
 	Create_HModel(&ghostDataPtr->HModelController,root_section);
 
+	if (ghostDataPtr->Class == CLASS_CHESTBURSTER)
+	{
+		SECTION_DATA *part;
+
+		part=GetThisSectionData(ghostDataPtr->HModelController.section_data,"l00 tail");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(ghostDataPtr->HModelController.section_data,"l01 tail");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(ghostDataPtr->HModelController.section_data,"l02 tail");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(ghostDataPtr->HModelController.section_data,"l03 tail");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(ghostDataPtr->HModelController.section_data,"l04 tail");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(ghostDataPtr->HModelController.section_data,"l05 tail");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(ghostDataPtr->HModelController.section_data,"l06 tail");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(ghostDataPtr->HModelController.section_data,"l07 tail");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(ghostDataPtr->HModelController.section_data,"l08 tail");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(ghostDataPtr->HModelController.section_data,"l09 tail");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(ghostDataPtr->HModelController.section_data,"l10 tail");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(ghostDataPtr->HModelController.section_data,"l11 tail");
+		part->flags|=(section_data_notreal);
+
+		part=GetThisSectionData(ghostDataPtr->HModelController.section_data,"left a1 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(ghostDataPtr->HModelController.section_data,"left a2 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(ghostDataPtr->HModelController.section_data,"left a3 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(ghostDataPtr->HModelController.section_data,"left b1 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(ghostDataPtr->HModelController.section_data,"left b2 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(ghostDataPtr->HModelController.section_data,"left b3 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(ghostDataPtr->HModelController.section_data,"left c1 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(ghostDataPtr->HModelController.section_data,"left c2 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(ghostDataPtr->HModelController.section_data,"left c3 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(ghostDataPtr->HModelController.section_data,"left d1 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(ghostDataPtr->HModelController.section_data,"left d2 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(ghostDataPtr->HModelController.section_data,"left d3 finger");
+		part->flags|=(section_data_notreal);
+
+		part=GetThisSectionData(ghostDataPtr->HModelController.section_data,"right a1 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(ghostDataPtr->HModelController.section_data,"right a2 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(ghostDataPtr->HModelController.section_data,"right a3 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(ghostDataPtr->HModelController.section_data,"right b1 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(ghostDataPtr->HModelController.section_data,"right b2 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(ghostDataPtr->HModelController.section_data,"right b3 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(ghostDataPtr->HModelController.section_data,"right c1 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(ghostDataPtr->HModelController.section_data,"right c2 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(ghostDataPtr->HModelController.section_data,"right c3 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(ghostDataPtr->HModelController.section_data,"right d1 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(ghostDataPtr->HModelController.section_data,"right d2 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(ghostDataPtr->HModelController.section_data,"right d3 finger");
+		part->flags|=(section_data_notreal);
+
+		part=GetThisSectionData(ghostDataPtr->HModelController.section_data,"left air sack");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(ghostDataPtr->HModelController.section_data,"right air sack");
+		part->flags|=(section_data_notreal);
+
+		ModExSys(&ghostDataPtr->HModelController,"body","burster");
+	}
+
 	if (ghostDataPtr->Class != CLASS_EXF_SNIPER &&
-		ghostDataPtr->Class != CLASS_EXF_W_SPEC)
+		ghostDataPtr->Class != CLASS_EXF_W_SPEC &&
+		ghostDataPtr->Class != CLASS_MEDIC_PR &&
+		ghostDataPtr->Class != CLASS_CHESTBURSTER)
 		SetAlternateAlienSkin(&ghostDataPtr->HModelController,ghostDataPtr->Class);
 
-	if (ghostDataPtr->Class == CLASS_EXF_W_SPEC)
+	if ((ghostDataPtr->Class == CLASS_EXF_W_SPEC) ||
+		(ghostDataPtr->Class == CLASS_CHESTBURSTER))
 	{
 		ghostDataPtr->currentAnimSequence = FhSQ_Stand;
 		InitHModelSequence(&ghostDataPtr->HModelController,(int)HMSQT_Hugger,(int)HSS_Stand,ONE_FIXED);
-	} else {
+	}
+	else if (ghostDataPtr->Class == CLASS_MEDIC_PR)
+	{
+		ghostDataPtr->currentAnimSequence = ASQ_Stand;
+		InitHModelSequence(&ghostDataPtr->HModelController,(int)HMSQT_QueenRightStanceTemplate,(int)QRSTSS_Standard,ONE_FIXED);
+	}
+	else 
+	{
 		ghostDataPtr->currentAnimSequence = ASQ_Stand;
 		InitHModelSequence(&ghostDataPtr->HModelController,(int)HMSQT_AlienStand,(int)ASSS_Standard,ONE_FIXED);
 	}
@@ -1528,6 +1628,11 @@ void CreatePredatorHModel(NETGHOSTDATABLOCK *ghostDataPtr, int weapon)
 		case WEAPON_PRED_MEDICOMP:
 		{
 			root_section = GetNamedHierarchyFromLibrary("hnpcpredator","medicomp");
+			break;
+		}
+		case 666:
+		{
+			root_section = GetNamedHierarchyFromLibrary("hnpcpredator","Template");
 			break;
 		}
 
@@ -1740,6 +1845,46 @@ void DamageNetworkGhost(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int multip
 		NETGHOSTDATABLOCK *ghostData;
 		int frontback;
 		ghostData = (NETGHOSTDATABLOCK *)sbPtr->SBdataptr;
+
+		/* Moved the friendly fire stuff here, to fix a bug */
+		if (netGameData.disableFriendlyFire)
+		{
+			if ((AvP.PlayerType == I_Marine) && (ghostData->type == I_BehaviourMarinePlayer))
+				return;
+
+			if ((AvP.PlayerType == I_Alien) && (ghostData->type == I_BehaviourAlienPlayer))
+				return;
+
+			if ((AvP.PlayerType == I_Predator) && (ghostData->type == I_BehaviourPredatorPlayer))
+				return;
+		}
+
+		/* Check so grab hits the back of the target. */
+		if ((ghostData->type == I_BehaviourMarinePlayer) ||
+			(ghostData->type == I_BehaviourPredatorPlayer))
+		{
+			if (damage->Id == AMMO_FRISBEE_FIRE)
+			{
+				if (incoming)
+				{
+					if (incoming->vz < 0)
+						return;
+				}
+				else
+				{
+					return;
+				}
+			}
+		}
+
+		/* Aliens ignore damage caused by grabbing (bug fix). */
+		if (ghostData->type == I_BehaviourAlienPlayer)
+		{
+			if (damage->Id == AMMO_FRISBEE_FIRE)
+			{
+				return;
+			}
+		}
 
 		if(ghostData->type==I_BehaviourMarinePlayer)
 		{
@@ -2076,7 +2221,7 @@ void HandleGhostGunFlashEffect(STRATEGYBLOCK *sbPtr, int gunFlashOn)
 		}
 	}
 	// Eject shells from Pistol and Shotgun
-	if ((ghostData->CurrentWeapon == WEAPON_MARINE_PISTOL) && (gunFlashOn) &&
+	/*if ((ghostData->CurrentWeapon == WEAPON_MARINE_PISTOL) && (gunFlashOn) &&
 		(LocalDetailLevels.Shells))
 	{
 		extern DISPLAYBLOCK *MakeAIPistolCasing(VECTORCH *position, MATRIXCH *orient);
@@ -2087,7 +2232,7 @@ void HandleGhostGunFlashEffect(STRATEGYBLOCK *sbPtr, int gunFlashOn)
 	{
 		extern DISPLAYBLOCK *MakeShotgunShell(VECTORCH *position, MATRIXCH *orient);
 		MakeShotgunShell(&ghostData->GunflashSectionPtr->World_Offset,&ghostData->GunflashSectionPtr->SecMat);
-	}
+	}*/
 
 
 	#if 0
@@ -2311,6 +2456,12 @@ static void SetPlayerGhostAnimationSequence(STRATEGYBLOCK *sbPtr, int sequence, 
 		{	
 			switch((MARINE_SEQUENCE)sequence)
 			{
+				/* New animations for Cancer Black. */
+				case(M_RELOAD):
+				{
+					InitHModelTweening(&ghostData->HModelController,(ONE_FIXED)>>3,(int)HMSQT_MarineStand,45,ONE_FIXED,1);
+					break;
+				}
 				case(MSQ_Walk):
 				{
 					if (ghostData->CurrentWeapon==WEAPON_SMARTGUN) {
@@ -2786,7 +2937,52 @@ static void SetPlayerGhostAnimationSequence(STRATEGYBLOCK *sbPtr, int sequence, 
 		case(I_BehaviourAlienPlayer):
 		case(I_BehaviourAlien):
 		{
-			if (ghostData->Class == CLASS_EXF_W_SPEC)
+			if (ghostData->Class == CLASS_MEDIC_PR)
+			{
+				switch(sequence)
+				{
+					case ASQ_Stand:	// stand
+					{
+						InitHModelTweening(&ghostData->HModelController,(ONE_FIXED>>3),(int)HMSQT_QueenLeftStanceTemplate,(int)QLSTSS_Standard,ONE_FIXED,0);
+						break;
+					}
+					case ASQ_Taunt: //taunt
+					{
+						InitHModelTweening(&ghostData->HModelController,(ONE_FIXED>>3),(int)HMSQT_QueenRightStanceFull,(int)QRSFSS_Taunt,(TAUNT_LENGTH-(ONE_FIXED>>3)),0);
+						break;
+					}
+					case ASQ_StandingAttack_Claw: //claw
+					case ASQ_RunningAttack_Claw_Backwards:
+					case ASQ_RunningAttack_Claw:
+					//case ASQ_StandingTailPoise:
+					//case ASQ_StandingTailStrike:
+					//case ASQ_RunningTailPoise_Backwards:
+					//case ASQ_RunningTailStrike_Backwards:
+					//case ASQ_RunningTailPoise:
+					//case ASQ_RunningTailStrike:
+					{
+						// Select an anim that looks like the queen is clawing...
+						InitHModelTweening(&ghostData->HModelController,(ONE_FIXED>>4),(int)HMSQT_QueenRightStanceTemplate,2,ONE_FIXED,0);
+
+						if (sequence == ASQ_RunningAttack_Claw_Backwards)
+							ghostData->HModelController.Reversed = 1;
+
+						break;
+					}
+					case ASQ_Run_Backwards:	// run
+					case ASQ_Run:
+					{
+						InitHModelTweening(&ghostData->HModelController,(ONE_FIXED>>3),(int)HMSQT_QueenGeneral,(int)QGSS_Walk,ONE_FIXED,1);
+
+						if (sequence == ASQ_Run_Backwards)
+							ghostData->HModelController.Reversed = 1;
+
+						break;
+					}
+				}
+			}
+			else if ((ghostData->Class == CLASS_EXF_W_SPEC) ||
+					 (ghostData->Class == CLASS_CHESTBURSTER))
 			{
 				switch((FHUG_SEQUENCE)sequence)
 				{
@@ -2811,7 +3007,119 @@ static void SetPlayerGhostAnimationSequence(STRATEGYBLOCK *sbPtr, int sequence, 
 						break;
 					}
 				}
-			} else {
+			}
+			else if (ghostData->Class == CLASS_EXF_SNIPER)
+			{
+				int anim=2, seq=0, rev=0, time=ONE_FIXED, loop=1;
+
+				switch(sequence)
+				{
+					case(ASQ_Stand):
+					case(ASQ_StandingTailPoise):
+						anim = 2;
+						seq = 0;
+						break;
+					case(ASQ_StandingAttack_Claw):
+					case(ASQ_RunningAttack_Claw):
+					case(ASQ_RunningAttack_Claw_Backwards):
+						anim = 2;
+						loop = 0;
+						switch(FastRandom()%3)
+						{
+							case 0:
+								seq = 2;
+								break;
+							case 1:
+								seq = 20;
+								break;
+							case 2:
+								seq = 25;
+								break;
+						}
+						if (sequence == ASQ_RunningAttack_Claw_Backwards)
+							rev = 1;
+						break;
+					case(ASQ_StandingTailStrike):
+					case(ASQ_RunningTailStrike):
+					case(ASQ_RunningTailStrike_Backwards):
+						anim = 2;
+						seq = 3;
+						loop = 0;
+						if (sequence == ASQ_RunningTailStrike_Backwards)
+							rev = 1;
+						break;
+					case(ASQ_Run):
+					case(ASQ_RunningTailPoise):
+						anim = 0;
+						seq = 0;
+						break;
+					case(ASQ_Run_Backwards):
+					case(ASQ_RunningTailPoise_Backwards):
+						anim = 0;
+						seq = 0;
+						rev = 1;
+						break;
+					case(ASQ_Crawl):
+					case(ASQ_CrawlingTailPoise):
+					case(ASQ_Scamper):
+						anim = 1;
+						seq = 0;
+						break;
+					case(ASQ_Crawl_Backwards):
+					case(ASQ_CrawlingTailPoise_Backwards):
+					case(ASQ_Scamper_Backwards):
+						anim = 1;
+						seq = 0;
+						rev = 1;
+						break;
+					case(ASQ_CrawlingAttack_Claw):
+					case(ASQ_CrawlingAttack_Claw_Backwards):
+					case(ASQ_CrouchedAttack_Claw):
+						anim = 3;
+						seq = 4;
+						time = -1;
+						loop = 0;
+
+						if (sequence == ASQ_CrawlingAttack_Claw_Backwards)
+							rev = 1;
+
+						break;
+					case(ASQ_CrawlingTailStrike):
+					case(ASQ_CrawlingTailStrike_Backwards):
+					case(ASQ_CrouchedTailStrike):
+						anim = 3;
+						seq = 3;
+						time = -1;
+						loop = 0;
+
+						if (sequence == ASQ_CrawlingTailStrike_Backwards)
+							rev = 1;
+
+						break;
+					case(ASQ_Crouch):
+					case(ASQ_CrouchedTailPoise):
+						anim = 3;
+						seq = 0;
+						break;
+					case(ASQ_Jump):
+					case(ASQ_Pounce):
+					case(ASQ_JumpingTailPoise):
+					case(ASQ_JumpingTailStrike):
+						anim = 0;
+						seq = 3;
+						break;
+					case(ASQ_Taunt):
+						anim = 2;
+						seq = 19;
+						break;
+				}
+				if (sequence != ASQ_Taunt)
+					InitHModelTweening(&ghostData->HModelController,(ONE_FIXED>>3),anim,seq,time,loop);
+				else
+					InitHModelTweening(&ghostData->HModelController,(ONE_FIXED>>3),anim,seq,(TAUNT_LENGTH-(ONE_FIXED>>3)),0);
+			} 
+			else 
+			{
 			switch((ALIEN_SEQUENCE)sequence)
 			{
 				case(ASQ_Stand):
@@ -3118,6 +3426,53 @@ static void SetPlayerGhostAnimationSequence(STRATEGYBLOCK *sbPtr, int sequence, 
 		{
 			switch((PREDATOR_SEQUENCE)sequence)
 			{
+				/* Self-Destruct. */
+				case(P_ACTIVATE_BOMB):
+				{
+					if (ghostData->currentAnimSequence == 17)
+					{
+						if(!HModelAnimation_IsFinished(&ghostData->HModelController)) return;
+					}
+					InitHModelTweening(&ghostData->HModelController,(ONE_FIXED>>3),(int)HMSQT_PredatorCrouch,17,(ONE_FIXED*6),0);
+					break;
+				}
+				case(P_LAUGH):
+				{
+					if (ghostData->currentAnimSequence == 18)
+					{
+						if(!HModelAnimation_IsFinished(&ghostData->HModelController)) return;
+					}
+					InitHModelTweening(&ghostData->HModelController,(ONE_FIXED>>3),(int)HMSQT_PredatorCrouch,18,(ONE_FIXED*3),0);
+					break;
+				}
+				/* Predator combi-stick attacks. */
+				case(P_SPEAR_STAB):
+				{
+					int anim=0;
+
+					switch(FastRandom()%4)
+					{
+						case 0:
+							anim=23;
+							break;
+						case 1:
+							anim=24;
+							break;
+						case 2:
+							anim=25;
+							break;
+						case 3:
+							anim=3;
+							break;
+					}
+					InitHModelTweening(&ghostData->HModelController,(ONE_FIXED>>3),(int)HMSQT_PredatorStand,anim,(ONE_FIXED<<1),0);
+					break;
+				}
+				case(P_CROUCH_SPEAR_STAB):
+				{
+					InitHModelTweening(&ghostData->HModelController,(ONE_FIXED>>3),(int)HMSQT_PredatorCrouch,3,ONE_FIXED,0);
+					break;
+				}
 				case(PredSQ_Stand):
 				{
 					BOOL standing_attack=FALSE;
@@ -3549,7 +3904,7 @@ void HandlePlayerGhostWeaponSound(STRATEGYBLOCK *sbPtr, int weapon, int firingPr
 					);
 					/* Lighting? */
 					if (sbPtr->SBdptr) {
-						AddLightingEffectToObject(sbPtr->SBdptr,LFX_MUZZLEFLASH);
+						AddLightingEffectToObject(sbPtr->SBdptr,LFX_OBJECTONFIRE);
 					}
 				}
 			}
@@ -3789,6 +4144,13 @@ void HandleWeaponElevation(STRATEGYBLOCK *sbPtr, int elevation, int weapon)
 
 	if (ghostDataPtr->type == I_BehaviourMarinePlayer)
 	{
+		if (!ghostDataPtr->modelUpdated)
+		{
+			Dispel_HModel(&ghostDataPtr->HModelController);
+			CreateMarineHModel(ghostDataPtr,weapon);
+			ProveHModel_Far(&ghostDataPtr->HModelController,sbPtr);
+			ghostDataPtr->modelUpdated = 1;
+		}
 		if (weapon != ghostDataPtr->CurrentWeapon)
 		{
 			Dispel_HModel(&ghostDataPtr->HModelController);
@@ -3974,12 +4336,21 @@ void HandleWeaponElevation(STRATEGYBLOCK *sbPtr, int elevation, int weapon)
 	}
 	else if (ghostDataPtr->type == I_BehaviourPredatorPlayer)
 	{
+		/* Self-Destruct test */
+		if (ghostDataPtr->ArmorType)
+		{
+			Dispel_HModel(&ghostDataPtr->HModelController);
+			CreatePredatorHModel(ghostDataPtr, 666);
+			ProveHModel_Far(&ghostDataPtr->HModelController,sbPtr);
+		}
+		else
 		if (weapon != ghostDataPtr->CurrentWeapon)
 		{
 			Dispel_HModel(&ghostDataPtr->HModelController);
 			CreatePredatorHModel(ghostDataPtr, weapon);
 			ProveHModel_Far(&ghostDataPtr->HModelController,sbPtr);
 		}
+
 		elevation_controller=Get_Delta_Sequence(&ghostDataPtr->HModelController,"Elevation");
 		/* Deal with elevation sequence. */
 		GLOBALASSERT(elevation_controller);
@@ -4043,6 +4414,37 @@ void HandleWeaponElevation(STRATEGYBLOCK *sbPtr, int elevation, int weapon)
 	}
 	else if (ghostDataPtr->type == I_BehaviourAlienPlayer)
 	{
+		if ((ghostDataPtr->Class == CLASS_EXF_SNIPER) && (!ghostDataPtr->modelUpdated))
+		{
+			Dispel_HModel(&ghostDataPtr->HModelController);
+			CreateAlienHModel(ghostDataPtr,AT_Predalien);
+			ProveHModel_Far(&ghostDataPtr->HModelController,sbPtr);
+			ghostDataPtr->modelUpdated = 1;
+		}
+
+		if ((ghostDataPtr->Class == CLASS_EXF_W_SPEC) && (!ghostDataPtr->modelUpdated))
+		{
+			Dispel_HModel(&ghostDataPtr->HModelController);
+			CreateAlienHModel(ghostDataPtr,AT_Praetorian);
+			ProveHModel_Far(&ghostDataPtr->HModelController,sbPtr);
+			ghostDataPtr->modelUpdated = 1;
+		}
+
+		if ((ghostDataPtr->Class == CLASS_CHESTBURSTER) && (!ghostDataPtr->modelUpdated))
+		{
+			Dispel_HModel(&ghostDataPtr->HModelController);
+			CreateAlienHModel(ghostDataPtr,AT_Praetorian);
+			ProveHModel_Far(&ghostDataPtr->HModelController,sbPtr);
+			ghostDataPtr->modelUpdated = 1;
+		}
+
+		if ((ghostDataPtr->Class == CLASS_MEDIC_PR) && (!ghostDataPtr->modelUpdated))
+		{
+			Dispel_HModel(&ghostDataPtr->HModelController);
+			CreateAlienHModel(ghostDataPtr,3);
+			ProveHModel_Far(&ghostDataPtr->HModelController,sbPtr);
+			ghostDataPtr->modelUpdated = 1;
+		}
 
 		if (ghostDataPtr->CurrentWeapon==-1)
 		{
@@ -4214,7 +4616,7 @@ void MaintainGhosts(void)
 				   		ghostData->timer -= NormalFrameTime;
 					   	if (ghostData->timer<=PROX_GRENADE_TRIGGER_TIME && ghostData->SoundHandle==SOUND_NOACTIVEINDEX)
 						{
-							Sound_Play(SID_PROX_GRENADE_READYTOBLOW,"de",&(dynPtr->Position),&ghostData->SoundHandle);
+							//Sound_Play(SID_PROX_GRENADE_READYTOBLOW,"de",&(dynPtr->Position),&ghostData->SoundHandle);
 						}
 						
 						//Stop flare from disappearing from lack of update messages.
@@ -4261,7 +4663,7 @@ void MaintainGhosts(void)
 												break;
 											}
 										}
-										Sound_Play(SID_PROX_GRENADE_READYTOBLOW,"de",&(dynPtr->Position),&ghostData->SoundHandle);
+										//Sound_Play(SID_PROX_GRENADE_READYTOBLOW,"de",&(dynPtr->Position),&ghostData->SoundHandle);
 										break;
 									}
 								}
@@ -4293,16 +4695,6 @@ void MaintainGhosts(void)
 								ShoulderLamp->LightWorld.vx = sbPtr->DynPtr->Position.vx + ghostData->ShoulderLampOffset.vx;
 								ShoulderLamp->LightWorld.vy = sbPtr->DynPtr->Position.vy + ghostData->ShoulderLampOffset.vy;
 								ShoulderLamp->LightWorld.vz = sbPtr->DynPtr->Position.vz + ghostData->ShoulderLampOffset.vz;
-							}
-
-							{
-								// Add another light... around the actual ghost's model.
-								LIGHTBLOCK *LampAura = AddLightEffectToObjReturnReference(dispPtr, LFX_SHOULDER_LAMP);
-								if ((LampAura) && (sbPtr->DynPtr)) {
-									LampAura->LightWorld.vx = sbPtr->DynPtr->Position.vx;
-									LampAura->LightWorld.vy = sbPtr->DynPtr->Position.vy;
-									LampAura->LightWorld.vz = sbPtr->DynPtr->Position.vz;
-								}
 							}
 						}
 					}
@@ -4762,8 +5154,13 @@ extern void ApplyGhostCorpseDeathAnim(STRATEGYBLOCK *sbPtr,int deathId)
 		case I_BehaviourAlienPlayer :
 		{
 			// Apply another death anim for player facehuggers.
-			if (ghostData->Class == CLASS_EXF_W_SPEC) {
+			if ((ghostData->Class == CLASS_EXF_W_SPEC) ||
+				(ghostData->Class == CLASS_CHESTBURSTER))
+			{
 				InitHModelTweening(&ghostData->HModelController,(ONE_FIXED>>3),(int)HMSQT_Hugger,(int)HSS_Dies,ONE_FIXED,0);
+				return;
+			} else if (ghostData->Class == CLASS_MEDIC_PR) {
+				InitHModelTweening(&ghostData->HModelController,(ONE_FIXED>>3),(int)HMSQT_QueenGeneral,(int)QGSS_FaceDeath,ONE_FIXED,0);
 				return;
 			} else
 				this_death=GetThisDeath_FromCode(&ghostData->HModelController,&Alien_Deaths[0],deathId);
@@ -5518,7 +5915,12 @@ STRATEGYBLOCK *MakeNewCorpse()
 					root_section=GetNamedHierarchyFromLibrary("hnpcpred_alien","TEMPLATE");
 					corpseData->hltable=GetThisHitLocationTable("predalien");
 				}
-				if (Class == CLASS_EXF_W_SPEC)
+				if (Class == CLASS_MEDIC_PR)
+				{
+					root_section=GetNamedHierarchyFromLibrary("queen","Template");
+					corpseData->hltable=GetThisHitLocationTable("alien");
+				}
+				if ((Class == CLASS_EXF_W_SPEC) || (Class == CLASS_CHESTBURSTER))
 				{
 					root_section=GetHierarchyFromLibrary("hnpchugger");
 					corpseData->hltable=GetThisHitLocationTable("alien");
@@ -5526,8 +5928,98 @@ STRATEGYBLOCK *MakeNewCorpse()
 				// -- End
 
 				Create_HModel(&corpseData->HModelController,root_section);
+
+	if (Class == CLASS_CHESTBURSTER)
+	{
+		SECTION_DATA *part;
+
+		part=GetThisSectionData(corpseData->HModelController.section_data,"l00 tail");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(corpseData->HModelController.section_data,"l01 tail");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(corpseData->HModelController.section_data,"l02 tail");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(corpseData->HModelController.section_data,"l03 tail");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(corpseData->HModelController.section_data,"l04 tail");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(corpseData->HModelController.section_data,"l05 tail");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(corpseData->HModelController.section_data,"l06 tail");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(corpseData->HModelController.section_data,"l07 tail");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(corpseData->HModelController.section_data,"l08 tail");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(corpseData->HModelController.section_data,"l09 tail");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(corpseData->HModelController.section_data,"l10 tail");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(corpseData->HModelController.section_data,"l11 tail");
+		part->flags|=(section_data_notreal);
+
+		part=GetThisSectionData(corpseData->HModelController.section_data,"left a1 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(corpseData->HModelController.section_data,"left a2 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(corpseData->HModelController.section_data,"left a3 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(corpseData->HModelController.section_data,"left b1 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(corpseData->HModelController.section_data,"left b2 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(corpseData->HModelController.section_data,"left b3 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(corpseData->HModelController.section_data,"left c1 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(corpseData->HModelController.section_data,"left c2 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(corpseData->HModelController.section_data,"left c3 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(corpseData->HModelController.section_data,"left d1 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(corpseData->HModelController.section_data,"left d2 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(corpseData->HModelController.section_data,"left d3 finger");
+		part->flags|=(section_data_notreal);
+
+		part=GetThisSectionData(corpseData->HModelController.section_data,"right a1 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(corpseData->HModelController.section_data,"right a2 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(corpseData->HModelController.section_data,"right a3 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(corpseData->HModelController.section_data,"right b1 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(corpseData->HModelController.section_data,"right b2 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(corpseData->HModelController.section_data,"right b3 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(corpseData->HModelController.section_data,"right c1 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(corpseData->HModelController.section_data,"right c2 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(corpseData->HModelController.section_data,"right c3 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(corpseData->HModelController.section_data,"right d1 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(corpseData->HModelController.section_data,"right d2 finger");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(corpseData->HModelController.section_data,"right d3 finger");
+		part->flags|=(section_data_notreal);
+
+		part=GetThisSectionData(corpseData->HModelController.section_data,"left air sack");
+		part->flags|=(section_data_notreal);
+		part=GetThisSectionData(corpseData->HModelController.section_data,"right air sack");
+		part->flags|=(section_data_notreal);
+
+		ModExSys(&corpseData->HModelController,"body","burster");
+	}
 				
-				if (Class != CLASS_EXF_SNIPER && Class != CLASS_EXF_W_SPEC)
+				if ((Class != CLASS_EXF_SNIPER) && 
+					(Class != CLASS_EXF_W_SPEC) &&
+					(Class != CLASS_MEDIC_PR) &&
+					(Class != CLASS_CHESTBURSTER))
 					SetAlternateAlienSkin(&corpseData->HModelController,Class);
 
 				//choose a default sequence , the proper death anim will be set later	

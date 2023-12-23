@@ -40,6 +40,7 @@ extern void RenderPlayersImageInMirror();
 
 extern void Render3rdPersonPlayer(void);
 extern int ThirdPersonActive;
+extern int ThirdPersonActiveTest;
 
 /* Eld: 3rd-person test */
 
@@ -732,8 +733,8 @@ void KRenderItems(VIEWDESCRIPTORBLOCK *VDBPtr)
 
 		/* Eld: 3rd-person test */
 		
-		if (ThirdPersonActive)
-			//Render3rdPersonPlayer(); removed this in favour of 3rd person spectator mode
+		if (ThirdPersonActiveTest)
+			Render3rdPersonPlayer(); //removed this in favour of 3rd person spectator mode
 
 		/* Eld: 3rd-person test */
 

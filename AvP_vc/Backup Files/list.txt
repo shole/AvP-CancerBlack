@@ -1,0 +1,3 @@
+avp_mp_config = build 4.4
+
+directplay.c = build 4.4

@@ -41,11 +41,6 @@ extern void DrawElectricalOverlay(float level);
 extern void DrawPredTechOverlay(float level);
 extern void DrawPredTechNoiseOverlay(int t);
 extern void DrawHelmetNoiseOverlay(int t);
-extern void DrawSmartIROverlay(int t);
-extern void DrawIROverlay(int t);
-extern void DrawUVOverlay(int t);
-extern void DrawZoomOverlay(int t);
-extern void DrawZoom2Overlay(int t);
 extern void D3D_FadeDownScreen(int brightness, int colour);
 extern void D3D_ScreenInversionOverlay();
 extern void D3D_PredatorScreenInversionOverlay();
@@ -174,12 +169,12 @@ void HandlePredOVision(void)
 		CurrentGameStats_VisionMode(CurrentVisionMode);
 	}
 	if (CurrentVisionMode==VISION_MODE_PRED_THERMAL) {
-		DrawThermalNoiseOverlay(64);
+		DrawThermalNoiseOverlay(32);
 	}
 	if (CurrentVisionMode==VISION_MODE_PRED_SEEPREDTECH)
 	{
 		D3D_PredatorScreenInversionOverlay();
-		DrawPredTechNoiseOverlay(32);
+		DrawPredTechNoiseOverlay(16);
 	}
 
 	if (CurrentVisionMode==VISION_MODE_NORMAL)
@@ -294,27 +289,10 @@ void HandleMarineOVision(void)
 	if (playerStatusPtr->IsAlive) {
 		CurrentGameStats_VisionMode(CurrentVisionMode);
 	}
-	
-	/* Zombie-game Test: "Sirop" Mode */
-	//if (CurrentVisionMode == VISION_MODE_NORMAL)
-	//	D3D_SiropMode();
 
-	/* #1 Check for existance of ERE Helmet */
-	if ((playerStatusPtr->ArmorType == 1) && (!ERE_Broken()))
+	if (CurrentVisionMode == VISION_MODE_IMAGEINTENSIFIER)
 	{
-		/* #2 Filter the different suit visual modes */
-
-		/* Normal and Visual-Filter */
-		if ((CurrentVisionMode == VISION_MODE_NORMAL) ||
-			(CurrentVisionMode == VISION_MODE_IMAGEINTENSIFIER)) {
-			DrawHelmetNoiseOverlay(150);
-		}
-	}
-	if (CameraZoomScale != 1.0f) {
-		PLAYER_WEAPON_DATA *weaponPtr = &(playerStatusPtr->WeaponSlot[playerStatusPtr->SelectedWeaponSlot]);
-
-		if (weaponPtr->WeaponIDNumber == WEAPON_FRISBEE_LAUNCHER)
-			DrawZoom2Overlay(255);
+		DrawHelmetNoiseOverlay(64);
 	}
 
 	/* We might have just morphed. */

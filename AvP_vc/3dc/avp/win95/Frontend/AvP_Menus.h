@@ -243,6 +243,7 @@ typedef struct
 		enum TEXTSTRING_ID NumberFieldZeroString; //special string for 0
 	};
 	int Brightness;
+	int yPos;
 
 } AVPMENU_ELEMENT;
 

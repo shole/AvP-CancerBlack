@@ -40,6 +40,7 @@ void UseMedikit(void);
 extern void CastMarineBot(int weapon);
 extern int ERE_Broken(void);
 extern int NoClass;
+extern int Kit[3];
 int SlotForThisWeapon(enum WEAPON_ID weaponID);
 
 static int AbleToPickupAmmo(enum AMMO_ID ammoID);
@@ -58,6 +59,7 @@ static int AbleToPickupFieldCharge(int chargeID);
 int AutoWeaponChangeOn = TRUE;
 int RunMode = 1; // P&H Mode
 int CrouchIsToggleKey = 1; // P&H Mode
+int ShotgunIsReloading;
 
 PLAYER_STARTING_EQUIPMENT StartingEquipment;
 
@@ -111,6 +113,10 @@ void MaintainPlayersInventory(void)
 
 	LOCALASSERT(dynPtr);
 	nextReport = dynPtr->CollisionReportPtr;
+
+	/* Reset this so it can be set next update. */
+	if (AvP.Network != I_No_Network)
+		netGameData.specialCase = 0;
 	
 	/* walk the collision report list, looking for collisions against inanimate objects */
 	while(nextReport)
@@ -664,7 +670,7 @@ static void ReadCharacter(void)
 		if (!stricmp("arrival", &LevelName))
 		{
 			Pistol=1;
-			PistolAmmo=2;
+			PistolAmmo=4;
 
 			PulseRifleAmmo=0;
 			PulseGrenades=0;
@@ -745,8 +751,10 @@ void InitialisePlayersInventory(PLAYER_STATUS *playerStatusPtr)
 		extern int HackPool;
 		extern int WeldPool;
 		extern int WeldMode;
+		extern float Stamina;
 
 		GrenadeDelay=ZeroG=Underwater=Surface=Fog=Run=OnLadder=HackPool=WeldPool=WeldMode=0;
+		Stamina = 2.5;
 	}
 
     {
@@ -808,6 +816,11 @@ void InitialisePlayersInventory(PLAYER_STATUS *playerStatusPtr)
 		playerStatusPtr->PGCStatus = 0;
 		playerStatusPtr->AirSupply = 0;
 		playerStatusPtr->AirStatus = 0;
+
+		if ((AvP.PlayerType == I_Alien) && (netGameData.LifeCycle))
+		{
+			playerStatusPtr->Cocoons = CLASS_EXF_W_SPEC;
+		}
 		
 		// Fix for class bug
 		if (NoClass == 1)
@@ -846,6 +859,18 @@ void InitialisePlayersInventory(PLAYER_STATUS *playerStatusPtr)
 		playerStatusPtr->Honor = 0;
 		playerStatusPtr->Destr = 0;
 		playerStatusPtr->Toxin = 0;
+
+		// Enable APC for "Detour".
+		if (!stricmp("detour", &LevelName))
+		{
+			PLAYER_STATUS *playerStatusPtr = (PLAYER_STATUS *) Player->ObStrategyBlock->SBdataptr;
+
+			playerStatusPtr->Honor = 1;
+			playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Faster = 0;
+			playerStatusPtr->ViewPanX = 0;
+			playerStatusPtr->IAmUsingShoulderLamp=1;
+			playerStatusPtr->PGC = (ONE_FIXED*245);
+		}
 	}
 	/* Initially not facehugged */
 	playerStatusPtr->MyFaceHugger=NULL;
@@ -867,6 +892,127 @@ void InitialisePlayersInventory(PLAYER_STATUS *playerStatusPtr)
 			/*if in a multiplayer game , check to see if player is a specialist marine*/
 			if(AvP.Network != I_No_Network)
 			{
+				switch(Kit[0])
+				{
+					case KIT_ASSAULT:
+						playerStatusPtr->Grenades += 2;
+
+						a = SlotForThisWeapon(WEAPON_PULSERIFLE);
+						playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining += 2;
+						a = SlotForThisWeapon(WEAPON_GRENADELAUNCHER);
+						playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining += 2;
+						a = SlotForThisWeapon(WEAPON_MARINE_PISTOL);
+						playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining += 2;
+						break;
+					case KIT_SCOUT:
+						playerStatusPtr->MTrackerType = 1;
+						playerStatusPtr->FlaresLeft = 8;
+						break;
+					case KIT_COMTECH:
+						a = SlotForThisWeapon(WEAPON_AUTOSHOTGUN);
+						playerStatusPtr->WeaponSlot[a].Possessed = 1;
+						playerStatusPtr->WeaponSlot[a].PrimaryRoundsRemaining = ONE_FIXED;
+						break;
+					case KIT_TECH:
+						a = SlotForThisWeapon(WEAPON_PLASMAGUN);
+						playerStatusPtr->WeaponSlot[a].Possessed = 1;
+						playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining = 1;
+						
+						//playerStatusPtr->Medikit = 10;
+						break;
+					case KIT_DEMO:
+						a = SlotForThisWeapon(WEAPON_MINIGUN);
+						playerStatusPtr->WeaponSlot[a].Possessed = 1;
+						playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining = 1;
+
+						playerStatusPtr->Grenades += 2;
+						break;
+					default:
+						break;
+				}
+				switch(Kit[1])
+				{
+					case KIT_ASSAULT:
+						playerStatusPtr->Grenades += 2;
+
+						a = SlotForThisWeapon(WEAPON_PULSERIFLE);
+						playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining += 2;
+						a = SlotForThisWeapon(WEAPON_GRENADELAUNCHER);
+						playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining += 2;
+						a = SlotForThisWeapon(WEAPON_MARINE_PISTOL);
+						playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining += 2;
+						break;
+					case KIT_SCOUT:
+						playerStatusPtr->MTrackerType = 1;
+						playerStatusPtr->FlaresLeft = 8;
+						break;
+					case KIT_COMTECH:
+						a = SlotForThisWeapon(WEAPON_AUTOSHOTGUN);
+						playerStatusPtr->WeaponSlot[a].Possessed = 1;
+						playerStatusPtr->WeaponSlot[a].PrimaryRoundsRemaining = ONE_FIXED;
+						break;
+					case KIT_TECH:
+						a = SlotForThisWeapon(WEAPON_PLASMAGUN);
+						playerStatusPtr->WeaponSlot[a].Possessed = 1;
+						playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining = 1;
+						
+						//playerStatusPtr->Medikit = 10;
+						break;
+					case KIT_DEMO:
+						a = SlotForThisWeapon(WEAPON_MINIGUN);
+						playerStatusPtr->WeaponSlot[a].Possessed = 1;
+						playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining = 1;
+
+						playerStatusPtr->Grenades += 2;
+						break;
+					default:
+						break;
+				}
+				switch(Kit[2])
+				{
+					case WEAPON_PULSERIFLE+1:
+						a = SlotForThisWeapon(WEAPON_PULSERIFLE);
+						playerStatusPtr->WeaponSlot[a].Possessed = 1;
+						playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining += 3;
+						playerStatusPtr->WeaponSlot[a].SecondaryRoundsRemaining = (ONE_FIXED*4);
+
+						playerStatusPtr->PreviouslySelectedWeaponSlot = a;
+    					playerStatusPtr->SwapToWeaponSlot = a;
+						break;
+					case WEAPON_FLAMETHROWER+1:
+						a = SlotForThisWeapon(WEAPON_FLAMETHROWER);
+						playerStatusPtr->WeaponSlot[a].Possessed = 1;
+						playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining = 1;
+
+						if (playerStatusPtr->Class == CLASS_RIFLEMAN)
+							playerStatusPtr->Grenades += 2;
+
+						playerStatusPtr->PreviouslySelectedWeaponSlot = a;
+    					playerStatusPtr->SwapToWeaponSlot = a;
+						break;
+					case WEAPON_GRENADELAUNCHER+1:
+						a = SlotForThisWeapon(WEAPON_GRENADELAUNCHER);
+						playerStatusPtr->WeaponSlot[a].Possessed = 1;
+						playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining += 3;
+
+						if (playerStatusPtr->Class == CLASS_RIFLEMAN)
+							playerStatusPtr->Grenades += 3;
+
+						playerStatusPtr->PreviouslySelectedWeaponSlot = a;
+    					playerStatusPtr->SwapToWeaponSlot = a;
+						break;
+					case WEAPON_SMARTGUN+1:
+						a = SlotForThisWeapon(WEAPON_SMARTGUN);
+						playerStatusPtr->WeaponSlot[a].Possessed = 1;
+						playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining = 1;
+
+						playerStatusPtr->PreviouslySelectedWeaponSlot = a;
+    					playerStatusPtr->SwapToWeaponSlot = a;
+						break;
+					default:
+						break;
+				}
+
 				switch(playerStatusPtr->Class)
 				{
 					case CLASS_NONE:
@@ -874,34 +1020,32 @@ void InitialisePlayersInventory(PLAYER_STATUS *playerStatusPtr)
 						a = SlotForThisWeapon(WEAPON_CUDGEL);
 						playerStatusPtr->WeaponSlot[a].Possessed = 1;
 
+						playerStatusPtr->PreviouslySelectedWeaponSlot = a;
+    					playerStatusPtr->SwapToWeaponSlot = a;
+
 						playerStatusPtr->invulnerabilityTimer = (ONE_FIXED*120);
 						break;
 					case CLASS_RIFLEMAN:
 						a = SlotForThisWeapon(WEAPON_MARINE_PISTOL);
 						playerStatusPtr->WeaponSlot[a].Possessed = 1;
-						playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining = 3;
+						playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining += 3;
 
-						a = SlotForThisWeapon(WEAPON_PULSERIFLE);
+						/*a = SlotForThisWeapon(WEAPON_PULSERIFLE);
 						playerStatusPtr->WeaponSlot[a].Possessed = 1;
 						playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining = 4;
 						playerStatusPtr->WeaponSlot[a].SecondaryRoundsRemaining = (ONE_FIXED*4);
 
-						playerStatusPtr->MTrackerType = 1;
+						playerStatusPtr->MTrackerType = 1;*/
 						playerStatusPtr->IRGoggles = 1;
-						playerStatusPtr->Grenades = 2;
+						//playerStatusPtr->Grenades = 2;
 
 						break;
 					case CLASS_SMARTGUNNER:
 						a = SlotForThisWeapon(WEAPON_MARINE_PISTOL);
 						playerStatusPtr->WeaponSlot[a].Possessed = 1;
-						playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining = 2;
-
-						a = SlotForThisWeapon(WEAPON_SMARTGUN);
-						playerStatusPtr->WeaponSlot[a].Possessed = 1;
-						playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining = 1;
+						playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining = 3;
 
 						playerStatusPtr->IRGoggles = 1;
-						playerStatusPtr->Grenades = 1;
 						break;
 					case CLASS_INC_SPEC:
 						a = SlotForThisWeapon(WEAPON_MARINE_PISTOL);
@@ -915,26 +1059,14 @@ void InitialisePlayersInventory(PLAYER_STATUS *playerStatusPtr)
 						playerStatusPtr->IRGoggles = 1;
 						playerStatusPtr->Grenades = 3;
 						break;
-					case CLASS_MEDIC_PR:
-						a = SlotForThisWeapon(WEAPON_MARINE_PISTOL);
-						playerStatusPtr->WeaponSlot[a].Possessed = 1;
-						playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining = 4;
-
-						a = SlotForThisWeapon(WEAPON_PULSERIFLE);
-						playerStatusPtr->WeaponSlot[a].Possessed = 1;
-						playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining = 3;
-						playerStatusPtr->WeaponSlot[a].SecondaryRoundsRemaining = (ONE_FIXED*4);
-
-						playerStatusPtr->Medikit = 10;
-						break;
 					case CLASS_MEDIC_FT:
 						a = SlotForThisWeapon(WEAPON_MARINE_PISTOL);
 						playerStatusPtr->WeaponSlot[a].Possessed = 1;
-						playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining = 4;
+						playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining += 3;
 
-						a = SlotForThisWeapon(WEAPON_FLAMETHROWER);
+						/*a = SlotForThisWeapon(WEAPON_FLAMETHROWER);
 						playerStatusPtr->WeaponSlot[a].Possessed = 1;
-						playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining = 1;
+						playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining = 1;*/
 
 						playerStatusPtr->Medikit = 10;
 						playerStatusPtr->IRGoggles = 1;
@@ -942,15 +1074,16 @@ void InitialisePlayersInventory(PLAYER_STATUS *playerStatusPtr)
 					case CLASS_AA_SPEC:
 						a = SlotForThisWeapon(WEAPON_MARINE_PISTOL);
 						playerStatusPtr->WeaponSlot[a].Possessed = 1;
-						playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining = 3;
+						playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining += 3;
 
-						a = SlotForThisWeapon(WEAPON_PULSERIFLE);
+						/*a = SlotForThisWeapon(WEAPON_PULSERIFLE);
 						playerStatusPtr->WeaponSlot[a].Possessed = 1;
 						playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining = 4;
 						playerStatusPtr->WeaponSlot[a].SecondaryRoundsRemaining = (ONE_FIXED*4);
 
 						playerStatusPtr->FlaresLeft = 8;
-						playerStatusPtr->Grenades = 5;
+						playerStatusPtr->Grenades = 5;*/
+						playerStatusPtr->IRGoggles = 1;
 						break;
 					case CLASS_COM_TECH:
 						a = SlotForThisWeapon(WEAPON_MARINE_PISTOL);
@@ -990,9 +1123,9 @@ void InitialisePlayersInventory(PLAYER_STATUS *playerStatusPtr)
 					case CLASS_ENGINEER:
 						a = SlotForThisWeapon(WEAPON_MARINE_PISTOL);
 						playerStatusPtr->WeaponSlot[a].Possessed = 1;
-						playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining = 3;
+						playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining += 3;
 
-						a = SlotForThisWeapon(WEAPON_MINIGUN);
+						/*a = SlotForThisWeapon(WEAPON_MINIGUN);
 						playerStatusPtr->WeaponSlot[a].Possessed = 1;
 						playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining = 1;
 
@@ -1002,11 +1135,11 @@ void InitialisePlayersInventory(PLAYER_STATUS *playerStatusPtr)
 
 						a = SlotForThisWeapon(WEAPON_GRENADELAUNCHER);
 						playerStatusPtr->WeaponSlot[a].Possessed = 1;
-						playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining = 3;
+						playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining = 3;*/
 
 						playerStatusPtr->IRGoggles = 1;
-						playerStatusPtr->Grenades = 1;
-						playerStatusPtr->Medikit = 10;
+						//playerStatusPtr->Grenades = 1;
+						//playerStatusPtr->Medikit = 10;
 						break;
 					case CLASS_ARMORER:
 						a = SlotForThisWeapon(WEAPON_MARINE_PISTOL);
@@ -1024,20 +1157,28 @@ void InitialisePlayersInventory(PLAYER_STATUS *playerStatusPtr)
 						a = SlotForThisWeapon(WEAPON_CUDGEL);
 						playerStatusPtr->WeaponSlot[a].Possessed=1;
 
+						playerStatusPtr->PreviouslySelectedWeaponSlot = a;
+    					playerStatusPtr->SwapToWeaponSlot = a;
+
 						break;
 					case CLASS_ALIEN_WARRIOR:
 					case CLASS_ALIEN_DRONE:
 					case CLASS_TANK_ALIEN:
 					case CLASS_EXF_SNIPER:
 					case CLASS_EXF_W_SPEC:
+					case CLASS_MEDIC_PR:
+					case CLASS_CHESTBURSTER:
 						playerStatusPtr->Class = CLASS_NONE;
 						a = SlotForThisWeapon(WEAPON_CUDGEL);
 						playerStatusPtr->WeaponSlot[a].Possessed=1;
 
+						playerStatusPtr->PreviouslySelectedWeaponSlot = a;
+    					playerStatusPtr->SwapToWeaponSlot = a;
+
 						break;
 				}
-				playerStatusPtr->PreviouslySelectedWeaponSlot = a;
-    			playerStatusPtr->SwapToWeaponSlot = a;
+				//playerStatusPtr->PreviouslySelectedWeaponSlot = a;
+    			//playerStatusPtr->SwapToWeaponSlot = a;
 				
 			}
 			else
@@ -1266,7 +1407,6 @@ static int AbleToPickupAmmo(enum AMMO_ID ammoID)
 				{
 					case AMMO_10MM_CULW:
 						if (psPtr->Class != CLASS_RIFLEMAN &&
-							psPtr->Class != CLASS_MEDIC_PR &&
 							psPtr->Class != CLASS_COM_TECH &&
 							psPtr->Class != CLASS_EXF_INFANTRY &&
 							psPtr->Class != CLASS_AA_SPEC) {
@@ -1276,7 +1416,6 @@ static int AbleToPickupAmmo(enum AMMO_ID ammoID)
 					case AMMO_PULSE_GRENADE:
 						if (psPtr->Class != CLASS_RIFLEMAN &&
 							psPtr->Class != CLASS_COM_TECH &&
-							psPtr->Class != CLASS_MEDIC_PR &&
 							psPtr->Class != CLASS_AA_SPEC) {
 							return 0;
 						}
@@ -1632,7 +1771,6 @@ static int AbleToPickupWeapon(enum WEAPON_ID weaponID)
 				{
 					case WEAPON_PULSERIFLE:
 						if (psPtr->Class != CLASS_RIFLEMAN &&
-							psPtr->Class != CLASS_MEDIC_PR &&
 							psPtr->Class != CLASS_COM_TECH &&
 							psPtr->Class != CLASS_EXF_INFANTRY &&
 							psPtr->Class != CLASS_AA_SPEC) {
@@ -1858,11 +1996,7 @@ static int AbleToPickupHealth(int healthID)
 			int myIndex=PlayerIdInPlayerList(AVPDPNetID);
 			if(myIndex==NET_IDNOTINPLAYERLIST) return 0;
 
-			netGameData.playerData[myIndex].playerScore += 3;
-			AddNetMsg_ChatBroadcast("(AUTO) Rescued a cocooned civilian!",FALSE);
-			AddNetMsg_ScoreChange(myIndex,myIndex);
-			netGameData.teamScores[AvP.PlayerType]+=3;
-			AddNetMsg_SpeciesScores();
+			AddNetMsg_ChatBroadcast("Rescued a cocooned civilian!",TRUE);
 			return 1;
 		}
 		switch(AvP.PlayerType) 
@@ -2050,6 +2184,10 @@ static int AbleToPickupLiquid(int waterID, int integrity)
 	PLAYER_STATUS *playerStatusPtr= (PLAYER_STATUS *) (Player->ObStrategyBlock->SBdataptr);
 	GLOBALASSERT(playerStatusPtr);
 
+	/* Reset this so it can be set next update. */
+	if (AvP.Network != I_No_Network)
+		netGameData.specialCase = 0;
+
 	if (waterID == 2) {	//Mercury
 		if ((playerStatusPtr->ArmorType < 1) || (ERE_Broken())){  //Does not have protection
 			NPC_DATA *NpcData;
@@ -2156,9 +2294,9 @@ static int AbleToPickupLiquid(int waterID, int integrity)
 
 	/* Escape Points */
 	} else if (waterID == 10) {	// Marine Escape Point
-		if ((AvP.PlayerType == I_Marine) && (integrity == 200))
+		if ((AvP.PlayerType == I_Marine) /*&& (integrity == 200)*/)
 		{
-			int myIndex=PlayerIdInPlayerList(AVPDPNetID);
+			/*int myIndex=PlayerIdInPlayerList(AVPDPNetID);
 			if(myIndex==NET_IDNOTINPLAYERLIST) return 0;
 
 			netGameData.playerData[myIndex].playerScore += 10;
@@ -2167,7 +2305,8 @@ static int AbleToPickupLiquid(int waterID, int integrity)
 			GetNextMultiplayerObservedPlayer();
 			AddNetMsg_ScoreChange(myIndex,myIndex);
 			netGameData.teamScores[AvP.PlayerType]+=10;
-			AddNetMsg_SpeciesScores();
+			AddNetMsg_SpeciesScores();*/
+			netGameData.specialCase = 3;	// escaping
 		} else
 			return 0;
 	} else if (waterID == 11) {	// Alien Escape Point
@@ -2384,10 +2523,13 @@ extern void RemovePickedUpObject(STRATEGYBLOCK *objectPtr)
 	if(AvP.Network==I_No_Network) DestroyAnyStrategyBlock(objectPtr);
 	else
 	{
+		/* Made a slight change here so that all objects in MP are destroyed. -- Eld */
 		#if SupportWindows95
-		AddNetMsg_ObjectPickedUp(&objectPtr->SBname[0]);
+		//AddNetMsg_ObjectPickedUp(&objectPtr->SBname[0]);
+		AddNetMsg_LocalObjectDestroyed(objectPtr);
 		#endif
-		KillInanimateObjectForRespawn(objectPtr);
+		//KillInanimateObjectForRespawn(objectPtr);
+		DestroyAnyStrategyBlock(objectPtr);
 	}
 
 }
@@ -2757,6 +2899,7 @@ void Reload_Weapon(void)
 {
   PLAYER_WEAPON_DATA *weaponPtr;
   PLAYER_STATUS *playerStatusPtr= (PLAYER_STATUS *) (Player->ObStrategyBlock->SBdataptr);
+  TEMPLATE_WEAPON_DATA *twPtr;
   GLOBALASSERT(playerStatusPtr);
   GLOBALASSERT(playerStatusPtr->SelectedWeaponSlot<MAX_NO_OF_WEAPON_SLOTS);
 
@@ -2777,8 +2920,22 @@ void Reload_Weapon(void)
   /* No weapon, no reload */
   if (weaponPtr->WeaponIDNumber == NULL_WEAPON) return;
 
-  if (weaponPtr->PrimaryMagazinesRemaining) {
-    weaponPtr->PrimaryRoundsRemaining = 0;
-    playerStatusPtr->Mvt_InputRequests.Flags.Rqst_FirePrimaryWeapon = 1;
+  /* Already in reload state? */
+  if (weaponPtr->CurrentState == WEAPONSTATE_RELOAD_PRIMARY) return;
+
+  if (weaponPtr->PrimaryMagazinesRemaining)
+  {
+	  if (weaponPtr->WeaponIDNumber != WEAPON_GRENADELAUNCHER)
+	  {
+		  weaponPtr->PrimaryRoundsRemaining = 0;
+	  }
+
+	  //playerStatusPtr->Mvt_InputRequests.Flags.Rqst_FirePrimaryWeapon = 1;
+	  weaponPtr->CurrentState = WEAPONSTATE_RELOAD_PRIMARY;
+	  weaponPtr->StateTimeOutCounter = WEAPONSTATE_INITIALTIMEOUTCOUNT;
+	  
+	  twPtr = &TemplateWeapon[weaponPtr->WeaponIDNumber];
+	  
+	  (*twPtr->WeaponStateFunction[weaponPtr->CurrentState])((void *)playerStatusPtr, weaponPtr);
   }
 }

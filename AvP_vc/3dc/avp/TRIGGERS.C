@@ -31,6 +31,7 @@
 
 int Operable;
 extern int HackPool;
+extern int Kit[3];
 
 extern void HealPlayer();
 extern void RepairPlayer();
@@ -220,7 +221,7 @@ void CheckOperableObject(void)
 			{
 				if (strstr(nearestObjectPtr->ObStrategyBlock->name,"hack"))
 				{
-					if (playerStatusPtr->Class == CLASS_COM_TECH)
+					if ((Kit[0] == KIT_COMTECH) || (Kit[1] == KIT_COMTECH))
 						Operable=3;
 					else
 						Operable=1;

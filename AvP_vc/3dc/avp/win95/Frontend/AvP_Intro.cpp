@@ -14,6 +14,8 @@ extern "C"
 	extern int GotAnyKey;
 	extern int DebouncedGotAnyKey;
 
+	extern int mouseLeft, mouseRight, mouseX, mouseY;
+
 	extern AVPMENUGFX AvPMenuGfxStorage[];
 extern void DirectReadKeyboard(void);
 
@@ -62,8 +64,8 @@ extern void PlayIntroSequence(void)
 	
 	Show_Presents();
 	#if ALLOW_SKIP_INTRO
-	if (!GotAnyKey) Show_ARebellionGame();
-	if (!GotAnyKey) Show_AvPLogo();
+	if (!GotAnyKey && !mouseLeft && !mouseRight) Show_ARebellionGame();
+	if (!GotAnyKey && !mouseLeft && !mouseRight) Show_AvPLogo();
 	#else
 	Show_ARebellionGame();
 	Show_AvPLogo();
@@ -234,7 +236,7 @@ void Show_Presents(void)
 		timeRemaining-=NormalFrameTime;
 	}
 	#if ALLOW_SKIP_INTRO
-	while((timeRemaining>0) && !GotAnyKey);
+	while((timeRemaining>0) && !GotAnyKey && !mouseLeft && !mouseRight);
 	#else
 	while(timeRemaining>0);// && !GotAnyKey);
 	#endif
@@ -279,7 +281,7 @@ void Show_ARebellionGame(void)
 		timeRemaining-=NormalFrameTime;
 	}
 	#if ALLOW_SKIP_INTRO
-	while((timeRemaining>0) && !GotAnyKey);
+	while((timeRemaining>0) && !GotAnyKey && !mouseLeft && !mouseRight);
 	#else
 	while(timeRemaining>0);// && !GotAnyKey);
 	#endif
@@ -317,7 +319,7 @@ void Show_AvPLogo(void)
 		timeRemaining-=NormalFrameTime;
 	}
 	#if ALLOW_SKIP_INTRO
-	while((timeRemaining>0) && !GotAnyKey);
+	while((timeRemaining>0) && !GotAnyKey && !mouseLeft && !mouseRight);
 	#else
 	while(timeRemaining>0);// && !GotAnyKey);
 	#endif

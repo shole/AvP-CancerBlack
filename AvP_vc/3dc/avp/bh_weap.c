@@ -1599,7 +1599,7 @@ extern void ProximityGrenadeBehaviour(STRATEGYBLOCK *sbPtr)
 
    	if (bbPtr->LifeTimeRemaining<=PROX_GRENADE_TRIGGER_TIME && bbPtr->SoundHandle==SOUND_NOACTIVEINDEX)
 	{
-		Sound_Play(SID_PROX_GRENADE_READYTOBLOW,"de",&(dynPtr->Position),&bbPtr->SoundHandle);
+		//Sound_Play(SID_PROX_GRENADE_READYTOBLOW,"de",&(dynPtr->Position),&bbPtr->SoundHandle);
 	}
    	bbPtr->LifeTimeRemaining-=NormalFrameTime;
 
@@ -1860,7 +1860,7 @@ extern void PulseGrenadeBehaviour(STRATEGYBLOCK *sbPtr)
 			if (objStatPtr->typeId == IOT_Key) {
 				dynPtr->OnlyCollideWithEnvironment=1;
 				reportPtr = NULL;
-				return;
+				//return;
 			}
 		}
 		if (reportPtr) {
@@ -1908,6 +1908,9 @@ extern void PulseGrenadeBehaviour(STRATEGYBLOCK *sbPtr)
 	else
 	{
 		bbPtr->counter-=NormalFrameTime;
+
+		/* Apply gravity */
+		dynPtr->LinVelocity.vy = dynPtr->LinVelocity.vy+500;
 	}
 }
 

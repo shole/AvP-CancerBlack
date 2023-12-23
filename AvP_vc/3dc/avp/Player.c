@@ -58,8 +58,16 @@ extern int predHUDSoundHandle;
 extern int predOVision_SoundHandle;
 extern int InfLamp;
 extern int Ladder[20];
+extern int StrugglePool;
+int StrugglePoolDelay;
+
+extern char LevelName[];
+extern int GlobalAmbience;
 
 extern DPID HuggedPlayer;
+extern DPID GrabbedPlayer;
+extern SCREENDESCRIPTORBLOCK ScreenDescriptorBlock;
+extern void RenderStringCentred(char *stringPtr, int centreX, int y, int colour);
 
 extern void DisableShoulderLamp();
 extern void NetPlayerRespawn(STRATEGYBLOCK *sbPtr);
@@ -84,6 +92,7 @@ extern void CheckIfClassIsAvailable(void);
 
 extern int AIModuleArraySize;
 extern int GrenadeDelay;
+extern float Stamina;
 extern int ZeroG;
 extern int Underwater;
 extern int Surface;
@@ -95,6 +104,7 @@ extern int CurrentLadder;
 // resetting score when changing class
 extern void ResetScore();
 extern void DisplayNote(enum TEXTSTRING_ID string_id);
+extern VECTORCH CurrentYValue;
 
 int GimmeChargeCalls;
 int HtoHStrikes;
@@ -108,6 +118,9 @@ int TurretTimer;
 int OnLadder;
 unsigned int CheckLadders;
 int impregnation;
+int ChangedMyClass;
+int evolution;
+int evolveInto;
 
 int TrickleCharge=9000;
 int CloakDrain=12000;
@@ -508,6 +521,8 @@ void ChangeToAlien()
 		ResetScore();
 		TeleportNetPlayerToAStartingPosition(Player->ObStrategyBlock, FALSE);
 		CheckIfClassIsAvailable();
+
+		ChangedMyClass = 1;
 	}
 }
 void ChangeToPredator()
@@ -607,7 +622,51 @@ void MaintainPlayer(void)
 	CheckOperableObject();
 
 	/* Play Music */
-	PlayBackgroundMusic();
+	if (AvP.Network == I_No_Network)
+		PlayBackgroundMusic();
+
+#if 0
+	/* Check for evolution. */
+	if ((evolution > 0) && (playerStatusPtr->Class == CLASS_CHESTBURSTER))
+	{
+		if (evolution < (ONE_FIXED))
+		{
+			playerStatusPtr->Class = evolveInto;
+
+			ChangedMyClass = 1;
+			//ChangeToAlien();
+			
+			if (PlayerStatusPtr->Class == CLASS_EXF_SNIPER)
+			{
+				Sound_Play(SID_ED_SKEETERDISC_HITWALL,"hep",&PlayerStatusPtr->soundHandle, -100);
+				NewOnScreenMessage("You have evolved into a Predalien.");
+			}
+			else
+			{
+				Sound_Play(SID_ED_SKEETERDISC_HITWALL,"he",&PlayerStatusPtr->soundHandle);
+				NewOnScreenMessage("You have evolved into a Drone.");
+			}
+
+			evolution = 0;
+			evolveInto = 0;
+		}
+		else
+		{
+			evolution -= NormalFrameTime;
+		}
+	}
+	else
+	{
+		evolution = 0;
+	}
+#endif
+	/* Deter StrugglePool. */
+	if ((AvP.Network != I_No_Network) && (StrugglePoolDelay > 0))
+	{
+		StrugglePoolDelay -= (NormalFrameTime*10);
+
+		if (StrugglePoolDelay <= (ONE_FIXED)) StrugglePoolDelay = 0;
+	}
 
 	/* Check LadderVolumes */
 	if (CheckLadders)
@@ -641,12 +700,18 @@ void MaintainPlayer(void)
 		{
 			DYNAMICSBLOCK *dynPtr = Player->ObStrategyBlock->DynPtr;
 
-			if (dynPtr->LinVelocity.vx || dynPtr->LinVelocity.vy || dynPtr->LinVelocity.vz)
+			if (dynPtr->LinVelocity.vx || dynPtr->LinVelocity.vy || dynPtr->LinVelocity.vz ||
+				dynPtr->LinImpulse.vx || dynPtr->LinImpulse.vy || dynPtr->LinImpulse.vz)
 			{
 				playerStatusPtr->cloakOn = 0;
 				playerStatusPtr->CloakingEffectiveness = 0;
 			}
 			if (!playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Crouch)
+			{
+				playerStatusPtr->cloakOn = 0;
+				playerStatusPtr->CloakingEffectiveness = 0;
+			}
+			if (playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Jump)
 			{
 				playerStatusPtr->cloakOn = 0;
 				playerStatusPtr->CloakingEffectiveness = 0;
@@ -678,10 +743,15 @@ void MaintainPlayer(void)
 						if (!HuggedPlayer)
 						{
 							NETGHOSTDATABLOCK *ghostData = reportPtr->ObstacleSBPtr->SBdataptr;
-							Sound_Play(SID_ED_FACEHUGGERSLAP, "h");
-							HuggedPlayer = ghostData->playerId;
-							MeleeWeapon_180Degree_Front_Core(&TemplateAmmo[AMMO_FACEHUGGER].MaxDamage[AvP.Difficulty], ONE_FIXED, TemplateAmmo[AMMO_FACEHUGGER].MaxRange);
-							PlayerStatusPtr->AirSupply = (ONE_FIXED*30);
+
+							if ((ghostData->type != I_BehaviourAlienPlayer) &&
+								(ghostData->subtype != NGSCT_PulseRifle))
+							{
+								Sound_Play(SID_ED_FACEHUGGERSLAP, "h");
+								HuggedPlayer = ghostData->playerId;
+								MeleeWeapon_180Degree_Front_Core(&TemplateAmmo[AMMO_FACEHUGGER].MaxDamage[AvP.Difficulty], ONE_FIXED, TemplateAmmo[AMMO_FACEHUGGER].MaxRange);
+								PlayerStatusPtr->AirSupply = (ONE_FIXED*30);
+							}
 						}
 					}
 				}
@@ -808,7 +878,9 @@ void MaintainPlayer(void)
 					reportPtr->ObstacleSBPtr->I_SBtype == I_BehaviourInanimateObject) {
 					int speed = Approximate3dMagnitude(&Player->ObStrategyBlock->DynPtr->LinVelocity);
 
-					if (speed > 5000) {
+					if (speed > 5000 && 
+						(Player->ObStrategyBlock->DynPtr->LinVelocity.vx > 0 ||
+						 Player->ObStrategyBlock->DynPtr->LinVelocity.vx > 0)) {
 						Sound_Play(SID_ED_LARGEWEAPONDROP,"h");
 						CauseDamageToObject(reportPtr->ObstacleSBPtr,&TemplateAmmo[AMMO_FRISBEE].MaxDamage[AvP.Difficulty],ONE_FIXED,NULL);
 					}
@@ -895,11 +967,20 @@ void MaintainPlayer(void)
 			CurrentVisionMode = VISION_MODE_NORMAL;
 		}
 	}
-	/* Handgrenade Timer */
+	/* Handgrenade timer */
 	if (GrenadeDelay > ONE_FIXED) {
 		GrenadeDelay -= NormalFrameTime;
 	} else {
 		GrenadeDelay = 0;
+	}
+	/* Stamina timer */
+	if (Stamina < 2.5)
+	{
+		if (Stamina < 0.0) Stamina = 0.0;
+
+		Stamina = (Stamina+0.006);
+
+		if (Stamina > 2.5) Stamina = 2.5;
 	}
 
     if (playerStatusPtr->IsAlive)
@@ -968,72 +1049,6 @@ void MaintainPlayer(void)
 			Fog = 0;
 		}
 	}
-	// Surface Containment
-#if 0
-	if (Surface==1)
-	{
-		playerStatusPtr->OnSurface = 1;
-	} else {
-		playerStatusPtr->OnSurface = 0;
-	}
-	if ((playerStatusPtr->OnSurface) && (AvP.PlayerType == I_Marine))
-	{
-		/* Proper protection from Radiation? */
-		if ((playerStatusPtr->ArmorType < 1) || (playerStatusPtr->AirSupply == 0) || (ERE_Broken())){
-			CauseDamageToObject(Player->ObStrategyBlock,&TemplateAmmo[AMMO_PARTICLE_BEAM].MaxDamage[AvP.Difficulty], ONE_FIXED,NULL);
-			//Sound_Play(SID_ACID_SPRAY,"h");
-		} else {
-			NPC_DATA *NpcData;
-			NPC_TYPES PlayerType;
-
-			switch(AvP.PlayerType) {
-			case(I_Marine):
-			{
-				switch (AvP.Difficulty) {
-				case I_Easy:
-					PlayerType=I_PC_Marine_Easy;
-					break;
-				default:
-				case I_Medium:
-					PlayerType=I_PC_Marine_Medium;
-					break;
-				case I_Hard:
-					PlayerType=I_PC_Marine_Hard;
-					break;
-				case I_Impossible:
-					PlayerType=I_PC_Marine_Impossible;
-					break;
-				}
-				break;
-			}
-			case(I_Predator):
-			{
-				return;
-				break;
-			}
-			case(I_Alien):
-			{
-				return;
-				break;
-			}
-			default:
-			{
-				LOCALASSERT(1==0);
-				break;
-			}
-		} //Switch
-		NpcData=GetThisNpcData(PlayerType);
-		LOCALASSERT(NpcData);
-		
-		if (Player->ObStrategyBlock->SBDamageBlock.Armour < NpcData->StartingStats.Armour<<ONE_FIXED_SHIFT) {
-			CauseDamageToObject(Player->ObStrategyBlock,&TemplateAmmo[AMMO_PARTICLE_BEAM].MaxDamage[AvP.Difficulty], ONE_FIXED,NULL);
-			//Sound_Play(SID_ACID_SPRAY,"h");
-		}
-		if (Player->ObStrategyBlock->SBDamageBlock.IsOnFire)	//On fire? Put it out
-			Player->ObStrategyBlock->SBDamageBlock.IsOnFire = 0;
-		}
-	}
-#endif
 	/* Drowning!! */
 	if ((Underwater==1) && (AvP.PlayerType == I_Marine))
 	{
@@ -1158,38 +1173,11 @@ void MaintainPlayer(void)
 		Sound_Play(SID_PRED_CLOAKOFF,"h");
 	}
 
-	// Make nice FX for drill
+	// Make nice FX for flamethrower
 	if (!playerStatusPtr->Mvt_InputRequests.Flags.Rqst_FirePrimaryWeapon)
 	{
 		PLAYER_WEAPON_DATA *weaponPtr = &(playerStatusPtr->WeaponSlot[playerStatusPtr->SelectedWeaponSlot]);
 
-		/*
-		if (weaponPtr->WeaponIDNumber==WEAPON_MINIGUN) 
-		{
-			if (FastRandom()%10 <= 1)
-			{
-				VECTORCH velocity;
-				VECTORCH position = PWMFSDP->World_Offset;//PlayersWeaponMuzzleFlash.ObWorld;
-				int i;
-
-				for (i=0; i<5; i++) {
-					position.vx += (FastRandom()&15)-8;
-					position.vy += (FastRandom()&15)-8;
-					position.vz += (FastRandom()&15)-8;
-
-					velocity.vx = (FastRandom()&2047)-1024;
-					velocity.vy = (FastRandom()&2047)-1024;
-					velocity.vz = (FastRandom()&2047)-1024;
-					MakeParticle(&position,&velocity,PARTICLE_DRILL2);	
-					velocity.vx = (FastRandom()&2047)-1024;
-					velocity.vy = (FastRandom()&2047)-1024;
-					velocity.vz = (FastRandom()&2047)-1024;
-					MakeParticle(&position,&velocity,PARTICLE_DRILL2);
-				}
-			}
-			MakeLightElement(&Player->ObStrategyBlock->DynPtr->Position,LIGHTELEMENT_ELECTRICAL_SPARKS);
-		}
-		*/
 		if (weaponPtr->WeaponIDNumber==WEAPON_FLAMETHROWER)
 		{
 			if (FastRandom()%10 <= 1)
@@ -1223,42 +1211,6 @@ void MaintainPlayer(void)
 			if (playerStatusPtr->MTrackerType >= 2)
 				playerStatusPtr->MTrackerType = 1;
 		}
-		/*if((weaponPtr->WeaponIDNumber==WEAPON_MINIGUN) && (playerStatusPtr->IsMovingInWater))
-		{
-			Sound_Play(SID_ED_ELEC_DEATH,"h");
-			CauseDamageToObject(Player->ObStrategyBlock,&TemplateAmmo[AMMO_FRISBEE].MaxDamage[AvP.Difficulty],ONE_FIXED,NULL);
-		}
-		if((weaponPtr->WeaponIDNumber==WEAPON_MINIGUN) && (Underwater==1))
-		{
-			Sound_Play(SID_ED_ELEC_DEATH,"h");
-			CauseDamageToObject(Player->ObStrategyBlock,&TemplateAmmo[AMMO_FRISBEE].MaxDamage[AvP.Difficulty],ONE_FIXED,NULL);
-		}
-		if ((weaponPtr->WeaponIDNumber==WEAPON_MINIGUN) && (Underwater==0) &&
-			(!playerStatusPtr->IsMovingInWater))
-		{
-			if (FastRandom()%10 <= 1)
-			{
-				VECTORCH velocity;
-				VECTORCH position = PWMFSDP->World_Offset;//PlayersWeaponMuzzleFlash.ObWorld;
-				int i;
-
-				for (i=0; i<5; i++) {
-					position.vx += (FastRandom()&15)-8;
-					position.vy += (FastRandom()&15)-8;
-					position.vz += (FastRandom()&15)-8;
-
-					velocity.vx = (FastRandom()&2047)-1024;
-					velocity.vy = (FastRandom()&2047)-1024;
-					velocity.vz = (FastRandom()&2047)-1024;
-					MakeParticle(&position,&velocity,PARTICLE_DRILL);	
-					velocity.vx = (FastRandom()&2047)-1024;
-					velocity.vy = (FastRandom()&2047)-1024;
-					velocity.vz = (FastRandom()&2047)-1024;
-					MakeParticle(&position,&velocity,PARTICLE_DRILL);
-				}
-			}
-			MakeLightElement(&Player->ObStrategyBlock->DynPtr->Position,LIGHTELEMENT_ELECTRICAL_SPARKS);
-		}*/
 	}
 
 	if (playerStatusPtr->Mvt_InputRequests.Flags.Rqst_FireSecondaryWeapon)
@@ -1337,9 +1289,11 @@ void MaintainPlayer(void)
 			CauseDamageToObject(Player->ObStrategyBlock, &certainDeath, ONE_FIXED, NULL);
 
 			if (netGameData.playerData[index].characterType == NGCT_Marine)
-	 			playerStatusPtr->Cocoons = CLASS_ALIEN_DRONE;
+	 			evolveInto = CLASS_ALIEN_DRONE;
 			else if (netGameData.playerData[index].characterType == NGCT_Predator)
-				playerStatusPtr->Cocoons = CLASS_EXF_SNIPER;
+				evolveInto = CLASS_EXF_SNIPER;
+
+			playerStatusPtr->Cocoons = evolveInto;//CLASS_CHESTBURSTER;
 
 			HuggedPlayer=0;
 			impregnation=0;
@@ -1415,7 +1369,7 @@ void MaintainPlayer(void)
 		}
 	}
 	/* Is the player immobilized? */
-	if (playerStatusPtr->Immobilized > 0)
+	if ((playerStatusPtr->Immobilized > 0) && (playerStatusPtr->Immobilized < (ONE_FIXED*330)))
 	{
 		playerStatusPtr->Immobilized -= NormalFrameTime;
 
@@ -1424,7 +1378,13 @@ void MaintainPlayer(void)
 			playerStatusPtr->Immobilized = 0;
 		}
 	} else {
-		playerStatusPtr->Immobilized = 0;
+		if (playerStatusPtr->Immobilized < (ONE_FIXED*330))
+			playerStatusPtr->Immobilized = 0;
+		else
+		{
+			if (AvP.Network != I_No_Network)
+				netGameData.specialCase = 1; // cocooned
+		}
 	}
 	/* Special Coding for the mp_jungle level */
 	if (playerStatusPtr->Destr == -1)
@@ -1498,10 +1458,10 @@ void MaintainPlayer(void)
 			/* Go out? */
 			speed=Approximate3dMagnitude(&Player->ObStrategyBlock->DynPtr->LinVelocity);
 
-			if (speed>22000) {
+			if (speed>15000) {
 				/* Jumping alien. */
 				playerStatusPtr->fireTimer-=(NormalFrameTime*6);
-			} else if (speed>15000) {
+			} else if (speed>10000) {
 				/* Running alien. */
 				playerStatusPtr->fireTimer-=(NormalFrameTime<<2);
 			} else {
@@ -1594,9 +1554,10 @@ void MaintainPlayer(void)
 
 		int speed = Approximate3dMagnitude(&Player->ObStrategyBlock->DynPtr->LinVelocity);
 		int pitch;
-		//int ex;
+		//int ex, t_ex; //wex, t_wex
 
-		if (playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Crouch) speed=0;
+		//if (playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Crouch) speed=0;
+		//if (playerStatusPtr->ShapeState != PMph_Standing) speed=0; // Bugfix for crouchmode Toggle...
 		if (playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Jump) speed=0;
 		if (Underwater == 1 || ZeroG == 1) speed=0;
 		if (!Player->ObStrategyBlock->DynPtr->IsInContactWithFloor) speed=0;
@@ -1605,6 +1566,8 @@ void MaintainPlayer(void)
 
 		pitch=(FastRandom()%512)-256;
 		if (OnLadder) pitch=-10;
+		if (playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Crouch) pitch=-100;
+		if (playerStatusPtr->ShapeState != PMph_Standing) pitch=-100;
 
 		if (playerStatusPtr->soundHandle4<=0)
 		{ 
@@ -1617,50 +1580,66 @@ void MaintainPlayer(void)
 
 				playerStatusPtr->OnSurface = 0;
 			}
+
 			if (speed > 1000) {
 				if (AvP.PlayerType == I_Marine)
 				{
-					Sound_Play(SID_ED_JETPACK_END,"hp",pitch);
+					Sound_Play(SID_ED_JETPACK_END,"p",pitch);
 				}
 				if (AvP.PlayerType == I_Predator)
 				{
-					Sound_Play(SID_ED_JETPACK_START,"hp", pitch);
+					Sound_Play(SID_ED_JETPACK_START,"p", pitch);
 				}
 				if (AvP.PlayerType == I_Alien)
 				{
-					if (playerStatusPtr->Class == CLASS_EXF_W_SPEC)
-					{
-						Sound_Play(SID_FHUG_MOVE, "hp", pitch);
-						playerStatusPtr->soundHandle4=131072;
-					} else
-						Sound_Play(SID_ARMSTART,"hp", pitch);
+					if ((playerStatusPtr->Class != CLASS_EXF_W_SPEC) &&
+						(playerStatusPtr->Class != CLASS_CHESTBURSTER))
+						Sound_Play(SID_ARMSTART,"p", pitch);
 				}
 				if (AvP.Network != I_No_Network)
 				{
 					netGameData.footstepNoise = 1;
 				}
 			}
-			if (speed > 5000) {
+			if (speed > 6000) {
 				playerStatusPtr->soundHandle4=16384;
 			} else if (speed > 1000) {
 				playerStatusPtr->soundHandle4=49152;
 			}
+
 		} else {
-			/*
-			ex=0;
+#if 0
+			/* head bobbing & weapon swaying */
+			ex = CurrentYValue.vx;
+			//wex=CurrentYValue.vx; // might as well use these values :P
 
-			if (speed > 4000) {
-				ex=MUL_FIXED(24,GetSin(((playerStatusPtr->soundHandle4>>6)&wrap360)));
+			/* set target vector */
+			t_ex = CurrentYValue.vz;
+
+			if (t_ex == 
+
+			if (speed > 6000)
+			{
+				//ex=MUL_FIXED(32,GetSin(((playerStatusPtr->soundHandle4>>6)&wrap360)));
+				//wex=MUL_FIXED(64,GetSin(((playerStatusPtr->soundHandle4>>6)&wrap360)));
 			} else {
-				ex=MUL_FIXED(12, GetSin(((playerStatusPtr->soundHandle4>>6)&wrap360)));
+				//ex=MUL_FIXED(16, GetSin(((playerStatusPtr->soundHandle4>>6)&wrap360)));
+				//wex=MUL_FIXED(32,GetSin(((playerStatusPtr->soundHandle4>>6)&wrap360)));
 			}
-			ex = -ex;
-			ex&=wrap360;
+			//ex = -ex;
+			//ex&=wrap360;
+			//wex&=wrap360;
 
-			if (speed > 1000) {
+			if (speed)
+			{
+				PLAYER_STATUS *playerStatusPtr= (PLAYER_STATUS *) (Player->ObStrategyBlock->SBdataptr);
+				PLAYER_WEAPON_DATA *weaponPtr = &(playerStatusPtr->WeaponSlot[playerStatusPtr->SelectedWeaponSlot]);
+				TEMPLATE_WEAPON_DATA *twPtr = &TemplateWeapon[weaponPtr->WeaponIDNumber];
+
+				//twPtr->RestPosition.vx = -wex;
 				HeadOrientation.EulerX=ex;
 			}
-			*/
+#endif
 			playerStatusPtr->soundHandle4-=NormalFrameTime;
 		}
 	}
@@ -1770,6 +1749,9 @@ void MaintainPlayer(void)
 
 					if (playerStatusPtr->Class == CLASS_EXF_SNIPER)
 						Scream = 1;
+
+					if (playerStatusPtr->Class == CLASS_MEDIC_PR)
+						Scream = 2;
 
 					PlayAlienSound(Scream,ASC_Taunt,0,&playerStatusPtr->soundHandle,&(Player->ObStrategyBlock->DynPtr->Position));
 					if (AvP.Network!=I_No_Network)
@@ -1912,7 +1894,7 @@ void MaintainPlayer(void)
 
 #define SML_EXPL_FORCE (-10000)
 #define LRG_EXPL_FORCE (-20000)
-#define NET_FORCE	   (-30000)
+#define NET_FORCE	   (-10000)
 #define FORCE		   (-1000)
 
 void PlayerIsDamaged(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int multiplier,VECTORCH* incoming)
@@ -1930,12 +1912,6 @@ void PlayerIsDamaged(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int multiplie
 	deltaArmour=playerStatusPtr->Armour-sbPtr->SBDamageBlock.Armour;
 
 	CurrentGameStats_DamageTaken(deltaHealth,deltaArmour);
-	
-	/* Patrick 4/8/97--------------------------------------------------
-	A little hack-et to make the predator tougher in multiplayer games
-	------------------------------------------------------------------*/
-	//if((AvP.Network!=I_No_Network)&&(AvP.PlayerType==I_Predator)) damage>>=1;
-	/* ChrisF 16/9/97 No, predators are now... wait for it... tough. */
 
 	if (playerStatusPtr->IsAlive)
 	{
@@ -1966,6 +1942,9 @@ void PlayerIsDamaged(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int multiplie
 						if (playerStatusPtr->Class == CLASS_EXF_SNIPER)
 							Scream = 1;
 
+						if (playerStatusPtr->Class == CLASS_MEDIC_PR)
+							Scream = 2;
+
 						if ((damage->Impact==0) 		
 							&&(damage->Cutting==0)  	
 							&&(damage->Penetrative==0)
@@ -1973,11 +1952,19 @@ void PlayerIsDamaged(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int multiplie
 							&&(damage->Electrical==0)
 							&&(damage->Acid==0)
 							) {
-							PlayAlienSound(Scream,ASC_PC_OnFire,pitch,&playerStatusPtr->soundHandle,NULL);
-							if(AvP.Network!=I_No_Network) netGameData.myLastScream=ASC_PC_OnFire;
+							if ((playerStatusPtr->Class != CLASS_CHESTBURSTER) &&
+								(playerStatusPtr->Class != CLASS_EXF_W_SPEC))
+							{
+								PlayAlienSound(Scream,ASC_PC_OnFire,pitch,&playerStatusPtr->soundHandle,NULL);
+								if(AvP.Network!=I_No_Network) netGameData.myLastScream=ASC_PC_OnFire;
+							}
 						} else {
-							PlayAlienSound(Scream,ASC_Scream_Hurt,pitch,&playerStatusPtr->soundHandle,NULL);
-							if(AvP.Network!=I_No_Network) netGameData.myLastScream=ASC_Scream_Hurt;
+							if ((playerStatusPtr->Class != CLASS_CHESTBURSTER) &&
+								(playerStatusPtr->Class != CLASS_EXF_W_SPEC))
+							{
+								PlayAlienSound(Scream,ASC_Scream_Hurt,pitch,&playerStatusPtr->soundHandle,NULL);
+								if(AvP.Network!=I_No_Network) netGameData.myLastScream=ASC_Scream_Hurt;
+							}
 						}
 						break;
 					}
@@ -1986,6 +1973,9 @@ void PlayerIsDamaged(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int multiplie
 					{
 						if (damage->Id==AMMO_FACEHUGGER) {
 							PlayMarineScream((DetermineMarineVoice(playerStatusPtr->Class)),SC_Facehugged,pitch,&playerStatusPtr->soundHandle,NULL);
+						} else if (damage->Id == AMMO_FRISBEE_FIRE) {
+							PlayMarineScream(0, SC_Surprise, 0, &playerStatusPtr->soundHandle, NULL);
+							netGameData.myLastScream = SC_Surprise;
 						} else if (damage->Id==AMMO_FALLING_POSTMAX) {
 							PlayMarineScream((DetermineMarineVoice(playerStatusPtr->Class)),SC_Pain,pitch,&playerStatusPtr->soundHandle,NULL);
 						} else if ((damage->Impact==0)
@@ -2082,13 +2072,20 @@ void PlayerIsDamaged(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int multiplie
 		if (!playerStatusPtr->Honor) {
 			if ((damage->Id == AMMO_SHOTGUN) && (incoming))
 			{
-				VECTORCH x;
+				if (AvP.Network == I_No_Network)
+				{
+					VECTORCH x;
+	
+					RotateAndCopyVector(incoming,&x,&Player->ObStrategyBlock->DynPtr->OrientMat);
 
-				RotateAndCopyVector(incoming,&x,&Player->ObStrategyBlock->DynPtr->OrientMat);
-
-				Player->ObStrategyBlock->DynPtr->LinImpulse.vx+=MUL_FIXED(x.vx,NET_FORCE);
-				Player->ObStrategyBlock->DynPtr->LinImpulse.vy+=MUL_FIXED(x.vy,NET_FORCE);
-				Player->ObStrategyBlock->DynPtr->LinImpulse.vz+=MUL_FIXED(x.vz,NET_FORCE);
+					Player->ObStrategyBlock->DynPtr->LinImpulse.vx+=MUL_FIXED(x.vx,NET_FORCE);
+					Player->ObStrategyBlock->DynPtr->LinImpulse.vy+=MUL_FIXED(x.vy,NET_FORCE);
+					Player->ObStrategyBlock->DynPtr->LinImpulse.vz+=MUL_FIXED(x.vz,NET_FORCE);
+				} else {
+					Player->ObStrategyBlock->DynPtr->LinImpulse.vx+=MUL_FIXED(incoming->vx,NET_FORCE);
+					Player->ObStrategyBlock->DynPtr->LinImpulse.vy+=MUL_FIXED(incoming->vy,NET_FORCE);
+					Player->ObStrategyBlock->DynPtr->LinImpulse.vz+=MUL_FIXED(incoming->vz,NET_FORCE);
+				}
 			}
 			if ((damage->Id == AMMO_FRISBEE_FIRE) && (incoming))
 			{
@@ -2121,6 +2118,27 @@ void PlayerIsDamaged(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int multiplie
 					PlayerStatusPtr->AirSupply = 0;
 					PlayerStatusPtr->ChestbursterTimer = 0;
 					impregnation = 0;
+				}
+
+				if (GrabbedPlayer)
+				{
+					GrabbedPlayer = 0;
+					StrugglePool = 0;
+
+					//reset dynamics
+					{
+						EULER zeroEuler = {0,0,0};
+						VECTORCH zeroVec = {0,0,0};
+						DYNAMICSBLOCK *dynPtr = Player->ObStrategyBlock->DynPtr;
+
+						dynPtr->Position = Player->ObStrategyBlock->DynPtr->Position;
+						dynPtr->OrientEuler = zeroEuler;
+						dynPtr->LinVelocity = zeroVec;
+						dynPtr->LinImpulse = zeroVec;
+
+						CreateEulerMatrix(&dynPtr->OrientEuler, &dynPtr->OrientMat);
+						TransposeMatrixCH(&dynPtr->OrientMat);
+					}
 				}
 			}
 		}
@@ -2281,8 +2299,14 @@ static void PlayerIsDead(DAMAGE_PROFILE* damage,int multiplier,VECTORCH* incomin
 		{
 			if (playerStatusPtr->Class == CLASS_EXF_SNIPER)
 				PlayAlienSound(1,ASC_Scream_Dying,0,NULL,NULL);
+			else if (playerStatusPtr->Class == CLASS_MEDIC_PR)
+				PlayAlienSound(2,ASC_Scream_Dying,0,NULL,NULL);
 			else
-				PlayAlienSound(0,ASC_Scream_Dying,0,NULL,NULL);
+				if ((playerStatusPtr->Class != CLASS_CHESTBURSTER) &&
+					(playerStatusPtr->Class != CLASS_EXF_W_SPEC))
+				{
+					PlayAlienSound(0,ASC_Scream_Dying,0,NULL,NULL);
+				}
 		  break;
 		}
 		case I_Marine:
@@ -2313,6 +2337,19 @@ static void PlayerIsDead(DAMAGE_PROFILE* damage,int multiplier,VECTORCH* incomin
 		{
 			break;  
 		}  
+	}
+
+	/* Reset all network identifiers */
+	{
+		extern DPID GrabbedPlayer;
+		extern DPID GrabPlayer;
+		extern DPID HuggedPlayer;
+		extern DPID HuggedBy;
+
+		GrabbedPlayer = 0;
+		GrabPlayer = 0;
+		HuggedPlayer = 0;
+		HuggedBy = 0;
 	}
 
 	/* Well, it was nice knowing you. */
@@ -2514,7 +2551,7 @@ static void PlayerIsDead(DAMAGE_PROFILE* damage,int multiplier,VECTORCH* incomin
 				}
 			}
 		}
-		else if(netGameData.gameType==NGT_PredatorTag || netGameData.gameType==NGT_AlienTag)
+		if (!stricmp("Custom\\am_jockey_ship", &LevelName))
 		{
 			//we may need to change character
 			extern void SpeciesTag_DetermineMyNextCharacterType();

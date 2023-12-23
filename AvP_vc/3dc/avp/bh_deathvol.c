@@ -53,8 +53,6 @@ void* DeathVolumeBehaveInit(void* bhdata,STRATEGYBLOCK* sbptr)
 
 }
 
-
-
 void DeathVolumeBehaveFun(STRATEGYBLOCK* vol_sbptr)
 {
 	DEATH_VOLUME_BEHAV_BLOCK* dv_bhv;
@@ -147,7 +145,8 @@ void DeathVolumeBehaveFun(STRATEGYBLOCK* vol_sbptr)
 							Ladder[CurrentLadder] = 1;
 							return;
 						}
-						CauseDamageToObject(sbPtr,&damage,NormalFrameTime,&direction);
+						if (damage.Penetrative < 99)
+							CauseDamageToObject(sbPtr,&damage,NormalFrameTime,&direction);
 					}
 					else
 					{

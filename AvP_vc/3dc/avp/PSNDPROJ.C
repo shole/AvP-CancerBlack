@@ -69,6 +69,7 @@ int playerNoise;
   ----------------------------------------------------------------------------*/
 extern int NormalFrameTime;
 extern ACTIVESOUNDSAMPLE ActiveSounds[];
+extern int Underwater;
 
 /* Patrick 5/6/97 -------------------------------------------------------------
   Function definitions 
@@ -633,15 +634,22 @@ void DoPlayerSounds(void)
 
 		case(WEAPON_PRED_SHOULDERCANNON):
 		{
-			if(weaponPtr->CurrentState == WEAPONSTATE_FIRING_PRIMARY)			
+			/*if(weaponPtr->CurrentState == WEAPONSTATE_FIRING_PRIMARY)			
 			{
 				if(playOneShotWS) 
 				{
-					Sound_Play(SID_PRED_LAUNCHER,"hp",(FastRandom()&255)-128);
+					
 					playOneShotWS = 0;
 				}
 			}
-			else playOneShotWS = 1;
+			else
+			{
+				extern HMODELCONTROLLER PlayersWeaponHModelController;
+
+				if ((!Underwater) &&
+					(!PlayersWeaponHModelController.keyframe_flags))
+					playOneShotWS = 1;
+			}*/
 			break;
 		}	 
 
@@ -1022,7 +1030,7 @@ void LoadSounds(char *soundDirectory)
 		strcat(filename, "\\");
 //		strcat(filename, soundDirectory);
 //		strcat(filename, ".RebSnd");
-		strcat(filename, "cb_common.ffl");//"common.ffl");
+		strcat(filename, "cb_common.ffl");//"common.ffl"); // not the cause of memory leak.
 
 		rebSndBuffer = LoadRebSndFile(filename);
 

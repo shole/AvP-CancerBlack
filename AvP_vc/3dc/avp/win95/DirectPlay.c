@@ -29,8 +29,9 @@ BOOL GotTCPIP;
 /*
 Version 0 - Original multiplayer + save patch
 Version 100 - Added pistol,skeeter (and new levels)
+Version 10x - Cancer Black
 */
-#define AVP_MULTIPLAYER_VERSION 100
+#define AVP_MULTIPLAYER_VERSION 101
 
 extern void MinimalNetCollectMessages(void);
 extern void InitAVPNetGameForHost(int species, int gamestyle, int level);
@@ -116,7 +117,8 @@ int DirectPlay_HostGame(char *playerName, char *sessionName,int species,int game
 {
 	int maxPlayers=DetermineAvailableCharacterTypes(FALSE);
 	if(maxPlayers<1) maxPlayers=1;
-	if(maxPlayers>8) maxPlayers=8;
+	//if(maxPlayers>8) maxPlayers=8;
+	if(maxPlayers>16) maxPlayers=16;
 	
 	if(!netGameData.skirmishMode)
 	{

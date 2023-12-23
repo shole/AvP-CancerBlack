@@ -51,6 +51,11 @@ extern void ChangeSpecies();
 extern void Grab();
 extern void Ram();
 extern void ToggleRadioMenu();
+extern void NewOnScreenMessage(unsigned char *messagePtr);
+extern int SlotForThisWeapon(enum WEAPON_ID weaponID);
+
+extern DPID GrabbedPlayer;
+extern DPID GrabPlayer;
 
 extern void PaintBallMode_Rotate();
 extern void PaintBallMode_ChangeSubclass(int delta);
@@ -62,7 +67,10 @@ extern int CurrentSpeed;
 extern int GrabAttackInProgress;
 extern int DisplayRadioMenu;
 extern int DisplayClasses;
+extern int DisplayWeapons;
+extern int DisplayKits;
 int Run;
+int Kit[3];
 extern int Underwater;
 extern int ZeroG;
 extern int OnLadder;
@@ -82,6 +90,17 @@ FIXED_INPUT_CONFIGURATION FixedInputConfig =
 	KEY_9,				// Weapon9;
 	KEY_0,				// Weapon10;
 	KEY_ESCAPE,			// PauseGame;
+
+	// Radio Commands
+	KEY_NUMPAD1,     
+	KEY_NUMPAD2,     
+	KEY_NUMPAD3,     
+	KEY_NUMPAD4,     
+	KEY_NUMPAD5,     
+	KEY_NUMPAD6,     
+	KEY_NUMPAD7,     
+	KEY_NUMPAD8,     
+	KEY_NUMPAD9,
 
 };
 
@@ -483,251 +502,73 @@ void ReadPlayerGameInput(STRATEGYBLOCK* sbPtr)
 	if ( IOFOCUS_AcceptControls() && !InGameMenusAreRunning())
 	{
 		// Multiplayer class menus
-
-		if (DisplayRadioMenu)
-		{
-			int rand = FastRandom()%2;
-
-			if (DebouncedKeyboardInput[KEY_F1]) {
-				if (rand) {
-					AddNetMsg_ChatBroadcast("I need help!",TRUE);
-					Sound_Play(SID_HELP_HELP,"hv",127);
-					playerStatusPtr->AirStatus = SID_HELP_HELP;
-				} else {
-					AddNetMsg_ChatBroadcast("Requesting assistance!",TRUE);
-					Sound_Play(SID_HELP_ASSISTANCE,"hv",127);
-					playerStatusPtr->AirStatus = SID_HELP_ASSISTANCE;
-				}
-				DisplayRadioMenu = 0;
-			}
-			if (DebouncedKeyboardInput[KEY_F2]) {
-				if (rand) {
-					AddNetMsg_ChatBroadcast("Cover me!",TRUE);
-					Sound_Play(SID_ENGAGE_COVER,"hv",127);
-					playerStatusPtr->AirStatus = SID_ENGAGE_COVER;
-				} else {
-					AddNetMsg_ChatBroadcast("Enemy spotted!",TRUE);
-					Sound_Play(SID_ENGAGE_SPOTTED,"hv",127);
-					playerStatusPtr->AirStatus = SID_ENGAGE_SPOTTED;
-				}
-				DisplayRadioMenu = 0;
-			}
-			if (DebouncedKeyboardInput[KEY_F3]) {
-				if (rand) {
-					AddNetMsg_ChatBroadcast("Enemy down!",TRUE);
-					Sound_Play(SID_KILL_DOWN,"hv",127);
-					playerStatusPtr->AirStatus = SID_KILL_DOWN;
-				} else {
-					AddNetMsg_ChatBroadcast("Area secured!",TRUE);
-					Sound_Play(SID_KILL_SECURED,"hv",127);
-					playerStatusPtr->AirStatus = SID_KILL_SECURED;
-				}
-				DisplayRadioMenu = 0;
-			}
-			if (DebouncedKeyboardInput[KEY_F4]) {
-				if (playerStatusPtr->Class != CLASS_AA_SPEC) {
-					if (rand) {
-						AddNetMsg_ChatBroadcast("Affirmative!",TRUE);
-						Sound_Play(SID_YES_AFFIRMATIVE,"hv",127);
-						playerStatusPtr->AirStatus = SID_YES_AFFIRMATIVE;
-					} else {
-						AddNetMsg_ChatBroadcast("Roger!",TRUE);
-						Sound_Play(SID_YES_ROGER,"hv",127);
-						playerStatusPtr->AirStatus = SID_YES_ROGER;
-					}
-				} else {
-					if (rand) {
-						AddNetMsg_ChatBroadcast("I'm the ultimate badass!",FALSE);
-						Sound_Play(SID_TAUNT_BADASS,"hv",127);
-						playerStatusPtr->AirStatus = SID_TAUNT_BADASS;
-					} else {
-						AddNetMsg_ChatBroadcast("Let's rock and roll!",FALSE);
-						Sound_Play(SID_TAUNT_ROCK,"hv",127);
-						playerStatusPtr->AirStatus = SID_TAUNT_ROCK;
-					}
-				}
-				DisplayRadioMenu = 0;
-			}
-			if (DebouncedKeyboardInput[KEY_F5]) {
-				if (playerStatusPtr->Class != CLASS_AA_SPEC) {
-					if (rand) {
-						AddNetMsg_ChatBroadcast("No way sir!",TRUE);
-						Sound_Play(SID_NO_NOWAY,"hv",127);
-						playerStatusPtr->AirStatus = SID_NO_NOWAY;
-					} else {
-						AddNetMsg_ChatBroadcast("Negative!",TRUE);
-						Sound_Play(SID_NO_NEGATIVE,"hv",127);
-						playerStatusPtr->AirStatus = SID_NO_NEGATIVE;
-					}
-				} else {
-					if (rand) {
-						AddNetMsg_ChatBroadcast("Engage!",TRUE);
-						Sound_Play(SID_ATTACK_ENGAGE,"hv",127);
-						playerStatusPtr->AirStatus = SID_ATTACK_ENGAGE;
-					} else {
-						AddNetMsg_ChatBroadcast("Prepare for assault!",TRUE);
-						Sound_Play(SID_ATTACK_ASSAULT,"hv",127);
-						playerStatusPtr->AirStatus = SID_ATTACK_ASSAULT;
-					}
-				}
-				DisplayRadioMenu = 0;
-			}
-			if (DebouncedKeyboardInput[KEY_F6]) {
-				if (playerStatusPtr->Class != CLASS_AA_SPEC) {
-					if (rand) {
-						AddNetMsg_ChatBroadcast("I'm the ultimate badass!",FALSE);
-						Sound_Play(SID_TAUNT_BADASS,"hv",127);
-						playerStatusPtr->AirStatus = SID_TAUNT_BADASS;
-					} else {
-						AddNetMsg_ChatBroadcast("Let's rock and roll!",FALSE);
-						Sound_Play(SID_TAUNT_ROCK,"hv",127);
-						playerStatusPtr->AirStatus = SID_TAUNT_ROCK;
-					}
-				} else {
-					if (rand) {
-						AddNetMsg_ChatBroadcast("Defensive formation!",TRUE);
-						Sound_Play(SID_DEFEND_FORMATION,"hv",127);
-						playerStatusPtr->AirStatus = SID_DEFEND_FORMATION;
-					} else {
-						AddNetMsg_ChatBroadcast("Hold your positions!",TRUE);
-						Sound_Play(SID_DEFEND_POSITIONS,"hv",127);
-						playerStatusPtr->AirStatus = SID_DEFEND_POSITIONS;
-					}
-				}
-				DisplayRadioMenu = 0;
-			}
-			if (DebouncedKeyboardInput[KEY_F7]) {
-				if (playerStatusPtr->Class != CLASS_AA_SPEC) {
-					AddNetMsg_ChatBroadcast("I need medical attention!",TRUE);
-					Sound_Play(SID_SPEC_MEDIC,"hv",127);
-					playerStatusPtr->AirStatus = SID_SPEC_MEDIC;
-				} else {
-					if (rand) {
-						AddNetMsg_ChatBroadcast("Stick together!",TRUE);
-						Sound_Play(SID_CONVERGE_STICK,"hv",127);
-						playerStatusPtr->AirStatus = SID_CONVERGE_STICK;
-					} else {
-						AddNetMsg_ChatBroadcast("Keep it tight people!",TRUE);
-						Sound_Play(SID_CONVERGE_TIGHT,"hv",127);
-						playerStatusPtr->AirStatus = SID_CONVERGE_TIGHT;
-					}
-				}
-				DisplayRadioMenu = 0;
-			}
-			if (DebouncedKeyboardInput[KEY_F8]) {
-				if (playerStatusPtr->Class != CLASS_AA_SPEC) {
-					AddNetMsg_ChatBroadcast("Fire in the hole!",TRUE);
-					Sound_Play(SID_SPEC_FIREHOLE,"hv",127);
-					playerStatusPtr->AirStatus = SID_SPEC_FIREHOLE;
-				} else {
-					if (rand) {
-						AddNetMsg_ChatBroadcast("Disperse!",TRUE);
-						Sound_Play(SID_DISPERSE_DISPERSE,"hv",127);
-						playerStatusPtr->AirStatus = SID_DISPERSE_DISPERSE;
-					} else {
-						AddNetMsg_ChatBroadcast("Spread out!",TRUE);
-						Sound_Play(SID_DISPERSE_SPREAD,"hv",127);
-						playerStatusPtr->AirStatus = SID_DISPERSE_SPREAD;
-					}
-				}
-				DisplayRadioMenu = 0;
-			}
-			if (DebouncedKeyboardInput[KEY_F9]) {
-				if (playerStatusPtr->Class == CLASS_RIFLEMAN ||
-					playerStatusPtr->Class == CLASS_COM_TECH) {
-					if (rand) {
-						AddNetMsg_ChatBroadcast("There's something moving in here!",TRUE);
-						Sound_Play(SID_TRACKER_MOVING,"hv",127);
-						playerStatusPtr->AirStatus = SID_TRACKER_MOVING;
-					} else {
-						AddNetMsg_ChatBroadcast("I've got movement!",TRUE);
-						Sound_Play(SID_TRACKER_MOVEMENT,"hv",127);
-						playerStatusPtr->AirStatus = SID_TRACKER_MOVEMENT;
-					}
-				} else if (playerStatusPtr->Class == CLASS_AA_SPEC) {
-					if (rand) {
-						AddNetMsg_ChatBroadcast("Stay frosty!",TRUE);
-						Sound_Play(SID_ATTENTION_FROSTY,"hv",127);
-						playerStatusPtr->AirStatus = SID_ATTENTION_FROSTY;
-					} else {
-						AddNetMsg_ChatBroadcast("Stay sharp!",TRUE);
-						Sound_Play(SID_ATTENTION_SHARP,"hv",127);
-						playerStatusPtr->AirStatus = SID_ATTENTION_SHARP;
-					}
-				}
-				DisplayRadioMenu = 0;
-			}
-			if (DebouncedKeyboardInput[KEY_F10]) {
-				if (playerStatusPtr->Class == CLASS_AA_SPEC) {
-					AddNetMsg_ChatBroadcast("Use grenades.",TRUE);
-					Sound_Play(SID_REQUEST_GRENADES,"hv",127);
-					playerStatusPtr->AirStatus = SID_REQUEST_GRENADES;
-				}
-				DisplayRadioMenu = 0;
-			}
-			if (DebouncedKeyboardInput[KEY_F11]) {
-				if (playerStatusPtr->Class == CLASS_AA_SPEC) {
-					AddNetMsg_ChatBroadcast("Run a bypass.",TRUE);
-					Sound_Play(SID_REQUEST_BYPASS,"hv",127);
-					playerStatusPtr->AirStatus = SID_REQUEST_BYPASS;
-				}
-				DisplayRadioMenu = 0;
-			}
-			if (DebouncedKeyboardInput[KEY_F12]) {
-				if (playerStatusPtr->Class == CLASS_AA_SPEC) {
-					AddNetMsg_ChatBroadcast("Use trackers.",TRUE);
-					Sound_Play(SID_REQUEST_TRACKERS,"hv",127);
-					playerStatusPtr->AirStatus = SID_REQUEST_TRACKERS;
-				}
-				DisplayRadioMenu = 0;
-			}
-			if(DebouncedKeyboardInput[KEY_ESCAPE])
-				 ToggleRadioMenu();
-
-			return;
-		}
 		if ((AvP.Network != I_No_Network) && (playerStatusPtr->Class == 20))
 		{
 			extern void ChangeToMarine();
 			extern void ChangeToAlien();
 			extern void ChangeToPredator();
 
+			Kit[0] = 0;
+			Kit[1] = 0;
+			Kit[2] = 0;
+
 			if (DebouncedKeyboardInput[KEY_F1])
 			{
-				netGameData.myCharacterSubType=NGSCT_General;
-				ChangeToAlien();
-				playerStatusPtr->Class = CLASS_NONE;
-				playerStatusPtr->Cocoons = CLASS_NONE;
-				AddNetMsg_ChatBroadcast("(AUTO) Joined the Alien team.", FALSE);
+				if (netGameData.maxAlien)
+				{
+					netGameData.myCharacterSubType=NGSCT_General;
+					ChangeToAlien();
+					playerStatusPtr->Class = CLASS_NONE;
+					playerStatusPtr->Cocoons = CLASS_NONE;
+					AddNetMsg_ChatBroadcast("(AUTO) Joined the Alien team.", FALSE);
 
-				if (netGameData.LifeCycle)
-					playerStatusPtr->Class = CLASS_EXF_W_SPEC;
+					if (netGameData.LifeCycle)
+					{
+						playerStatusPtr->Class = CLASS_EXF_W_SPEC;
+						playerStatusPtr->Cocoons = CLASS_EXF_W_SPEC;
+					}
+				}
+				else
+					NewOnScreenMessage("Aliens not available.");
 			}
 			if (DebouncedKeyboardInput[KEY_F2])
 			{
-				netGameData.myCharacterSubType=NGSCT_General;
-				ChangeToMarine();
-				playerStatusPtr->Class = CLASS_NONE;
-				playerStatusPtr->Cocoons = CLASS_NONE;
-				AddNetMsg_ChatBroadcast("(AUTO) Joined the Marine team.", FALSE);
+				if (netGameData.maxMarine)
+				{
+					netGameData.myCharacterSubType=NGSCT_General;
+					ChangeToMarine();
+					playerStatusPtr->Class = CLASS_NONE;
+					playerStatusPtr->Cocoons = CLASS_NONE;
+					AddNetMsg_ChatBroadcast("(AUTO) Joined the Marine team.", FALSE);
+				}
+				else
+					NewOnScreenMessage("Marines are not available.");
 			}
 			if (DebouncedKeyboardInput[KEY_F3])
 			{
-				netGameData.myCharacterSubType=NGSCT_General;
-				ChangeToPredator();
-				playerStatusPtr->Class = CLASS_NONE;
-				playerStatusPtr->Cocoons = CLASS_NONE;
-				AddNetMsg_ChatBroadcast("(AUTO) Joined the Predator team.", FALSE);
+				if (netGameData.maxPredator)
+				{
+					netGameData.myCharacterSubType=NGSCT_General;
+					ChangeToPredator();
+					playerStatusPtr->Class = CLASS_NONE;
+					playerStatusPtr->Cocoons = CLASS_NONE;
+					AddNetMsg_ChatBroadcast("(AUTO) Joined the Predator team.", FALSE);
+				}
+				else
+					NewOnScreenMessage("Predators are not available.");
 			}
 			return;
 		}
-		if ((AvP.Network != I_No_Network) && ((playerStatusPtr->Class == CLASS_NONE) ||
-			(DisplayClasses)))
+		if ((DisplayClasses) || (playerStatusPtr->Cocoons == CLASS_NONE))
 		{
 			extern void ChangeToMarine();
 			extern void ChangeToAlien();
 			extern void ChangeToPredator();
 			extern void NewOnScreenMessage(unsigned char *messagePtr);
+
+			Kit[0] = 0;
+			Kit[1] = 0;
+			Kit[2] = 0;
 
 			if (DebouncedKeyboardInput[KEY_F1]) 
 			{
@@ -735,12 +576,15 @@ void ReadPlayerGameInput(STRATEGYBLOCK* sbPtr)
 				{
 					if (playerStatusPtr->Class == CLASS_NONE)
 					{
-						playerStatusPtr->Class = CLASS_RIFLEMAN;
-						ChangeToMarine();
+						//playerStatusPtr->Class = CLASS_RIFLEMAN;
+						//ChangeToMarine();
 					}
 					playerStatusPtr->Cocoons = CLASS_RIFLEMAN;
 					netGameData.myCharacterSubType=NGSCT_General;
 					NewOnScreenMessage("You will respawn as a Rifleman.");
+					DisplayClasses = 0;
+					DisplayWeapons = CLASS_RIFLEMAN;
+					DisplayKits = 0;
 				}
 				if (AvP.PlayerType == I_Predator)
 				{
@@ -764,7 +608,6 @@ void ReadPlayerGameInput(STRATEGYBLOCK* sbPtr)
 					playerStatusPtr->Cocoons = CLASS_ALIEN_DRONE;
 					NewOnScreenMessage("You will respawn as an Alien Drone.");
 				}
-				DisplayClasses = 0;
 			}
 			if (DebouncedKeyboardInput[KEY_F2]) 
 			{
@@ -773,11 +616,15 @@ void ReadPlayerGameInput(STRATEGYBLOCK* sbPtr)
 					if (playerStatusPtr->Class == CLASS_NONE)
 					{
 						playerStatusPtr->Class = CLASS_SMARTGUNNER;
+						Kit[2] = WEAPON_SMARTGUN+1;
 						ChangeToMarine();
 					}
 					playerStatusPtr->Cocoons = CLASS_SMARTGUNNER;
 					netGameData.myCharacterSubType=NGSCT_General;
 					NewOnScreenMessage("You will respawn as a Smartgunner.");
+					DisplayWeapons = 0;
+					DisplayKits = 0;
+					Kit[2] = WEAPON_SMARTGUN+1;
 				}
 				if (AvP.PlayerType == I_Predator)
 				{
@@ -809,12 +656,15 @@ void ReadPlayerGameInput(STRATEGYBLOCK* sbPtr)
 				{
 					if (playerStatusPtr->Class == CLASS_NONE)
 					{
-						playerStatusPtr->Class = CLASS_INC_SPEC;
-						ChangeToMarine();
+						//playerStatusPtr->Class = CLASS_ENGINEER;
+						//ChangeToMarine();
 					}
-					playerStatusPtr->Cocoons = CLASS_INC_SPEC;
+					playerStatusPtr->Cocoons = CLASS_ENGINEER;
 					netGameData.myCharacterSubType=NGSCT_General;
-					NewOnScreenMessage("You will respawn as an Incinerator Specialist.");
+					NewOnScreenMessage("You will respawn as an Engineer.");
+					DisplayClasses = 0;
+					DisplayWeapons = CLASS_ENGINEER;
+					DisplayKits = 0;
 				}
 				if (AvP.PlayerType == I_Predator)
 				{
@@ -846,12 +696,15 @@ void ReadPlayerGameInput(STRATEGYBLOCK* sbPtr)
 				{
 					if (playerStatusPtr->Class == CLASS_NONE)
 					{
-						playerStatusPtr->Class = CLASS_ENGINEER;
-						ChangeToMarine();
+						//playerStatusPtr->Class = CLASS_MEDIC_FT;
+						//ChangeToMarine();
 					}
-					playerStatusPtr->Cocoons = CLASS_ENGINEER;
+					playerStatusPtr->Cocoons = CLASS_MEDIC_FT;
 					netGameData.myCharacterSubType=NGSCT_General;
-					NewOnScreenMessage("You will respawn as an Engineer.");
+					NewOnScreenMessage("You will respawn as a Medic.");
+					DisplayClasses = 0;
+					DisplayWeapons = CLASS_MEDIC_FT;
+					DisplayKits = 0;
 				}
 				if (AvP.PlayerType == I_Predator)
 				{
@@ -864,13 +717,22 @@ void ReadPlayerGameInput(STRATEGYBLOCK* sbPtr)
 					playerStatusPtr->Cocoons = CLASS_ELDER;
 					NewOnScreenMessage("You will respawn as a Predator Elder.");
 				}
-				/*if (AvP.PlayerType == I_Alien)
+				if (AvP.PlayerType == I_Alien)
 				{
-					netGameData.myCharacterSubType=NGSCT_Minigun;
-					playerStatusPtr->Class = CLASS_EXF_W_SPEC;
-					ChangeToAlien();
-					AddNetMsg_ChatBroadcast("(AUTO) Changed class to Facehugger.", TRUE);
-				}*/
+					extern char LevelName[];
+
+					if (!stricmp("Custom\\ap_jockey_ship", &LevelName))
+					{
+						if (playerStatusPtr->Class == CLASS_NONE)
+						{
+							playerStatusPtr->Class = CLASS_MEDIC_PR;
+							ChangeToAlien();
+						}
+						netGameData.myCharacterSubType=NGSCT_Pistols;
+						playerStatusPtr->Cocoons = CLASS_MEDIC_PR;
+						NewOnScreenMessage("You will respawn as a Queen.");
+					}
+				}
 				DisplayClasses = 0;
 			}
 			if (DebouncedKeyboardInput[KEY_F5]) 
@@ -879,12 +741,15 @@ void ReadPlayerGameInput(STRATEGYBLOCK* sbPtr)
 				{
 					if (playerStatusPtr->Class == CLASS_NONE)
 					{
-						playerStatusPtr->Class = CLASS_COM_TECH;
-						ChangeToMarine();
+						//playerStatusPtr->Class = CLASS_AA_SPEC;
+						//ChangeToMarine();
 					}
-					playerStatusPtr->Cocoons = CLASS_COM_TECH;
+					playerStatusPtr->Cocoons = CLASS_AA_SPEC;
 					netGameData.myCharacterSubType=NGSCT_General;
-					NewOnScreenMessage("You will respawn as a Com-Tech.");
+					NewOnScreenMessage("You will respawn as a Field Officer.");
+					DisplayClasses = 0;
+					DisplayWeapons = CLASS_AA_SPEC;
+					DisplayKits = 0;
 				}
 				if (AvP.PlayerType == I_Predator)
 				{
@@ -898,35 +763,236 @@ void ReadPlayerGameInput(STRATEGYBLOCK* sbPtr)
 				}
 				DisplayClasses = 0;
 			}
-			if (DebouncedKeyboardInput[KEY_F6]) 
+		}
+		else
+		if ((DisplayWeapons) && (!DisplayKits))
+		{
+			//int a;
+
+			if ((DisplayWeapons == CLASS_RIFLEMAN) || (DisplayWeapons == CLASS_AA_SPEC))
 			{
-				if (AvP.PlayerType == I_Marine)
+				if (DebouncedKeyboardInput[KEY_F1])
 				{
-					if (playerStatusPtr->Class == CLASS_NONE)
+					/*a = SlotForThisWeapon(WEAPON_PULSERIFLE);
+					PlayerStatusPtr->WeaponSlot[a].Possessed = 1;
+					PlayerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining = 3;
+					PlayerStatusPtr->WeaponSlot[a].SecondaryRoundsRemaining = (ONE_FIXED*4);*/
+					Kit[2] = WEAPON_PULSERIFLE+1;
+
+					if (DisplayWeapons == CLASS_RIFLEMAN)
 					{
-						playerStatusPtr->Class = CLASS_MEDIC_FT;
-						ChangeToMarine();
+						DisplayWeapons = 0;
+						DisplayKits = CLASS_RIFLEMAN;
 					}
-					playerStatusPtr->Cocoons = CLASS_MEDIC_FT;
-					netGameData.myCharacterSubType=NGSCT_General;
-					NewOnScreenMessage("You will respawn as a Medic.");
+					else
+					{
+						DisplayWeapons = 0;
+						DisplayKits = 0;
+
+						if (PlayerStatusPtr->Class == CLASS_NONE)
+						{
+							PlayerStatusPtr->Class = CLASS_AA_SPEC;
+							ChangeToMarine();
+						}
+					}
 				}
-				DisplayClasses = 0;
+				if (DebouncedKeyboardInput[KEY_F2])
+				{
+					/*a = SlotForThisWeapon(WEAPON_FLAMETHROWER);
+					PlayerStatusPtr->WeaponSlot[a].Possessed = 1;
+					PlayerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining = 1;*/
+					Kit[2] = WEAPON_FLAMETHROWER+1;
+
+					if (DisplayWeapons == CLASS_RIFLEMAN)
+					{
+						DisplayWeapons = 0;
+						DisplayKits = CLASS_RIFLEMAN;
+					}
+					else
+					{
+						DisplayWeapons = 0;
+						DisplayKits = 0;
+						
+						if (PlayerStatusPtr->Class == CLASS_NONE)
+						{
+							PlayerStatusPtr->Class = CLASS_AA_SPEC;
+							ChangeToMarine();
+						}
+					}
+				}
+				if (DebouncedKeyboardInput[KEY_F3])
+				{
+					/*a = SlotForThisWeapon(WEAPON_GRENADELAUNCHER);
+					PlayerStatusPtr->WeaponSlot[a].Possessed = 1;
+					PlayerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining = 3;*/
+					Kit[2] = WEAPON_GRENADELAUNCHER+1;
+
+					if (DisplayWeapons == CLASS_RIFLEMAN)
+					{
+						DisplayWeapons = 0;
+						DisplayKits = CLASS_RIFLEMAN;
+					}
+					else
+					{
+						DisplayWeapons = 0;
+						DisplayKits = 0;
+						
+						if (PlayerStatusPtr->Class == CLASS_NONE)
+						{
+							PlayerStatusPtr->Class = CLASS_AA_SPEC;
+							ChangeToMarine();
+						}
+					}
+				}
 			}
-			if (DebouncedKeyboardInput[KEY_F7]) 
+			else if (DisplayWeapons == CLASS_ENGINEER)
 			{
-				if (AvP.PlayerType == I_Marine)
+				if (DebouncedKeyboardInput[KEY_F1])
 				{
-					if (playerStatusPtr->Class == CLASS_NONE)
+					/*a = SlotForThisWeapon(WEAPON_PULSERIFLE);
+					PlayerStatusPtr->WeaponSlot[a].Possessed = 1;
+					PlayerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining = 3;
+					PlayerStatusPtr->WeaponSlot[a].SecondaryRoundsRemaining = (ONE_FIXED*4);*/
+					Kit[2] = WEAPON_PULSERIFLE+1;
+
+					DisplayWeapons = 0;
+					DisplayKits = CLASS_ENGINEER;
+				}
+				if (DebouncedKeyboardInput[KEY_F2])
+				{
+					/*a = SlotForThisWeapon(WEAPON_GRENADELAUNCHER);
+					PlayerStatusPtr->WeaponSlot[a].Possessed = 1;
+					PlayerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining = 3;*/
+					Kit[2] = WEAPON_GRENADELAUNCHER+1;
+
+					DisplayWeapons = 0;
+					DisplayKits = CLASS_ENGINEER;
+				}
+			}
+			else if (DisplayWeapons == CLASS_MEDIC_FT)
+			{
+				if (DebouncedKeyboardInput[KEY_F1])
+				{
+					/*a = SlotForThisWeapon(WEAPON_PULSERIFLE);
+					PlayerStatusPtr->WeaponSlot[a].Possessed = 1;
+					PlayerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining = 3;
+					PlayerStatusPtr->WeaponSlot[a].SecondaryRoundsRemaining = (ONE_FIXED*4);*/
+					Kit[2] = WEAPON_PULSERIFLE+1;
+
+					DisplayWeapons = 0;
+					DisplayKits = 0;
+					
+					
+					if (PlayerStatusPtr->Class == CLASS_NONE)
 					{
-						playerStatusPtr->Class = CLASS_AA_SPEC;
+						PlayerStatusPtr->Class = CLASS_MEDIC_FT;
 						ChangeToMarine();
 					}
-					playerStatusPtr->Cocoons = CLASS_AA_SPEC;
-					netGameData.myCharacterSubType=NGSCT_General;
-					NewOnScreenMessage("You will respawn as an Officer.");
 				}
-				DisplayClasses = 0;
+				if (DebouncedKeyboardInput[KEY_F2])
+				{
+					/*a = SlotForThisWeapon(WEAPON_FLAMETHROWER);
+					PlayerStatusPtr->WeaponSlot[a].Possessed = 1;
+					PlayerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining = 1;*/
+					Kit[2] = WEAPON_FLAMETHROWER+1;
+
+					DisplayWeapons = 0;
+					DisplayKits = 0;
+					
+					if (PlayerStatusPtr->Class == CLASS_NONE)
+					{
+						PlayerStatusPtr->Class = CLASS_MEDIC_FT;
+						ChangeToMarine();
+					}
+				}
+			}
+		}
+		else
+		if ((DisplayKits) && (!DisplayWeapons))
+		{
+			//int a;
+
+			if (DisplayKits == CLASS_RIFLEMAN)
+			{
+				if (DebouncedKeyboardInput[KEY_F1])
+				{
+					/*a = SlotForThisWeapon(WEAPON_PULSERIFLE);
+					PlayerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining++;
+					a = SlotForThisWeapon(WEAPON_MARINE_PISTOL);
+					PlayerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining++;
+
+					PlayerStatusPtr->Grenades += 2;*/
+					Kit[0] = KIT_ASSAULT;
+
+					DisplayKits = 0;
+					
+					if (PlayerStatusPtr->Class == CLASS_NONE)
+					{
+						PlayerStatusPtr->Class = CLASS_RIFLEMAN;
+						ChangeToMarine();
+					}
+				}
+				if (DebouncedKeyboardInput[KEY_F2])
+				{
+					//PlayerStatusPtr->MTrackerType = 1;
+					//PlayerStatusPtr->FlaresLeft = 8;
+					Kit[0] = KIT_SCOUT;
+
+					DisplayKits = 0;
+					
+					if (PlayerStatusPtr->Class == CLASS_NONE)
+					{
+						PlayerStatusPtr->Class = CLASS_RIFLEMAN;
+						ChangeToMarine();
+					}
+				}
+			}
+			else if (DisplayKits == CLASS_ENGINEER)
+			{
+				if (DebouncedKeyboardInput[KEY_F1])
+				{
+					/*a = SlotForThisWeapon(WEAPON_AUTOSHOTGUN);
+					PlayerStatusPtr->WeaponSlot[a].Possessed = 1;
+					PlayerStatusPtr->WeaponSlot[a].PrimaryRoundsRemaining = ONE_FIXED;*/
+					Kit[0] = KIT_COMTECH;
+
+					DisplayKits = 0;
+
+					if (PlayerStatusPtr->Class == CLASS_NONE) {
+						PlayerStatusPtr->Class == CLASS_ENGINEER;
+						ChangeToMarine();
+					}
+				}
+				if (DebouncedKeyboardInput[KEY_F2])
+				{
+					/*a = SlotForThisWeapon(WEAPON_PLASMAGUN);
+					playerStatusPtr->WeaponSlot[a].Possessed = 1;
+					playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining = 1;
+
+					PlayerStatusPtr->Medikit = 10;*/
+					Kit[0] = KIT_TECH;
+
+					DisplayKits = 0;
+
+					if (PlayerStatusPtr->Class == CLASS_NONE) {
+						PlayerStatusPtr->Class == CLASS_ENGINEER;
+						ChangeToMarine();
+					}
+				}
+				if (DebouncedKeyboardInput[KEY_F3])
+				{
+					/*a = SlotForThisWeapon(WEAPON_MINIGUN);
+					playerStatusPtr->WeaponSlot[a].Possessed = 1;
+					playerStatusPtr->WeaponSlot[a].PrimaryMagazinesRemaining = 1;*/
+					Kit[0] = KIT_DEMO;
+
+					DisplayKits = 0;
+
+					if (PlayerStatusPtr->Class == CLASS_NONE) {
+						PlayerStatusPtr->Class == CLASS_ENGINEER;
+						ChangeToMarine();
+					}
+				}
 			}
 		}
 		/* now do forward,backward,left,right,up and down 
@@ -934,7 +1000,8 @@ void ReadPlayerGameInput(STRATEGYBLOCK* sbPtr)
 		   increment must BOTH be set!
 		*/
 		if ((AvP.Network==I_No_Network) || ((AvP.Network != I_No_Network) &&
-			(playerStatusPtr->Class != CLASS_NONE) && (playerStatusPtr->Class != 20)))
+			(playerStatusPtr->Class != CLASS_NONE) && (playerStatusPtr->Class != 20) &&
+			(!DisplayWeapons) && (!DisplayKits)))
 		{
 		if(KeyboardInput[primaryInput->Forward]
 		 ||KeyboardInput[secondaryInput->Forward])
@@ -1050,7 +1117,8 @@ void ReadPlayerGameInput(STRATEGYBLOCK* sbPtr)
 
 		if(KeyboardInput[primaryInput->Crouch]
 		 ||KeyboardInput[secondaryInput->Crouch])
-		 if (!playerStatusPtr->Destr && !playerStatusPtr->Immobilized)
+		 if ((!playerStatusPtr->Destr) && (!playerStatusPtr->Immobilized) &&
+			 (playerStatusPtr->Class != CLASS_MEDIC_PR))
 			playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Crouch = 1;
 
 		}//APC
@@ -1059,13 +1127,17 @@ void ReadPlayerGameInput(STRATEGYBLOCK* sbPtr)
 		{
 			if(KeyboardInput[primaryInput->Jump]
 			 ||KeyboardInput[secondaryInput->Jump])
-				if (!playerStatusPtr->Immobilized) {
+				if ((!playerStatusPtr->Immobilized) &&
+					(playerStatusPtr->Class != CLASS_MEDIC_PR))
+				{
 					playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Jump = 1;
 				}
 		} else {
 			if (DebouncedKeyboardInput[primaryInput->Jump]
 				||DebouncedKeyboardInput[secondaryInput->Jump])
-				if (!playerStatusPtr->Immobilized) {
+				if ((!playerStatusPtr->Immobilized) &&
+					(playerStatusPtr->Class != CLASS_MEDIC_PR))
+				{
 					playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Jump = 1;
 				}
 		}
@@ -1082,7 +1154,8 @@ void ReadPlayerGameInput(STRATEGYBLOCK* sbPtr)
 			if(KeyboardInput[primaryInput->Operate]
 			||KeyboardInput[secondaryInput->Operate])
 			{
-				if (playerStatusPtr->Class != CLASS_EXF_W_SPEC)
+				if ((playerStatusPtr->Class != CLASS_EXF_W_SPEC) &&
+					(playerStatusPtr->Class != CLASS_CHESTBURSTER))
 				{
 					Grab();
 				}
@@ -1148,16 +1221,6 @@ void ReadPlayerGameInput(STRATEGYBLOCK* sbPtr)
 					MessageHistory_DisplayPrevious();
 
 				} // Multiplayer class check
-
-				if(DebouncedKeyboardInput[primaryInput->Marine_ChangeSpecies]
-				 ||DebouncedKeyboardInput[secondaryInput->Marine_ChangeSpecies])
-					ChangeSpecies();
-
-				if(DebouncedKeyboardInput[primaryInput->Marine_ChangeClass]
-				 ||DebouncedKeyboardInput[secondaryInput->Marine_ChangeClass])
-					ChangeClass();
-					
-
 				break;
 			}
 			case I_Predator:
@@ -1211,15 +1274,6 @@ void ReadPlayerGameInput(STRATEGYBLOCK* sbPtr)
 					MessageHistory_DisplayPrevious();
 					
 				} // Multiplayer class check
-
-				if(DebouncedKeyboardInput[primaryInput->Predator_ChangeSpecies]
-				 ||DebouncedKeyboardInput[secondaryInput->Predator_ChangeSpecies])
-					ChangeSpecies();
-
-				if(DebouncedKeyboardInput[primaryInput->Predator_ChangeClass]
-				 ||DebouncedKeyboardInput[secondaryInput->Predator_ChangeClass])
-					ChangeClass();
-
 				break;
 			}
 
@@ -1235,7 +1289,8 @@ void ReadPlayerGameInput(STRATEGYBLOCK* sbPtr)
 
 				if(KeyboardInput[primaryInput->Taunt]
 				||KeyboardInput[secondaryInput->Taunt]) {
-				    if (playerStatusPtr->Class != CLASS_EXF_W_SPEC)
+				    if ((playerStatusPtr->Class != CLASS_EXF_W_SPEC) &&
+						(playerStatusPtr->Class != CLASS_CHESTBURSTER))
 						StartPlayerTaunt();
 				}
 	
@@ -1244,15 +1299,6 @@ void ReadPlayerGameInput(STRATEGYBLOCK* sbPtr)
 					MessageHistory_DisplayPrevious();
 					
 				} // Multiplayer class check
-
-				if(DebouncedKeyboardInput[primaryInput->Alien_ChangeSpecies]
-				 ||DebouncedKeyboardInput[secondaryInput->Alien_ChangeSpecies])
-					ChangeSpecies();
-
-				if(DebouncedKeyboardInput[primaryInput->Alien_ChangeClass]
-				 ||DebouncedKeyboardInput[secondaryInput->Alien_ChangeClass])
-					ChangeClass();
-
 				break;
 			}
 		}
@@ -1270,6 +1316,95 @@ void ReadPlayerGameInput(STRATEGYBLOCK* sbPtr)
 			if(KeyboardInput[primaryInput->Marine_ShowScores]
 			||KeyboardInput[secondaryInput->Marine_ShowScores])
 				ShowMultiplayerScores();
+
+			if(DebouncedKeyboardInput[primaryInput->Marine_ChangeSpecies]
+			||DebouncedKeyboardInput[secondaryInput->Marine_ChangeSpecies])
+				ChangeSpecies();
+
+			if(DebouncedKeyboardInput[primaryInput->Marine_ChangeClass]
+			||DebouncedKeyboardInput[secondaryInput->Marine_ChangeClass])
+				ChangeClass();
+
+			// Radio Commands
+			if(DebouncedKeyboardInput[FixedInputConfig.Radio1])
+			{
+				AddNetMsg_ChatBroadcast("Requesting assistance!",TRUE);
+				Sound_Play(SID_HELP_ASSISTANCE,"hv",127);
+				playerStatusPtr->AirStatus = SID_HELP_ASSISTANCE;
+			}
+			if(DebouncedKeyboardInput[FixedInputConfig.Radio2])
+			{
+				AddNetMsg_ChatBroadcast("Enemy spotted!",TRUE);
+				Sound_Play(SID_ENGAGE_SPOTTED,"hv",127);
+				playerStatusPtr->AirStatus = SID_ENGAGE_SPOTTED;
+			}
+			if(DebouncedKeyboardInput[FixedInputConfig.Radio3])
+			{
+				AddNetMsg_ChatBroadcast("Area secured!",TRUE);
+				Sound_Play(SID_KILL_SECURED,"hv",127);
+				playerStatusPtr->AirStatus = SID_KILL_SECURED;
+			}
+			if(DebouncedKeyboardInput[FixedInputConfig.Radio4])
+			{
+				short int rand = FastRandom()%2;
+
+				if (rand) {
+					AddNetMsg_ChatBroadcast("Affirmative!",TRUE);
+					Sound_Play(SID_YES_AFFIRMATIVE,"hv",127);
+					playerStatusPtr->AirStatus = SID_YES_AFFIRMATIVE;
+				} else {
+					AddNetMsg_ChatBroadcast("Roger!",TRUE);
+					Sound_Play(SID_YES_ROGER,"hv",127);
+					playerStatusPtr->AirStatus = SID_YES_ROGER;
+				}
+			}
+			if(DebouncedKeyboardInput[FixedInputConfig.Radio5])
+			{
+				short int rand = FastRandom()%2;
+
+				if (rand) {
+					AddNetMsg_ChatBroadcast("No way sir!",TRUE);
+					Sound_Play(SID_NO_NOWAY,"hv",127);
+					playerStatusPtr->AirStatus = SID_NO_NOWAY;
+				} else {
+					AddNetMsg_ChatBroadcast("Negative!",TRUE);
+					Sound_Play(SID_NO_NEGATIVE,"hv",127);
+					playerStatusPtr->AirStatus = SID_NO_NEGATIVE;
+				}
+			}
+			if(DebouncedKeyboardInput[FixedInputConfig.Radio6])
+			{
+				AddNetMsg_ChatBroadcast("I need medical attention!",TRUE);
+				Sound_Play(SID_SPEC_MEDIC,"hv",127);
+				playerStatusPtr->AirStatus = SID_SPEC_MEDIC;
+			}
+			if(DebouncedKeyboardInput[FixedInputConfig.Radio7])
+			{
+				short int rand = FastRandom()%2;
+
+				if (rand) {
+					AddNetMsg_ChatBroadcast("There's something moving in here!",TRUE);
+					Sound_Play(SID_TRACKER_MOVING,"hv",127);
+					playerStatusPtr->AirStatus = SID_TRACKER_MOVING;
+				} else {
+					AddNetMsg_ChatBroadcast("I've got movement!",TRUE);
+					Sound_Play(SID_TRACKER_MOVEMENT,"hv",127);
+					playerStatusPtr->AirStatus = SID_TRACKER_MOVEMENT;
+				}
+			}
+			if(DebouncedKeyboardInput[FixedInputConfig.Radio8])
+			{
+				AddNetMsg_ChatBroadcast("Run a bypass.",TRUE);
+				Sound_Play(SID_REQUEST_BYPASS,"hv",127);
+				playerStatusPtr->AirStatus = SID_REQUEST_BYPASS;
+			}
+			if(DebouncedKeyboardInput[FixedInputConfig.Radio9])
+			{
+				AddNetMsg_ChatBroadcast("Use trackers.",TRUE);
+				Sound_Play(SID_REQUEST_TRACKERS,"hv",127);
+				playerStatusPtr->AirStatus = SID_REQUEST_TRACKERS;
+			}
+
 		}
 		if (AvP.PlayerType == I_Predator)
 		{
@@ -1284,6 +1419,14 @@ void ReadPlayerGameInput(STRATEGYBLOCK* sbPtr)
 			if(KeyboardInput[primaryInput->Predator_ShowScores]
 			||KeyboardInput[secondaryInput->Predator_ShowScores])
 				ShowMultiplayerScores();
+
+			if(DebouncedKeyboardInput[primaryInput->Predator_ChangeSpecies]
+			||DebouncedKeyboardInput[secondaryInput->Predator_ChangeSpecies])
+				ChangeSpecies();
+
+			if(DebouncedKeyboardInput[primaryInput->Predator_ChangeClass]
+			||DebouncedKeyboardInput[secondaryInput->Predator_ChangeClass])
+				ChangeClass();
 		}
 		if (AvP.PlayerType == I_Alien)
 		{
@@ -1298,6 +1441,14 @@ void ReadPlayerGameInput(STRATEGYBLOCK* sbPtr)
 			if(KeyboardInput[primaryInput->Alien_ShowScores]
 			||KeyboardInput[secondaryInput->Alien_ShowScores])
 				ShowMultiplayerScores();
+
+			if(DebouncedKeyboardInput[primaryInput->Alien_ChangeSpecies]
+			||DebouncedKeyboardInput[secondaryInput->Alien_ChangeSpecies])
+				ChangeSpecies();
+
+			if(DebouncedKeyboardInput[primaryInput->Alien_ChangeClass]
+			||DebouncedKeyboardInput[secondaryInput->Alien_ChangeClass])
+				ChangeClass();
 		}
 		if(DebouncedKeyboardInput[FixedInputConfig.PauseGame])
 			AvP_TriggerInGameMenus();
@@ -1320,7 +1471,8 @@ void ReadPlayerGameInput(STRATEGYBLOCK* sbPtr)
 						if (playerStatusPtr->Class == CLASS_EXF_W_SPEC) {
 							Ram();
 						} else {
-							playerStatusPtr->Mvt_InputRequests.Flags.Rqst_FirePrimaryWeapon = 1;	
+							if (!GrabbedPlayer)
+								playerStatusPtr->Mvt_InputRequests.Flags.Rqst_FirePrimaryWeapon = 1;
 						}
 					}
 				}
@@ -1368,8 +1520,11 @@ void ReadPlayerGameInput(STRATEGYBLOCK* sbPtr)
 			 if (!GrabAttackInProgress) {
 				if (playerStatusPtr->Class == CLASS_EXF_W_SPEC) {
 					Ram();
+				} else if (playerStatusPtr->Class == CLASS_CHESTBURSTER) {
+					// do nothing...
 				} else {
-					playerStatusPtr->Mvt_InputRequests.Flags.Rqst_FireSecondaryWeapon = 1;
+					if (!GrabbedPlayer)
+						playerStatusPtr->Mvt_InputRequests.Flags.Rqst_FireSecondaryWeapon = 1;
 				}
 			 }
 			

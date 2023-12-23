@@ -53,7 +53,7 @@ namespace IFF
 						{
 							char buf[256];
 							::sprintf(buf,"Objects not deallocated:\nNumber of Objects: %u\nNumber of References: %u",Size(),nRefs);
-							DisplayMessage("Memory Leaks!",buf);
+							//DisplayMessage("Memory Leaks!",buf);
 						}
 					#endif // ! _CPPRTTI
 					g_bAllocListActive = false;

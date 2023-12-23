@@ -1970,7 +1970,10 @@ void PredatorIsDamaged(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int multipl
                         Remove_Delta_Sequence(&predatorStatusPointer->HModelController,"Elevation");
                         Remove_Delta_Sequence(&predatorStatusPointer->HModelController,"HitDelta");
 
-                        Convert_Predator_To_Corpse(sbPtr,this_death);
+						if (damage->Id == AMMO_FRISBEE)
+							Extreme_Gibbing(sbPtr, predatorStatusPointer->HModelController.section_data, ONE_FIXED);
+						//else*/
+							Convert_Predator_To_Corpse(sbPtr,this_death);
 
                         return;
                 }

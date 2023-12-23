@@ -713,7 +713,7 @@ static void AlienNearDamageShell(STRATEGYBLOCK *sbPtr)
 	ALIEN_STATUS_BLOCK *alienStatusPointer;    
 	DYNAMICSBLOCK *dynPtr;
 	int workingflags,flagnum,a;
-	int dist,dodamage;
+	int dist,dodamage, distAdd = 1;;
 
 	LOCALASSERT(sbPtr);
 	alienStatusPointer=(ALIEN_STATUS_BLOCK *)(sbPtr->SBdataptr);    
@@ -726,7 +726,16 @@ static void AlienNearDamageShell(STRATEGYBLOCK *sbPtr)
 	flagnum=0;
 
 	dist = VectorDistance(&(dynPtr->Position),&(alienStatusPointer->Target->DynPtr->Position));
-	if (dist<ALIEN_ATTACKRANGE) {
+
+	// Adding increased alien attack range for the APC levels.
+	{
+		PLAYER_STATUS *playerStatusPtr = (PLAYER_STATUS *) Player->ObStrategyBlock->SBdataptr;
+		
+		if (playerStatusPtr->Honor)
+			distAdd = 2;
+	}
+
+	if (dist<ALIEN_ATTACKRANGE*distAdd) {
 		dodamage=1;
 	} else {
 		dodamage=0;

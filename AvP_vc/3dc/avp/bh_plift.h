@@ -59,3 +59,6 @@ void ActivatePlatformLift(STRATEGYBLOCK *sbPtr);
 void SendPlatformLiftUp(STRATEGYBLOCK *sbPtr);
 void SendPlatformLiftDown(STRATEGYBLOCK *sbPtr);
 void StopPlatformLift(STRATEGYBLOCK *sbPtr);
+
+int PlatformLiftGetSynchData(STRATEGYBLOCK *sbPtr);
+void PlatformLiftSetSynchData(STRATEGYBLOCK *sbPtr, int status);

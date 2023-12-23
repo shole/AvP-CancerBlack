@@ -48,6 +48,7 @@
 #include "GammaControl.h"
 
 #include "CDTrackSelection.h"
+#include "resource.h"
 
 /*------------Patrick 1/6/97---------------
 New sound system 
@@ -149,6 +150,9 @@ extern unsigned long TotalMemAllocated;
 
 char LevelName[] = {"predbit6\0QuiteALongNameActually"};
 static ELO ELOLevelToLoad = {&LevelName};
+
+/* Custom cursor. */
+HCURSOR hCurs;
 
 int QuickStartMultiplayer=1;
 
@@ -373,7 +377,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 	#elif ALIEN_DEMO
 	ffInit("alienfastfile\\ffinfo.txt","alienfastfile\\");
 	#else
-	ffInit("fastfile\\ffinfo.txt","fastfile\\");
+	ffInit("fastfile\\cbff.txt","fastfile\\");
+	//ffInit("fastfile\\ffinfo.txt", "fastfile\\"); // not the cause of memory leak.
 	#endif
 
 	InitGame();
@@ -417,7 +422,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 	CDDA_Start();
 	
 	/* kill mouse cursor */
-	SetCursor(NULL);
+	hCurs = LoadCursor(hInstance, MAKEINTRESOURCE(IDC_TAIL));
+	SetCursor(hCurs);
+	//SetCursor(NULL);
+	
+	// Moved this stuff to SetupNewMenu() so the cursor won't show until you have
+	// selected your User Profile.
 
 	/* load language file and setup text string access */
 	InitTextStrings();
@@ -560,7 +570,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 		}
 		
 		IngameKeyboardInput_ClearBuffer();
-		while(AvP.MainLoopRunning) 
+		while(AvP.MainLoopRunning) // Main Loop.
 		{
 
 			#if debug

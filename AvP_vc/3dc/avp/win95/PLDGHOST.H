@@ -55,6 +55,8 @@ typedef struct netghostdatablock
 	unsigned int Class;
 	int SpecialSequence;
 	DPID Grab;
+	unsigned int specialCase:5;
+	unsigned short modelUpdated;
 
 	unsigned int IgnitionHandshaking :1;
 
@@ -139,6 +141,14 @@ extern void PlayOtherSound(enum soundindex SoundIndex, VECTORCH *position, int e
 #define MPMARINE_MUZZLEFLASHOFFSET_ACROSS_RUNNING	50
 #define MPMARINE_MUZZLEFLASHOFFSET_UP_RUNNING		400
 
+/* Defines for improved Multiplayer animation system. */
+#define P_SPEAR_STAB			133
+#define P_CROUCH_SPEAR_STAB		143
+#define P_ACTIVATE_BOMB			1417
+#define P_LAUGH					1418
+#define M_RELOAD				745
+#define M_PUMP					746
+#define M_CROUCH_PUMP			814
 
 /*---------------------------Patrick 28/3/97----------------------------
   Globals

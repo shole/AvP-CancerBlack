@@ -166,9 +166,9 @@ DECAL_DESC DecalDescription[MAX_NO_OF_DECAL_IDS] =
 		216<<16,
 
 		//int MinSize;
-		96,
+		32,
 		//int MaxSize;
-		96,
+		32,
 #endif
 
 		//int GrowthRate;
@@ -183,13 +183,13 @@ DECAL_DESC DecalDescription[MAX_NO_OF_DECAL_IDS] =
 		TRANSLUCENCY_INVCOLOUR,
 					 
 		//unsigned char Alpha;
-		127,
+		255,
 		//unsigned char RedScale;
-		{255,255,255,255,255},
+		{200,200,200,200,200},
 		//unsigned char GreenScale;
-		{255,255,255,255,255},
+		{200,200,200,200,200},
 		//unsigned char BlueScale;
-		{255,255,255,255,255},
+		{200,200,200,200,200},
 
 		//unsigned char IsLit:1;
 		0,

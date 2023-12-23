@@ -596,16 +596,18 @@ void CastLOSProjectile(STRATEGYBLOCK *sbPtr, VECTORCH *muzzlepos, VECTORCH *in_s
 				if (AmmoID == AMMO_GRENADE)
 				{
 					/* 10m equals maximum range */
-					if (LOS_Lambda > 10000)
+					if (LOS_Lambda > 12000)
 						Mult = 0;
+					else if (LOS_Lambda > 10000)
+						Mult = 15536;
 					else if (LOS_Lambda > 8000)
-						Mult = 13107;
+						Mult = 25536;
 					else if (LOS_Lambda > 6000)
-						Mult = 26214;
+						Mult = 35536;
 					else if (LOS_Lambda > 4000)
-						Mult = 39321;
+						Mult = 45536;
 					else if (LOS_Lambda > 2000)
-						Mult = 52428;
+						Mult = 55536;
 				}
                 /* this fn needs updating to take amount of damage into account etc. */
                 HandleWeaponImpact(&LOS_Point,LOS_ObjectHitPtr->ObStrategyBlock,AmmoID,&shotVector, multiple*Mult, LOS_HModel_Section);

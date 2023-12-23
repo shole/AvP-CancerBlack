@@ -23,6 +23,7 @@
 
 #define UseLocalAssert Yes
 #include "ourasert.h"
+#include "pldnet.h"
 
 /* KJL 13:59:05 04/19/97 - avpview.c
  *
@@ -47,6 +48,7 @@ extern int DrawMode;
 extern int ZBufferMode;
 
 extern int ThirdPersonActive;
+extern int ThirdPersonActiveTest;
 
 extern DPID MultiplayerObservedPlayer;
 
@@ -69,6 +71,7 @@ MATRIXCH LToVMat;
 EULER LToVMat_Euler;
 MATRIXCH WToLMat = {1,};
 VECTORCH LocalView;
+VECTORCH CurrentYValue;
 
 /* KJL 11:16:37 06/06/97 - lights */
 VECTORCH LocalLightCH;
@@ -93,6 +96,10 @@ int *Global_EID_IPtr;
 extern float CameraZoomScale;
 extern int CameraZoomLevel;
 extern int AlienBiteAttackInProgress=0;
+extern int Underwater;
+extern int ZeroG;
+extern int OnLadder;
+extern VECTORCH PlayersWeaponCameraOffset;
 
 /* phase for cloaked objects */
 int CloakingPhase;
@@ -107,8 +114,6 @@ extern int GetSingleColourForPrimary(int Colour);
 extern void ColourFillBackBuffer(int FillColour);
 
 static void ModifyHeadOrientation(void);
-
-
 
 void UpdateRunTimeLights(void)
 {
@@ -364,11 +369,13 @@ void InteriorType_Body()
 	LOCALASSERT(dynPtr);
     
 	ModifyHeadOrientation();
+
 	{
 		/* eye offset */
-		VECTORCH ioff;
+		VECTORCH ioff;//, target;
 		COLLISION_EXTENTS *extentsPtr = 0;
 		PLAYER_STATUS *playerStatusPtr= (PLAYER_STATUS *) (sbPtr->SBdataptr);
+		//int speed, pitch;
 
 		switch(AvP.PlayerType)
 		{
@@ -378,14 +385,24 @@ void InteriorType_Body()
 				
 			case I_Alien:
 				extentsPtr = &CollisionExtents[CE_ALIEN];
+
+				if (playerStatusPtr->Class == CLASS_MEDIC_PR)
+					extentsPtr = &CollisionExtents[CE_QUEEN];
+
+				if (playerStatusPtr->Class == CLASS_EXF_SNIPER)
+					extentsPtr = &CollisionExtents[CE_PREDATORALIEN];
+
+				if (playerStatusPtr->Class == CLASS_EXF_W_SPEC)
+					extentsPtr = &CollisionExtents[CE_FACEHUGGER];
+
 				break;
 			
 			case I_Predator:
 				extentsPtr = &CollisionExtents[CE_PREDATOR];
 				break;
 		}
-		
-		/* set player state */
+#if 1
+
 		if (playerStatusPtr->ShapeState == PMph_Standing)
 		{
 			ioff.vy = extentsPtr->StandingTop;
@@ -395,12 +412,206 @@ void InteriorType_Body()
 			ioff.vy = extentsPtr->CrouchingTop;
 		}
 
+#else
+		/* set this */
+		if (CurrentYValue.vy == 0)
+			CurrentYValue.vy = extentsPtr->StandingTop;
+
+		speed = Approximate3dMagnitude(&Player->ObStrategyBlock->DynPtr->LinVelocity);
+
+		if (playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Jump) speed=0;
+		if (Underwater == 1 || ZeroG == 1) speed=0;
+		if (!Player->ObStrategyBlock->DynPtr->IsInContactWithFloor) speed=0;
+		if (playerStatusPtr->Honor) speed=0;
+		if (OnLadder) speed=Approximate3dMagnitude(&Player->ObStrategyBlock->DynPtr->LinVelocity);
+
+		pitch=(FastRandom()%512)-256;
+		if (OnLadder) pitch=-10;
+		if (playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Crouch) pitch=-100;
+		if (playerStatusPtr->ShapeState != PMph_Standing) pitch=-100;
+		
+		if (!GetSin(CloakingPhase)) {
+
+		/* set player state */
+		if (playerStatusPtr->ShapeState == PMph_Standing)
+		{
+			target.vy = extentsPtr->StandingTop;
+			//ioff.vy = extentsPtr->StandingTop;
+			ioff.vy = CurrentYValue.vy;
+
+			if (ioff.vy > target.vy)
+			{
+				ioff.vy-=100;
+			}
+			else
+			{
+				ioff.vy = target.vy;
+			}
+
+			/* head bobbing */
+			if (speed)
+			{
+				if (CurrentYValue.vx == 0) // head go down, weapon go right
+				{
+					if (speed > 6000)
+					{
+						target.vx = extentsPtr->StandingTop+100;
+					}
+					else
+					{
+						target.vx = extentsPtr->StandingTop+70;
+					}
+
+					ioff.vy = CurrentYValue.vy;
+
+					if (ioff.vy < target.vx)
+					{
+						if (speed > 6000)
+						{
+							ioff.vy+=10;
+						}
+						else
+						{
+							ioff.vy+=4;
+						}
+					}
+					else
+					{
+						ioff.vy = target.vy;
+						CurrentYValue.vx = 1;
+
+						/* play sound */
+						if (AvP.PlayerType == I_Marine)
+						{
+							Sound_Play(SID_ED_JETPACK_END,"p",pitch);
+						}
+						if (AvP.PlayerType == I_Predator)
+						{
+							Sound_Play(SID_ED_JETPACK_START,"p", pitch);
+						}
+						if (AvP.PlayerType == I_Alien)
+						{
+							if ((playerStatusPtr->Class != CLASS_EXF_W_SPEC) &&
+								(playerStatusPtr->Class != CLASS_CHESTBURSTER))
+								Sound_Play(SID_ARMSTART,"p", pitch);
+						}
+						if (AvP.Network != I_No_Network)
+						{
+							netGameData.footstepNoise = 1;
+						}
+					}
+				}
+				else // head go up, weapon go left
+				{
+					if (speed > 6000)
+					{
+						target.vx = extentsPtr->StandingTop+50;
+					}
+					else
+					{
+						target.vx = extentsPtr->StandingTop+20;
+					}
+
+					ioff.vy = CurrentYValue.vy;
+
+					if (ioff.vy > target.vx)
+					{
+						if (speed > 6000)
+							ioff.vy-=10;
+						else
+							ioff.vy-=4;
+					}
+					else
+					{
+						ioff.vy = target.vy;
+						CurrentYValue.vx = 0;
+					}
+				}
+			} // speed check
+		}
+		else
+		{
+			target.vy = extentsPtr->CrouchingTop;
+			//ioff.vy = extentsPtr->CrouchingTop;
+			ioff.vy = CurrentYValue.vy;
+
+			if (ioff.vy < target.vy)
+			{
+				ioff.vy+=100;
+			}
+			else
+			{
+				ioff.vy = target.vy;
+			}
+
+			/* head bobbing */
+			if (speed)
+			{
+				if (CurrentYValue.vx == 0) // head go up
+				{
+					if (AvP.PlayerType != I_Alien)
+						target.vx = extentsPtr->CrouchingTop-70;
+					else
+						target.vx = extentsPtr->CrouchingTop-30;
+
+					ioff.vy = CurrentYValue.vy;
+
+					if (ioff.vy > target.vx)
+					{
+						ioff.vy-=4;
+					}
+					else
+					{
+						ioff.vy = target.vy;
+						CurrentYValue.vx = 1;
+
+						/* play sound */
+						if (AvP.PlayerType == I_Marine)
+						{
+							Sound_Play(SID_ED_JETPACK_END,"p",pitch);
+						}
+						if (AvP.PlayerType == I_Predator)
+						{
+							Sound_Play(SID_ED_JETPACK_START,"p", pitch);
+						}
+						if (AvP.PlayerType == I_Alien)
+						{
+							if ((playerStatusPtr->Class != CLASS_EXF_W_SPEC) &&
+								(playerStatusPtr->Class != CLASS_CHESTBURSTER))
+								Sound_Play(SID_ARMSTART,"p", pitch);
+						}
+					}
+				}
+				else // head go down
+				{
+					target.vx = extentsPtr->CrouchingTop;
+
+					ioff.vy = CurrentYValue.vy;
+
+					if (ioff.vy < target.vx)
+					{
+						ioff.vy+=4;
+					}
+					else
+					{
+						ioff.vy = target.vy;
+						CurrentYValue.vx = 0;
+					}
+				}
+			}
+		}
+
+		} // FastRandom() check.
+
+		CurrentYValue.vy = ioff.vy;
+#endif
 		if (LANDOFTHEGIANTS_CHEATMODE)
 		{
 			ioff.vy/=4;
 		}
 		// Facehuggers are real small...
-		if (playerStatusPtr->Class == CLASS_EXF_W_SPEC)
+		if ((playerStatusPtr->Class == CLASS_EXF_W_SPEC) ||
+			(playerStatusPtr->Class == CLASS_CHESTBURSTER))
 		{
 			ioff.vy = extentsPtr->StandingTop;
 			ioff.vy/=4;
@@ -410,7 +621,7 @@ void InteriorType_Body()
 
 		ioff.vx = ioff.vz = 0;	// Needed initialization.
 
-		if (ThirdPersonActive)
+		if ((ThirdPersonActive) || (ThirdPersonActiveTest))
 		{
 			/* Floating 1st-person */
 			//ioff.vz += 250;		// slightly forwards...

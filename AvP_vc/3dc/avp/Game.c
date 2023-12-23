@@ -311,7 +311,7 @@ void StartGame(void)
 		extern SCREENDESCRIPTORBLOCK ScreenDescriptorBlock;
 		extern int MotionTrackerScale;
 		MotionTrackerScale = DIV_FIXED(ScreenDescriptorBlock.SDB_Width,640);
-		MotionTrackerScale = (MotionTrackerScale*0.8);
+		MotionTrackerScale = (MotionTrackerScale*0.6);
 	}
  //	BuildInvSqrtTable();
 

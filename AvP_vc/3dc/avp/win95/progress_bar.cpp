@@ -259,7 +259,7 @@ void Game_Has_Loaded(void)
 	SoundSys_StopAll();
 	SoundSys_Management();
 
-	int f = 65536;
+	int f = 0;//65536;
 	ResetFrameCounter();
 	do
 	{
