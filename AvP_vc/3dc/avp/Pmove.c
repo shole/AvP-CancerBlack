@@ -329,6 +329,7 @@ void ThrowHugger()
 				  {
 					  CauseDamageToObject(sbPtr, &TemplateAmmo[AMMO_CUDGEL].MaxDamage[AvP.Difficulty], ONE_FIXED, NULL);
   					  HuggedBy = 0;
+					  PlayerStatusPtr->ChestbursterTimer = 0;
 				  }
 			  }
 		  }
@@ -821,7 +822,7 @@ void ExecuteFreeMovement(STRATEGYBLOCK* sbPtr)
 							forwardSpeed = (forwardSpeed)*1.9;
 					}
 					// ... in water, zero-G and/or ladders does nothing.
-				}
+				} else
 				// ... backwards decreases speed by 100mm/s.
 				forwardSpeed = (forwardSpeed)-100;
 			}
@@ -1623,12 +1624,23 @@ static void CorpseMovement(STRATEGYBLOCK *sbPtr)
 static void NetPlayerDeadProcessing(STRATEGYBLOCK *sbPtr)
 {
 	//SECTION *root_section;
+	extern SCREENDESCRIPTORBLOCK ScreenDescriptorBlock;
 
 	#if SupportWindows95
 	PLAYER_STATUS *psPtr= (PLAYER_STATUS *) (sbPtr->SBdataptr);
 
 	/* call the read input function so that we can still respawn/quit, etc */
 	ReadPlayerGameInput(sbPtr);
+
+	/* If we are playing as a facehugger and have impregnated someone, then
+	   we will have to wait until the chestburster erupts until we can respawn */
+	if ((psPtr->Class == CLASS_EXF_W_SPEC) && (psPtr->AirSupply > (ONE_FIXED)))
+	{
+		psPtr->AirSupply -= NormalFrameTime;
+		return;
+	} else {
+		psPtr->AirSupply = 0;
+	}
 
 	/* check for re-spawn */
 	if(psPtr->Mvt_InputRequests.Flags.Rqst_FirePrimaryWeapon || (RamAttackInProgress))
@@ -1742,12 +1754,12 @@ void NetPlayerRespawn(STRATEGYBLOCK *sbPtr)
 	}
 	psPtr->MyCorpse=NULL;
 	DeInitialisePlayer();
+	psPtr->IsAlive = 1;
 	/* When you're going to respawn... you might change */
 	/* character class, after all. */
 	InitialisePlayersInventory(psPtr);
     /* psPtr->Health=STARTOFGAME_MARINE_HEALTH; */
     /* psPtr->Armour=STARTOFGAME_MARINE_ARMOUR; */
-	psPtr->IsAlive = 1;
 	psPtr->MyFaceHugger=NULL;
     psPtr->Energy=STARTOFGAME_MARINE_ENERGY;
 	   {
@@ -2176,7 +2188,7 @@ extern void ThrowAFlare(void)
 	TransposeMatrixCH(&mat);
 
 	if (!playerStatusPtr->FlaresLeft) return;
-	if (playerStatusPtr->OnSurface) return;
+	//if (playerStatusPtr->OnSurface) return;
 
 	CreateGrenadeKernel(I_BehaviourFlareGrenade,&position,&mat,0);
 	Sound_Play(SID_THROW_FLARE,"d",&(Player->ObStrategyBlock->DynPtr->Position));

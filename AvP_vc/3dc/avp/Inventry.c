@@ -31,6 +31,8 @@ rounds fired etc etc etc*/
 #define UseLocalAssert Yes
 #include "ourasert.h"
 
+extern int NormalFrameTime;
+
 void InitialisePlayersInventory(PLAYER_STATUS *playerStatusPtr);
 void MaintainPlayersInventory(void);
 void SetPlayerSecurityClearance(STRATEGYBLOCK *sbPtr, unsigned int securityLevel);
@@ -720,7 +722,16 @@ void InitialisePlayersInventory(PLAYER_STATUS *playerStatusPtr)
 			break;
 	}
 	/* Character File */
-	ReadCharacter();
+	if (AvP.Network == I_No_Network)
+		ReadCharacter();
+
+	/* If the player has recently joined a network game, kill him off */
+	if (AvP.Network != I_No_Network)
+	{
+		extern int RecentlyJoined;
+		if (RecentlyJoined)
+			playerStatusPtr->IsAlive = 0;
+	}
 
 	/* Reset certain globals */
 	{
@@ -2208,9 +2219,10 @@ static int AbleToPickupLiquid(int waterID, int integrity)
 		AddNetMsg_SpeciesScores();
 		return 0;
 	} else if (waterID == 17) {	// Plants
-		Sound_Play(SID_BODY_BEING_HACKED_UP_4,"d",&Player->ObStrategyBlock->DynPtr->Position);
-		if (AvP.Network != I_No_Network)
-			netGameData.landingNoise = 2;
+
+		if (playerStatusPtr->soundHandle4)
+			playerStatusPtr->OnSurface = 1;
+		
 	} else if (waterID == 18) {	// Glass
 		return 0;
 	} else {	//Regular water

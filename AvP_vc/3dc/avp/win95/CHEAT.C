@@ -94,6 +94,9 @@ void GiveAllWeaponsCheat(void)
 {
 	PLAYER_STATUS *playerStatusPtr= (PLAYER_STATUS *) (Player->ObStrategyBlock->SBdataptr);
 
+	if (AvP.Network != I_No_Network)
+		return;
+
 	if(AvP.PlayerType == I_Marine)
    	{
     	int slot = MAX_NO_OF_WEAPON_SLOTS;

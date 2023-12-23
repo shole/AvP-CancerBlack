@@ -1246,7 +1246,7 @@ static void AlienNearState_Approach(STRATEGYBLOCK *sbPtr)
 	#endif
 
 	/* still here?... make some noise */
-	if ((FastRandom()&127)<20) {
+	if ((FastRandom()&127)<2) {
 		DoAlienAIRandomHiss(sbPtr);
 	}
 }
@@ -1378,7 +1378,7 @@ static void AlienNearState_Attack(STRATEGYBLOCK *sbPtr)
 		/* Shrug. */
 	}
 
-	if ((FastRandom()&127)<20) {
+	if ((FastRandom()&127)<2) {
 		DoAlienAIRandomHiss(sbPtr);
 	}
 

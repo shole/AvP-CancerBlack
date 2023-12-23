@@ -36,8 +36,8 @@ static int BarTop;
 static int BarBottom;
 
 static const char* Loading_Image_Name="Menus\\Loading.rim";
-static const char* Loading_Bar_Empty_Image_Name="Menus\\biomechmenu.rim";
-static const char* Loading_Bar_Full_Image_Name="Menus\\starfield.rim";
+static const char* Loading_Bar_Empty_Image_Name="Menus\\0loading.rim";
+static const char* Loading_Bar_Full_Image_Name="Menus\\1loaded.rim";
 
 DDSurface *LoadingBarEmpty;
 DDSurface *LoadingBarFull;

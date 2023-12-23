@@ -144,6 +144,8 @@ NETGAME_GAMEDATA netGameData=
 	1,	//BOOL pistolInfiniteAmmo;
 	1,	//BOOL specialistPistols;
 	0,	//BOOL LifeCycle;
+	0,	//BOOL InstantSpawn;
+	0,	//int MinimumPlayers;
 	0,	//int myStrategyCheckSum; 
 
 	0,	//unsigned int tcpip_available :1;
@@ -224,10 +226,13 @@ void SetDefaultMultiplayerConfig()
 	netGameData.pistolInfiniteAmmo=FALSE;
 	netGameData.specialistPistols=FALSE;
 	netGameData.LifeCycle=FALSE;
+	netGameData.InstantSpawn=FALSE;
+	netGameData.MinimumPlayers=0;
 }
 
 int LobbiedGame=0;
 int NoClass;
+int RecentlyJoined;
 int DestrSound;
 void KickPlayer(int Index);
 
@@ -321,6 +326,7 @@ extern int DeterminePredatorVoice(unsigned int Class);
 extern void BLTDrawCell(int X, int Y);
 extern void ChangeClass();
 extern void SetAlternateAlienSkin(HMODELCONTROLLER *HModelController, unsigned int Class);
+extern int ThirdPersonActive;
 /*----------------------------------------------------------------------
   Some protoypes for this file
   ----------------------------------------------------------------------*/
@@ -450,6 +456,8 @@ void CheckStateOfHuggedBy();
 void ShowTeamNames_Marine();
 void ShowTeamNames_Alien();
 void ShowTeamNames_Predator();
+
+int EnoughPlayersAreHere(void);
 /*----------------------------------------------------------------------
   Initalisation of net game
   ----------------------------------------------------------------------*/
@@ -564,8 +572,16 @@ void InitAVPNetGameForHost(int species, int gamestyle, int level)
 			netGameData.playerData[i].aliensKilled[1]=0;
 			netGameData.playerData[i].aliensKilled[2]=0;
 			netGameData.playerData[i].deathsFromAI=0;
-			netGameData.playerData[i].playerAlive=1;
-			netGameData.playerData[i].playerHasLives=1;
+			if (netGameData.InstantSpawn || (netGameData.MinimumPlayers < 2))
+			{
+				netGameData.playerData[i].playerAlive=1;
+				netGameData.playerData[i].playerHasLives=1;
+			}
+			else
+			{
+				netGameData.playerData[i].playerAlive=0;
+				netGameData.playerData[i].playerHasLives=0;
+			}
 			netGameData.playerData[i].startFlag = 0;		
 		}
 		for(j=0;j<3;j++) netGameData.teamScores[j] = 0;
@@ -690,6 +706,10 @@ void InitAVPNetGameForHost(int species, int gamestyle, int level)
 
 	// Fix for class bug
 	NoClass=1;
+
+	// Start out as dead...
+	if (!netGameData.InstantSpawn || (netGameData.MinimumPlayers > 1))
+		RecentlyJoined = 1;
 }
 void InitAVPNetGameForJoin(void)
 {
@@ -721,8 +741,16 @@ void InitAVPNetGameForJoin(void)
 			netGameData.playerData[i].aliensKilled[1]=0;
 			netGameData.playerData[i].aliensKilled[2]=0;
 			netGameData.playerData[i].deathsFromAI=0;
-			netGameData.playerData[i].playerAlive=1;
-			netGameData.playerData[i].playerHasLives=1;
+			if (netGameData.InstantSpawn || (netGameData.MinimumPlayers < 2))
+			{
+				netGameData.playerData[i].playerAlive=1;
+				netGameData.playerData[i].playerHasLives=1;
+			}
+			else
+			{
+				netGameData.playerData[i].playerAlive=0;
+				netGameData.playerData[i].playerHasLives=0;
+			}
 			netGameData.playerData[i].startFlag = 0;		
 		}
 		for(j=0;j<3;j++) netGameData.teamScores[j] = 0;
@@ -766,6 +794,10 @@ void InitAVPNetGameForJoin(void)
 
 	// Fix for class bug
 	NoClass=1;
+
+	// Start out as dead...
+	if (!netGameData.InstantSpawn || (netGameData.MinimumPlayers > 1))
+		RecentlyJoined = 1;
 
 	netGameData.joiningGameStatus = JOINNETGAME_WAITFORSTART;
 }
@@ -1185,8 +1217,16 @@ static void AddPlayerToGame(DPID id, char* name)
 		netGameData.playerData[freePlayerIndex].aliensKilled[1] = 0;
 		netGameData.playerData[freePlayerIndex].aliensKilled[2] = 0;
 		netGameData.playerData[freePlayerIndex].deathsFromAI=0;
-		netGameData.playerData[freePlayerIndex].playerAlive = 1;
-		netGameData.playerData[freePlayerIndex].playerHasLives = 1;
+		if (netGameData.InstantSpawn || (netGameData.MinimumPlayers < 2))
+		{
+			netGameData.playerData[freePlayerIndex].playerAlive=1;
+			netGameData.playerData[freePlayerIndex].playerHasLives=1;
+		}
+		else
+		{
+			netGameData.playerData[freePlayerIndex].playerAlive=0;
+			netGameData.playerData[freePlayerIndex].playerHasLives=0;
+		}
 
 		netGameData.playerData[freePlayerIndex].lastKnownPosition.vx=0;
 		netGameData.playerData[freePlayerIndex].lastKnownPosition.vy=100000000;
@@ -2139,6 +2179,8 @@ void AddNetMsg_GameDescription(void)
 		messagePtr->pistolInfiniteAmmo=netGameData.pistolInfiniteAmmo;
 		messagePtr->specialistPistols=netGameData.specialistPistols;
 		messagePtr->LifeCycle=netGameData.LifeCycle;
+		messagePtr->InstantSpawn=netGameData.InstantSpawn;
+		messagePtr->MinimumPlayers=netGameData.MinimumPlayers;
 
 		if(netGameData.myGameState==NGS_EndGameScreen)
 			messagePtr->endGame=1;
@@ -2546,6 +2588,9 @@ void AddNetMsg_PlayerState(STRATEGYBLOCK *sbPtr)
 	if(PlayerStatusPtr->IsAlive) messagePtr->IAmAlive = 1;
 	else messagePtr->IAmAlive = 0;
 
+	/* start out as dead */
+	if (RecentlyJoined) messagePtr->IAmAlive = 0;
+
 	netGameData.playerData[playerIndex].playerAlive=messagePtr->IAmAlive;
 	
 	//Is the player alive or in possesion of extra lives?
@@ -2750,6 +2795,9 @@ void AddNetMsg_PlayerState_Minimal(STRATEGYBLOCK *sbPtr,BOOL sendOrient)
 	/* whether or not I'm alive */
 	if(PlayerStatusPtr->IsAlive) messagePtr->IAmAlive = 1;
 	else messagePtr->IAmAlive = 0;
+
+	/* start out as dead */
+	if (RecentlyJoined) messagePtr->IAmAlive = 0;
 
 	netGameData.playerData[playerIndex].playerAlive=messagePtr->IAmAlive;
 	
@@ -5766,6 +5814,8 @@ static void ProcessNetMsg_GameDescription(NETMESSAGE_GAMEDESCRIPTION *messagePtr
 		netGameData.pistolInfiniteAmmo=messagePtr->pistolInfiniteAmmo;
 		netGameData.specialistPistols=messagePtr->specialistPistols;
 		netGameData.LifeCycle=messagePtr->LifeCycle;
+		netGameData.InstantSpawn=messagePtr->InstantSpawn;
+		netGameData.MinimumPlayers=messagePtr->MinimumPlayers;
 
 		if(netGameData.needGameDescription)
 		{
@@ -6074,10 +6124,11 @@ static void ProcessNetMsg_PlayerState(NETMESSAGE_PLAYERSTATE *messagePtr, DPID s
 					{
 						HandleWeaponElevation(sbPtr,(int)messagePtr->Elevation,weapon);
 						//don't draw muzzle flash if observing from this player
+						//actually, do just that -- Eldritch
 						if(MultiplayerObservedPlayer!=senderId) {
 							HandleGhostGunFlashEffect(sbPtr, messagePtr->IHaveAMuzzleFlash);
 						} else {
-							HandleGhostGunFlashEffect(sbPtr, 0);
+							HandleGhostGunFlashEffect(sbPtr, messagePtr->IHaveAMuzzleFlash);
 						}
 						HandlePlayerGhostWeaponSound(sbPtr,weapon,firingPrimary,firingSecondary);
 						MaintainGhostCloakingStatus(sbPtr,(int)messagePtr->CloakingEffectiveness);
@@ -6096,10 +6147,11 @@ static void ProcessNetMsg_PlayerState(NETMESSAGE_PLAYERSTATE *messagePtr, DPID s
 				HandleWeaponElevation(sbPtr,(int)messagePtr->Elevation,weapon);
 				UpdateGhost(sbPtr,&position,&orientation,sequence,messagePtr->Special);
 				//don't draw muzzle flash if observing from this player
+				//actually, do just that -- Eldritch
 				if(MultiplayerObservedPlayer!=senderId) {
 					HandleGhostGunFlashEffect(sbPtr, messagePtr->IHaveAMuzzleFlash);
 				} else {
-					HandleGhostGunFlashEffect(sbPtr, 0);
+					HandleGhostGunFlashEffect(sbPtr, messagePtr->IHaveAMuzzleFlash);
 				}
 				HandlePlayerGhostWeaponSound(sbPtr,weapon,firingPrimary,firingSecondary);
 				MaintainGhostCloakingStatus(sbPtr,(int)messagePtr->CloakingEffectiveness);
@@ -6280,7 +6332,12 @@ static void ProcessNetMsg_PlayerState(NETMESSAGE_PLAYERSTATE *messagePtr, DPID s
 						if (messagePtr->characterType == NGCT_Marine)
 							Sound_Play(SID_TRACKER_CLICK,"d",&position);
 						else if (messagePtr->characterType == NGCT_Alien)
-							Sound_Play(SID_ED_SKEETERDISC_HITWALL,"d",&position);
+						{
+							if (messagePtr->Class == CLASS_EXF_SNIPER)
+								Sound_Play(SID_ED_SKEETERDISC_HITWALL,"dp",&position, -100);
+							else
+								Sound_Play(SID_ED_SKEETERDISC_HITWALL,"d",&position);
+						}
 						break;
 					case 2:
 						Sound_Play(SID_TRACKER_WHEEP,"d",&position);
@@ -6302,8 +6359,9 @@ static void ProcessNetMsg_PlayerState(NETMESSAGE_PLAYERSTATE *messagePtr, DPID s
 						break;
 					case NGCT_Alien:
 						if (messagePtr->Class == CLASS_EXF_W_SPEC)
-							Sound_Play(SID_FHUG_MOVE, "d", &position);
-						else
+						{
+							//Sound_Play(SID_FHUG_MOVE, "d", &position);
+						} else
 							Sound_Play(SID_ARMSTART,"d",&position);
 						break;
 					case NGCT_Predator:
@@ -6442,10 +6500,11 @@ static void ProcessNetMsg_PlayerState(NETMESSAGE_PLAYERSTATE *messagePtr, DPID s
 					}
 					
 					//don't draw the player we're observing
-					if(sbPtr && sbPtr->SBdptr)
+					//actually, do just that -- Eldritch
+					/*if(sbPtr && sbPtr->SBdptr)
 					{
 						sbPtr->SBdptr->ObFlags|=ObFlag_NotVis;
-					}
+					}*/
 				}
 			}
 		}
@@ -6517,10 +6576,11 @@ static void ProcessNetMsg_PlayerState_Minimal(NETMESSAGE_PLAYERSTATE_MINIMAL *me
 			/* We are not a dead alien */
 			HandleWeaponElevation(sbPtr,(int)messagePtr->Elevation,ghostData->CurrentWeapon);
 			//don't draw muzzle flash if observing from this player
+			//actually, do just that -- Eldritch
 			if(MultiplayerObservedPlayer!=senderId)
 				HandleGhostGunFlashEffect(sbPtr, messagePtr->IHaveAMuzzleFlash);
 			else
-				HandleGhostGunFlashEffect(sbPtr, 0);
+				HandleGhostGunFlashEffect(sbPtr, messagePtr->IHaveAMuzzleFlash);
 			MaintainGhostCloakingStatus(sbPtr,(int)messagePtr->CloakingEffectiveness<<8);
 			MaintainGhostFireStatus(sbPtr,(int)messagePtr->IAmOnFire);
 			/* Now, more disc. */
@@ -6593,10 +6653,11 @@ static void ProcessNetMsg_PlayerState_Minimal(NETMESSAGE_PLAYERSTATE_MINIMAL *me
 					playerStatusPtr->ViewPanX=messagePtr->Elevation;
 				
 					//don't draw the player we're observing
-					if(sbPtr && sbPtr->SBdptr)
+					//actually, do just that -- Eldritch
+					/*if(sbPtr && sbPtr->SBdptr)
 					{
 						sbPtr->SBdptr->ObFlags|=ObFlag_NotVis;
-					}
+					}*/
 				}
 			}
 		}
@@ -7095,10 +7156,13 @@ static void ProcessNetMsg_LocalObjectDamaged(char *messagePtr, DPID senderId)
 			dynPtr->LinVelocity.vz=0;
 		}
 
-		if (messageHeader->ammo_id == AMMO_CUDGEL && messageHeader->multiple)
+		if (messageHeader->ammo_id == AMMO_FACEHUGGER)
 		{
+			PLAYER_STATUS *psPtr = Player->ObStrategyBlock->SBdataptr;
+
 			Sound_Play(SID_ED_FACEHUGGERSLAP,"h");
 			HuggedBy = senderId;
+			psPtr->ChestbursterTimer = (ONE_FIXED*20);
 		}
 
 		/* check if we have found an sb: if not the object has probably been 
@@ -7634,7 +7698,6 @@ static void ProcessNetMsg_MakeDecal(NETMESSAGE_MAKEDECAL *messagePtr)
 
 static char *ProcessNetMsg_ChatBroadcast(char *subMessagePtr, DPID senderId)
 {
-	
 	BOOL same_species_only;
 	/* get player index from dpid */
 	char *ptr = subMessagePtr;
@@ -7668,8 +7731,19 @@ static char *ProcessNetMsg_ChatBroadcast(char *subMessagePtr, DPID senderId)
 			//was a species say message , check to see if we are the correct species
 			if(netGameData.playerData[playerIndex].characterType != netGameData.myCharacterType ) return ptr;
 		}
+
+		/* We have to find out if the sending player is dead.
+		   If he is, then any living players won't hear him talk,
+		   to avoid spectator-cheating */
+		{
+			PLAYER_STATUS *psPtr = (PLAYER_STATUS *) Player->ObStrategyBlock->SBdataptr;
+
+			if (!netGameData.playerData[playerIndex].playerAlive)
+				if (psPtr->IsAlive)
+					return ptr;
+		}
 		
-		sprintf(OnScreenMessageBuffer,"%s: %s",netGameData.playerData[playerIndex].name,subMessagePtr+1);
+		sprintf(OnScreenMessageBuffer,"%s%s : %s",same_species_only ? "(SPECIES) " : "", netGameData.playerData[playerIndex].name,subMessagePtr+1);
 		NewOnScreenMessage(OnScreenMessageBuffer);
 	
 		/* KJL 99/2/5 - play 'incoming message' sound */
@@ -9703,6 +9777,12 @@ void TeleportNetPlayerToAStartingPosition(STRATEGYBLOCK *playerSbPtr, int startO
 		MultiplayerRestartSeed=0;	
 		return;
 	}
+
+	if (RecentlyJoined)
+	{
+		GetNextMultiplayerObservedPlayer();
+		return;
+	}
 	
 	/* some basic checks */
 	if(playerSbPtr==NULL) return;	
@@ -10438,6 +10518,7 @@ void RestartNetworkGame(int seed)
 	MultiplayerRestartSeed=seed;
 	if(!MultiplayerRestartSeed) MultiplayerRestartSeed=1;
 
+	RecentlyJoined = 0;
 }
 
 
@@ -12174,8 +12255,9 @@ static int CountMultiplayerLivesLeft()
 
 BOOL AreThereAnyLivesLeft()
 {
-
 	if(netGameData.maxLives==0) return TRUE; //infinite lives
+
+	if (RecentlyJoined) return FALSE;
 	
 /*	if(netGameData.gameType!=NGT_Individual &&
 	   netGameData.gameType!=NGT_Coop &&
@@ -12419,6 +12501,12 @@ void DoMultiplayerEndGameScreen(void)
 		}
 	}
 
+	if (!EnoughPlayersAreHere())
+	{
+		y = 260;
+		RenderStringCentred("Waiting for more players to join.",ScreenDescriptorBlock.SDB_Width/2,y,0xffffffff);
+	}
+
 	if(netGameData.gameType!=NGT_Coop)
 	{
 		//show species scores
@@ -12457,11 +12545,14 @@ void DoMultiplayerEndGameScreen(void)
 			netGameData.stateCheckTimeDelay=0;
 			
   			RenderStringCentred(GetTextString(TEXTSTRING_MULTIPLAYER_PRESSKEYTORESTARTGAME),ScreenDescriptorBlock.SDB_Width/2,ScreenDescriptorBlock.SDB_Height-20,0xffffffff);
-			if (DebouncedGotAnyKey)
+			if (PlayerStatusPtr->Mvt_InputRequests.Flags.Rqst_FirePrimaryWeapon)
 			{
-				int seed=FastRandom();
-				RestartNetworkGame(seed);
-				AddNetMsg_RestartNetworkGame(seed);
+				if (EnoughPlayersAreHere())
+				{
+					int seed=FastRandom();
+					RestartNetworkGame(seed);
+					AddNetMsg_RestartNetworkGame(seed);
+				}
 			}
 		}
 		else
@@ -12473,7 +12564,12 @@ void DoMultiplayerEndGameScreen(void)
 	{
 		if(AreThereAnyLivesLeft())
 		{
- 			RenderStringCentred(GetTextString(TEXTSTRING_MULTIPLAYER_OPERATETORESPAWN),ScreenDescriptorBlock.SDB_Width/2,ScreenDescriptorBlock.SDB_Height-20,0xffffffff);
+			if (playerStatusPtr->AirSupply)
+			{
+				RenderStringCentred("Please wait until chestburster erupts...", ScreenDescriptorBlock.SDB_Width/2, ScreenDescriptorBlock.SDB_Height-20, 0xffffffff);
+			} else {
+	 			RenderStringCentred(GetTextString(TEXTSTRING_MULTIPLAYER_OPERATETORESPAWN),ScreenDescriptorBlock.SDB_Width/2,ScreenDescriptorBlock.SDB_Height-20,0xffffffff);
+			}
 		}
 		else
 		{
@@ -12752,6 +12848,9 @@ void GetNextMultiplayerObservedPlayer()
 	extern int GlobalFrameCounter;
 	static int LastFrameTried;
 
+	// A small test
+	ThirdPersonActive = 1;
+
 	//Use the frame counter to debounce changing player to observe
 	if(LastFrameTried==GlobalFrameCounter || LastFrameTried+1==GlobalFrameCounter)
 	{
@@ -12807,10 +12906,13 @@ void TurnOffMultiplayerObserveMode()
 	
 		MultiplayerObservedPlayer=0;
 
+		ThirdPersonActive = 0;
+
 		//need to turn gravity and collisions back on
 		if (!GrabbedPlayer)
 			dynPtr->GravityOn=1;
 	}
+	ThirdPersonActive = 0;
 }
 
 void CheckStateOfObservedPlayer()
@@ -13089,4 +13191,23 @@ void KickPlayer(int Index)
 		sprintf(msg, "%s has been kicked!", netGameData.playerData[Index].name);
 		AddNetMsg_ChatBroadcast(msg, FALSE);
 	}*/
+}
+
+int EnoughPlayersAreHere(void)
+{
+	int j;
+	int players=0;
+
+	for(j=0;j<NET_MAXPLAYERS;j++)
+	{
+		if(netGameData.playerData[j].playerId)
+		{
+			players++;
+		}
+	}
+
+	if (players >= netGameData.MinimumPlayers)
+		return TRUE;
+
+	return FALSE;
 }

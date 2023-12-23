@@ -151,9 +151,19 @@ void DeathVolumeBehaveFun(STRATEGYBLOCK* vol_sbptr)
 					}
 					else
 					{
+						extern char LevelName[];
+
+						//mp_jungle: minefield
+						if (!stricmp("Custom\\mp_jungle", &LevelName));
+						{
+							PLAYER_STATUS *psPtr = (PLAYER_STATUS *) Player->ObStrategyBlock->SBdataptr;
+							
+							if (psPtr->IsAlive)
+								psPtr->Destr = -1;
+						}
 						//kill the creature/player
-						VECTORCH direction={0,-ONE_FIXED,0};
-						CauseDamageToObject(sbPtr,&certainDeath,ONE_FIXED,&direction);
+						//VECTORCH direction={0,-ONE_FIXED,0};
+						//CauseDamageToObject(sbPtr,&certainDeath,ONE_FIXED,&direction);
 						Ladder[CurrentLadder] = 0;
 					}
 

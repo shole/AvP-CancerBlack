@@ -3206,7 +3206,13 @@ static void InteractWithMenuElement(enum AVPMENU_ELEMENT_INTERACTION_ID interact
 		{
 			if (interactionID == AVPMENU_ELEMENT_INTERACTION_SELECT)
 			{
-				AvP.RestartLevel=1;
+				extern void RestartMultiplayer(void);
+				
+				if (AvP.Network == I_Host)
+					RestartMultiplayer();
+				else
+					AvP.RestartLevel=1;
+
 				AvPMenus.MenusState = MENUSSTATE_STARTGAME;
 			}
 			break;
@@ -5425,14 +5431,25 @@ static void SetBriefingTextForMultiplayer()
 		BriefingTextString[0] = netGameData.customLevelName;
 	}
 
+	// Will attempt to open a text-file containing the
+	// level's briefing from the Custom folder.
+#if 0
+	{
+		char levelstring[100];
+
+		strcpy(levelstring,"avp_rifs/Custom/");
+		strcat(levelstring,netGameData.customLevelName);
+		strcat(levelstring,".txt");
+	}
+#endif
 	// test...
-	if (!stricmp("Custom\\dm_valore",LevelName))
+	/*if (!stricmp("Custom\\dm_valore",LevelName))
 	{
 		BriefingTextString[1] = "MISSION BRIEFING";
 		BriefingTextString[2] = "The Valore Ganymedes prison ship.";
 		BriefingTextString[3] = "Fight to the death.";
 		BriefingTextString[4] = "";
-	}
+	}*/
 }
 
 void SetBriefingTextToBlank(void)

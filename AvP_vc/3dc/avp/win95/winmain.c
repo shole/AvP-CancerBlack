@@ -335,7 +335,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 			exit(0x6364);
 		}		
 	}
-	else if (strstr(command_line, "-debug"))
+	else if (strstr(command_line, "-ultimatebadass")) //-debug
 	{
 		DebuggingCommandsActive = 1;
 	}

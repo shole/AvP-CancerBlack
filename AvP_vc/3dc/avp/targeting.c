@@ -931,7 +931,7 @@ int SmartTarget_TargetFilter(STRATEGYBLOCK *candidate)
 		}
 		return 0;
 	} else if (weaponPtr->WeaponIDNumber == WEAPON_SMARTGUN) {
-		/* No targeting on Cassus' surface */
+		/* No targeting on Cassus' surface
 		{
 			PLAYER_STATUS *playerStatusPtr = (PLAYER_STATUS *) (Player->ObStrategyBlock->SBdataptr);
 			GLOBALASSERT(playerStatusPtr);
@@ -939,7 +939,7 @@ int SmartTarget_TargetFilter(STRATEGYBLOCK *candidate)
 			if (playerStatusPtr->OnSurface) {
 				return(0);
 			}
-		}
+		}*/
 		/* Smartgun cannot lock on to cloaked Predators */
 		/* It cannot lock on them at all... -- ELDRITCH */
 		if (candidate->I_SBtype==I_BehaviourPredator && !NPC_IsDead(candidate))

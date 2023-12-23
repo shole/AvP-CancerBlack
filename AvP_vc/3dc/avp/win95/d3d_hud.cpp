@@ -1338,16 +1338,16 @@ void Render_HealthAndArmour(unsigned int health, unsigned int armour, unsigned i
 				switch(ThisDiscMode)
 				{
 					case 4:	// disabled
-						D3D_RenderHUDNumber_Centred(0,(ScreenDescriptorBlock.SDB_Width/2)+40,(ScreenDescriptorBlock.SDB_Height - MUL_FIXED(HUDScaleFactor,24))-85,0xffff0000);
+						D3D_RenderHUDNumber_Centred(0,(ScreenDescriptorBlock.SDB_Width/2)+40,(ScreenDescriptorBlock.SDB_Height - MUL_FIXED(HUDScaleFactor,24))-150,0xffff0000);
 						break;
 					case I_Seek_Track:	// 10 sec
-						D3D_RenderHUDNumber_Centred(10,(ScreenDescriptorBlock.SDB_Width/2)+40,(ScreenDescriptorBlock.SDB_Height - MUL_FIXED(HUDScaleFactor,24))-85,0xffff0000);
+						D3D_RenderHUDNumber_Centred(10,(ScreenDescriptorBlock.SDB_Width/2)+40,(ScreenDescriptorBlock.SDB_Height - MUL_FIXED(HUDScaleFactor,24))-150,0xffff0000);
 						break;
 					case I_Search_Destroy:	// 20 sec
-						D3D_RenderHUDNumber_Centred(20,(ScreenDescriptorBlock.SDB_Width/2)+40,(ScreenDescriptorBlock.SDB_Height - MUL_FIXED(HUDScaleFactor,24))-85,0xffff0000);
+						D3D_RenderHUDNumber_Centred(20,(ScreenDescriptorBlock.SDB_Width/2)+40,(ScreenDescriptorBlock.SDB_Height - MUL_FIXED(HUDScaleFactor,24))-150,0xffff0000);
 						break;
 					case I_Proximity_Mine:	// 30 sec
-						D3D_RenderHUDNumber_Centred(30,(ScreenDescriptorBlock.SDB_Width/2)+40,(ScreenDescriptorBlock.SDB_Height - MUL_FIXED(HUDScaleFactor,24))-85,0xffff0000);
+						D3D_RenderHUDNumber_Centred(30,(ScreenDescriptorBlock.SDB_Width/2)+40,(ScreenDescriptorBlock.SDB_Height - MUL_FIXED(HUDScaleFactor,24))-150,0xffff0000);
 						break;
 				}
 			}

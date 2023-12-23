@@ -1149,18 +1149,6 @@ void ReadPlayerGameInput(STRATEGYBLOCK* sbPtr)
 
 				} // Multiplayer class check
 
-				if(DebouncedKeyboardInput[primaryInput->Marine_Say]
-				 ||DebouncedKeyboardInput[secondaryInput->Marine_Say])
-					BringDownConsoleWithSayTypedIn();
-
-				if(DebouncedKeyboardInput[primaryInput->Marine_SpeciesSay]
-				 ||DebouncedKeyboardInput[secondaryInput->Marine_SpeciesSay])
-					BringDownConsoleWithSaySpeciesTypedIn();
-
-				if(KeyboardInput[primaryInput->Marine_ShowScores]
-				 ||KeyboardInput[secondaryInput->Marine_ShowScores])
-					ShowMultiplayerScores();
-
 				if(DebouncedKeyboardInput[primaryInput->Marine_ChangeSpecies]
 				 ||DebouncedKeyboardInput[secondaryInput->Marine_ChangeSpecies])
 					ChangeSpecies();
@@ -1224,18 +1212,6 @@ void ReadPlayerGameInput(STRATEGYBLOCK* sbPtr)
 					
 				} // Multiplayer class check
 
-				if(DebouncedKeyboardInput[primaryInput->Predator_Say]
-				 ||DebouncedKeyboardInput[secondaryInput->Predator_Say])
-					BringDownConsoleWithSayTypedIn();
-
-				if(DebouncedKeyboardInput[primaryInput->Predator_SpeciesSay]
-				 ||DebouncedKeyboardInput[secondaryInput->Predator_SpeciesSay])
-					BringDownConsoleWithSaySpeciesTypedIn();
-
-				if(KeyboardInput[primaryInput->Predator_ShowScores]
-				 ||KeyboardInput[secondaryInput->Predator_ShowScores])
-					ShowMultiplayerScores();
-
 				if(DebouncedKeyboardInput[primaryInput->Predator_ChangeSpecies]
 				 ||DebouncedKeyboardInput[secondaryInput->Predator_ChangeSpecies])
 					ChangeSpecies();
@@ -1269,18 +1245,6 @@ void ReadPlayerGameInput(STRATEGYBLOCK* sbPtr)
 					
 				} // Multiplayer class check
 
-				if(DebouncedKeyboardInput[primaryInput->Alien_Say]
-				 ||DebouncedKeyboardInput[secondaryInput->Alien_Say])
-					BringDownConsoleWithSayTypedIn();
-
-				if(DebouncedKeyboardInput[primaryInput->Alien_SpeciesSay]
-				 ||DebouncedKeyboardInput[secondaryInput->Alien_SpeciesSay])
-					BringDownConsoleWithSaySpeciesTypedIn();
-
-				if(KeyboardInput[primaryInput->Alien_ShowScores]
-				 ||KeyboardInput[secondaryInput->Alien_ShowScores])
-					ShowMultiplayerScores();
-
 				if(DebouncedKeyboardInput[primaryInput->Alien_ChangeSpecies]
 				 ||DebouncedKeyboardInput[secondaryInput->Alien_ChangeSpecies])
 					ChangeSpecies();
@@ -1292,7 +1256,49 @@ void ReadPlayerGameInput(STRATEGYBLOCK* sbPtr)
 				break;
 			}
 		}
-		
+		/* Moved these here, wanted them to be available even for the dead :) */
+		if (AvP.PlayerType == I_Marine)
+		{
+			if(DebouncedKeyboardInput[primaryInput->Marine_Say]
+			||DebouncedKeyboardInput[secondaryInput->Marine_Say])
+				BringDownConsoleWithSayTypedIn();
+
+			if(DebouncedKeyboardInput[primaryInput->Marine_SpeciesSay]
+			||DebouncedKeyboardInput[secondaryInput->Marine_SpeciesSay])
+				BringDownConsoleWithSaySpeciesTypedIn();
+
+			if(KeyboardInput[primaryInput->Marine_ShowScores]
+			||KeyboardInput[secondaryInput->Marine_ShowScores])
+				ShowMultiplayerScores();
+		}
+		if (AvP.PlayerType == I_Predator)
+		{
+			if(DebouncedKeyboardInput[primaryInput->Predator_Say]
+			||DebouncedKeyboardInput[secondaryInput->Predator_Say])
+				BringDownConsoleWithSayTypedIn();
+
+			if(DebouncedKeyboardInput[primaryInput->Predator_SpeciesSay]
+			||DebouncedKeyboardInput[secondaryInput->Predator_SpeciesSay])
+				BringDownConsoleWithSaySpeciesTypedIn();
+
+			if(KeyboardInput[primaryInput->Predator_ShowScores]
+			||KeyboardInput[secondaryInput->Predator_ShowScores])
+				ShowMultiplayerScores();
+		}
+		if (AvP.PlayerType == I_Alien)
+		{
+			if(DebouncedKeyboardInput[primaryInput->Alien_Say]
+			||DebouncedKeyboardInput[secondaryInput->Alien_Say])
+				BringDownConsoleWithSayTypedIn();
+
+			if(DebouncedKeyboardInput[primaryInput->Alien_SpeciesSay]
+			||DebouncedKeyboardInput[secondaryInput->Alien_SpeciesSay])
+				BringDownConsoleWithSaySpeciesTypedIn();
+
+			if(KeyboardInput[primaryInput->Alien_ShowScores]
+			||KeyboardInput[secondaryInput->Alien_ShowScores])
+				ShowMultiplayerScores();
+		}
 		if(DebouncedKeyboardInput[FixedInputConfig.PauseGame])
 			AvP_TriggerInGameMenus();
 	//		playerStatusPtr->Mvt_InputRequests.Flags.Rqst_QuitGame = 1;

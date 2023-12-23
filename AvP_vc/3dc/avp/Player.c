@@ -351,6 +351,13 @@ void InitPlayer(STRATEGYBLOCK* sbPtr, int sb_type)
 	psPtr->Armour=sbPtr->SBDamageBlock.Armour;
 
 	psPtr->IsAlive = 1;
+
+	if (AvP.Network != I_No_Network)
+	{
+		extern int RecentlyJoined;
+		if (RecentlyJoined)
+			psPtr->IsAlive = 0;
+	}
 	psPtr->MyFaceHugger=NULL;
 	psPtr->MyCorpse=NULL;
 	psPtr->tauntTimer=0;
@@ -633,7 +640,13 @@ void MaintainPlayer(void)
 		if (playerStatusPtr->cloakOn)
 		{
 			DYNAMICSBLOCK *dynPtr = Player->ObStrategyBlock->DynPtr;
+
 			if (dynPtr->LinVelocity.vx || dynPtr->LinVelocity.vy || dynPtr->LinVelocity.vz)
+			{
+				playerStatusPtr->cloakOn = 0;
+				playerStatusPtr->CloakingEffectiveness = 0;
+			}
+			if (!playerStatusPtr->Mvt_InputRequests.Flags.Rqst_Crouch)
 			{
 				playerStatusPtr->cloakOn = 0;
 				playerStatusPtr->CloakingEffectiveness = 0;
@@ -667,7 +680,8 @@ void MaintainPlayer(void)
 							NETGHOSTDATABLOCK *ghostData = reportPtr->ObstacleSBPtr->SBdataptr;
 							Sound_Play(SID_ED_FACEHUGGERSLAP, "h");
 							HuggedPlayer = ghostData->playerId;
-							MeleeWeapon_180Degree_Front_Core(&TemplateAmmo[AMMO_CUDGEL].MaxDamage[AvP.Difficulty], 0, TemplateAmmo[AMMO_CUDGEL].MaxRange);
+							MeleeWeapon_180Degree_Front_Core(&TemplateAmmo[AMMO_FACEHUGGER].MaxDamage[AvP.Difficulty], ONE_FIXED, TemplateAmmo[AMMO_FACEHUGGER].MaxRange);
+							PlayerStatusPtr->AirSupply = (ONE_FIXED*30);
 						}
 					}
 				}
@@ -857,8 +871,9 @@ void MaintainPlayer(void)
 		PLAYER_WEAPON_DATA *weaponPtr = &(playerStatusPtr->WeaponSlot[playerStatusPtr->SelectedWeaponSlot]);
 
 		/* Also remove Tracker when using a 2-h weapon */
-		if (weaponPtr->WeaponIDNumber != WEAPON_CUDGEL &&
-			weaponPtr->WeaponIDNumber != WEAPON_MARINE_PISTOL)
+		if (weaponPtr->WeaponIDNumber == WEAPON_SMARTGUN ||
+			weaponPtr->WeaponIDNumber == WEAPON_FRISBEE_LAUNCHER ||
+			weaponPtr->WeaponIDNumber == WEAPON_SADAR)
 		{
 			if (playerStatusPtr->MTrackerType >= 2)
 				playerStatusPtr->MTrackerType = 1;
@@ -954,6 +969,7 @@ void MaintainPlayer(void)
 		}
 	}
 	// Surface Containment
+#if 0
 	if (Surface==1)
 	{
 		playerStatusPtr->OnSurface = 1;
@@ -1017,6 +1033,7 @@ void MaintainPlayer(void)
 			Player->ObStrategyBlock->SBDamageBlock.IsOnFire = 0;
 		}
 	}
+#endif
 	/* Drowning!! */
 	if ((Underwater==1) && (AvP.PlayerType == I_Marine))
 	{
@@ -1196,11 +1213,17 @@ void MaintainPlayer(void)
 		}
 	}
 
-	/*
+	/* Remove Tracker if firing a 2-h weapon */
 	if (playerStatusPtr->Mvt_InputRequests.Flags.Rqst_FirePrimaryWeapon)
 	{
 		PLAYER_WEAPON_DATA *weaponPtr = &(playerStatusPtr->WeaponSlot[playerStatusPtr->SelectedWeaponSlot]);
-		if((weaponPtr->WeaponIDNumber==WEAPON_MINIGUN) && (playerStatusPtr->IsMovingInWater))
+
+		if (weaponPtr->WeaponIDNumber != WEAPON_MARINE_PISTOL)
+		{
+			if (playerStatusPtr->MTrackerType >= 2)
+				playerStatusPtr->MTrackerType = 1;
+		}
+		/*if((weaponPtr->WeaponIDNumber==WEAPON_MINIGUN) && (playerStatusPtr->IsMovingInWater))
 		{
 			Sound_Play(SID_ED_ELEC_DEATH,"h");
 			CauseDamageToObject(Player->ObStrategyBlock,&TemplateAmmo[AMMO_FRISBEE].MaxDamage[AvP.Difficulty],ONE_FIXED,NULL);
@@ -1235,9 +1258,19 @@ void MaintainPlayer(void)
 				}
 			}
 			MakeLightElement(&Player->ObStrategyBlock->DynPtr->Position,LIGHTELEMENT_ELECTRICAL_SPARKS);
+		}*/
+	}
+
+	if (playerStatusPtr->Mvt_InputRequests.Flags.Rqst_FireSecondaryWeapon)
+	{
+		PLAYER_WEAPON_DATA *weaponPtr = &(playerStatusPtr->WeaponSlot[playerStatusPtr->SelectedWeaponSlot]);
+
+		if (weaponPtr->WeaponIDNumber != WEAPON_MARINE_PISTOL)
+		{
+			if (playerStatusPtr->MTrackerType >= 2)
+				playerStatusPtr->MTrackerType = 1;
 		}
 	}
-	*/
 
 	//Update the player's invulnerabilty timer
 	if((playerStatusPtr->invulnerabilityTimer>0) && (playerStatusPtr->Class != CLASS_NONE) && (playerStatusPtr->Class != 20))
@@ -1297,7 +1330,7 @@ void MaintainPlayer(void)
 	{
 		impregnation += NormalFrameTime;
 		
-		if (impregnation >= (ONE_FIXED*2))
+		if (impregnation >= (ONE_FIXED*3))
 		{
 			int index=PlayerIdInPlayerList(HuggedPlayer);
 
@@ -1310,7 +1343,7 @@ void MaintainPlayer(void)
 
 			HuggedPlayer=0;
 			impregnation=0;
-			playerStatusPtr->ChestbursterTimer = ONE_FIXED*100;
+			playerStatusPtr->ChestbursterTimer = (ONE_FIXED*100);
 		}
 	}
 
@@ -1323,7 +1356,7 @@ void MaintainPlayer(void)
 				}
 			} else {
 				CauseDamageToObject(Player->ObStrategyBlock,&TemplateAmmo[AMMO_SADAR_TOW].MaxDamage[AvP.Difficulty], 20*ONE_FIXED,NULL);
-				playerStatusPtr->ChestbursterTimer = ONE_FIXED*8;
+				playerStatusPtr->ChestbursterTimer = 0;//ONE_FIXED*8;
 				if (!playerStatusPtr->IsAlive) {
 					Sound_Play(SID_LOADMOVE,"h");
 				}
@@ -1392,6 +1425,21 @@ void MaintainPlayer(void)
 		}
 	} else {
 		playerStatusPtr->Immobilized = 0;
+	}
+	/* Special Coding for the mp_jungle level */
+	if (playerStatusPtr->Destr == -1)
+	{
+		playerStatusPtr->Destr = 0;
+		HandleEffectsOfExplosion
+		(
+			Player->ObStrategyBlock,
+			&Player->ObStrategyBlock->DynPtr->Position,
+			TemplateAmmo[AMMO_FRAGMENTATION_GRENADE].MaxRange,
+			&TemplateAmmo[AMMO_FRAGMENTATION_GRENADE].MaxDamage[AvP.Difficulty],
+			TemplateAmmo[AMMO_FRAGMENTATION_GRENADE].ExplosionIsFlat
+		);
+		CauseDamageToObject(Player->ObStrategyBlock,&TemplateAmmo[AMMO_FRISBEE].MaxDamage[AvP.Difficulty],20*ONE_FIXED,NULL);
+		Sound_Play(SID_NICE_EXPLOSION,"h");
 	}
 	/* Reset DSP if ->Destr = 0 */
 	if (!playerStatusPtr->Destr)
@@ -1560,6 +1608,15 @@ void MaintainPlayer(void)
 
 		if (playerStatusPtr->soundHandle4<=0)
 		{ 
+			if ((playerStatusPtr->OnSurface) && (speed > 0) && (playerStatusPtr->Mvt_MotionIncrement != 0))
+			{
+				Sound_Play(SID_BODY_BEING_HACKED_UP_4,"d",&Player->ObStrategyBlock->DynPtr->Position);
+
+				if (AvP.Network != I_No_Network)
+					netGameData.landingNoise = 2;
+
+				playerStatusPtr->OnSurface = 0;
+			}
 			if (speed > 1000) {
 				if (AvP.PlayerType == I_Marine)
 				{
@@ -1635,7 +1692,7 @@ void MaintainPlayer(void)
 				case 2:
 				case 3:
 					if (playerStatusPtr->IsAlive) {
-						Sound_Play(SID_PULSE_SWIPE04,"h");
+						Sound_Play(SID_PULSE_SWIPE04,"hv",100);
 					}
 					break;
 			}
@@ -1647,7 +1704,7 @@ void MaintainPlayer(void)
 		} else {
 			playerStatusPtr->soundHandleForPredatorCloakDamaged-=NormalFrameTime;
 		}
-		/* Random coughing */
+		/* Random coughing   -- REMOVED!
 		if (playerStatusPtr->soundHandle5<=0)
 		{
 			switch(rand&3)
@@ -1672,7 +1729,7 @@ void MaintainPlayer(void)
 			playerStatusPtr->soundHandle5=327680;
 		} else {
 			playerStatusPtr->soundHandle5-=NormalFrameTime;
-		}
+		}*/
 	}
 	/* Breathing Sound */
 	if ((playerStatusPtr->ArmorType) && (playerStatusPtr->AirSupply) && (!playerStatusPtr->ChestbursterTimer))
@@ -2061,6 +2118,9 @@ void PlayerIsDamaged(STRATEGYBLOCK *sbPtr, DAMAGE_PROFILE *damage, int multiplie
 				{
 					Player->ObStrategyBlock->DynPtr->LinImpulse.vz+=10000;
 					HuggedPlayer = 0;
+					PlayerStatusPtr->AirSupply = 0;
+					PlayerStatusPtr->ChestbursterTimer = 0;
+					impregnation = 0;
 				}
 			}
 		}

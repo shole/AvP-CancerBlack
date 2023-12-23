@@ -240,7 +240,7 @@ void PlatformLiftBehaviour(STRATEGYBLOCK *sbPtr)
 		if(platformliftdata->netMsgCount>0)
 		{
 			/* don't send at rest messages: peers detect end of movement locally. */
-			if(platformliftdata->state!=PLBS_AtRest) 
+			if(platformliftdata->state!=PLBS_AtRest)
 			{
 				AddNetMsg_PlatformLiftState(sbPtr);
 			}

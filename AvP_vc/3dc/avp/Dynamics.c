@@ -2982,9 +2982,11 @@ static void TestShapeWithDynamicBoundingBox(DISPLAYBLOCK *objectPtr, DYNAMICSBLO
 			if (Player->ObStrategyBlock)
 			{
 				DYNAMICSBLOCK *dynPtr = Player->ObStrategyBlock->DynPtr;
+
 			    if ((dynPtr->LinVelocity.vx == 0) &&
 					(dynPtr->LinVelocity.vy == 0) &&
-					(dynPtr->LinVelocity.vz == 0))
+					(dynPtr->LinVelocity.vz == 0) &&
+					(PlayerStatusPtr->Mvt_InputRequests.Flags.Rqst_Crouch))
 				{
 					PLAYER_STATUS *psPtr = (PLAYER_STATUS *) Player->ObStrategyBlock->SBdataptr;
 					psPtr->cloakOn = 1;

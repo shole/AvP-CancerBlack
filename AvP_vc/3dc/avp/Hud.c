@@ -3152,8 +3152,13 @@ static void DrawAlienTeeth(void)
 				PLAYER_STATUS *psPtr = (PLAYER_STATUS *) (Player->ObStrategyBlock->SBdataptr);
 				LOCALASSERT(psPtr);
 
-				if (psPtr->soundHandle == SOUND_NOACTIVEINDEX) {
-					Sound_Play(SID_ED_SKEETERDISC_HITWALL,"he",&psPtr->soundHandle);
+				if (psPtr->soundHandle == SOUND_NOACTIVEINDEX)
+				{
+					if (PlayerStatusPtr->Class == CLASS_EXF_SNIPER)
+						Sound_Play(SID_ED_SKEETERDISC_HITWALL,"hep",&psPtr->soundHandle, -100);
+					else
+						Sound_Play(SID_ED_SKEETERDISC_HITWALL,"he",&psPtr->soundHandle);
+
 					if (AvP.Network != I_No_Network) netGameData.trackerNoise = 1;
 
 					if (LocalDetailLevels.WeatherFX)

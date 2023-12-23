@@ -303,6 +303,8 @@ void LoadMultiplayerConfiguration(const char* name)
 	fread(&netGameData.disableFriendlyFire,sizeof(BOOL),1,file);
 	fread(&netGameData.fallingDamage,sizeof(BOOL),1,file);
 	fread(&netGameData.LifeCycle,sizeof(BOOL),1,file);
+	fread(&netGameData.InstantSpawn,sizeof(BOOL),1,file);
+	fread(&netGameData.MinimumPlayers,sizeof(int),1,file);
 	#if LOAD_NEW_MPCONFIG_ENTRIES
 	fread(&netGameData.maxMarineSmartDisc,sizeof(int),1,file);
 	fread(&netGameData.maxMarinePistols,sizeof(int),1,file);
@@ -412,6 +414,8 @@ void SaveMultiplayerConfiguration(const char* name)
 	fwrite(&netGameData.disableFriendlyFire,sizeof(BOOL),1,file);
 	fwrite(&netGameData.fallingDamage,sizeof(BOOL),1,file);
 	fwrite(&netGameData.LifeCycle,sizeof(BOOL),1,file);
+	fwrite(&netGameData.InstantSpawn,sizeof(BOOL),1,file);
+	fwrite(&netGameData.MinimumPlayers,sizeof(int),1,file);
 	#if SAVE_NEW_MPCONFIG_ENTRIES
 	fwrite(&netGameData.maxMarineSmartDisc,sizeof(int),1,file);
 	fwrite(&netGameData.maxMarinePistols,sizeof(int),1,file);

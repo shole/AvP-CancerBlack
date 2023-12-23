@@ -11,6 +11,8 @@
 #define UseLocalAssert Yes
 #include "ourasert.h"
 
+#define NOT_PUBLIC_RELEASE 1
+
 extern "C"
 {
 #include "3dc.h"
@@ -100,7 +102,11 @@ void ToggleAPC(void)
 	DYNAMICSBLOCK *dynPtr = Player->ObStrategyBlock->DynPtr;
 	LOCALASSERT(playerStatusPtr);
 
-	if(AvP.PlayerType!=I_Marine) return;
+	if(AvP.PlayerType!=I_Marine) 
+		return;
+
+	if (AvP.Network != I_No_Network)
+		return;
 
 	if (playerStatusPtr->Honor) {
 		playerStatusPtr->Honor = 0;
@@ -186,8 +192,9 @@ void UseMotionTracker(void)
 	if (AvP.PlayerType!=I_Marine) return;
 	if (playerStatusPtr->Honor) return;
 
-	if (weaponPtr->WeaponIDNumber != WEAPON_CUDGEL &&
-		weaponPtr->WeaponIDNumber != WEAPON_MARINE_PISTOL)
+	if (weaponPtr->WeaponIDNumber == WEAPON_SMARTGUN ||
+		weaponPtr->WeaponIDNumber == WEAPON_FRISBEE_LAUNCHER ||
+		weaponPtr->WeaponIDNumber == WEAPON_SADAR)
 		return;
 
 	if (playerStatusPtr->MTrackerType == 0) return;
@@ -204,6 +211,9 @@ void InfLampToggle(void)
 {
 	if (AvP.PlayerType != I_Marine) return;
 
+	if (AvP.Network != I_No_Network)
+		return;
+
 	if (InfLamp)
 	{
 		InfLamp = 0;
@@ -216,6 +226,9 @@ void InfLampToggle(void)
 
 void Toggle3rdPerson(void)
 {
+	if (AvP.Network != I_No_Network)
+		return;
+
 	if (ThirdPersonActive)
 		ThirdPersonActive = 0;
 	else
@@ -301,6 +314,9 @@ void Restore(void)
 	NPC_DATA *NpcData;
 	NPC_TYPES PlayerType;
 
+	if (AvP.Network != I_No_Network)
+		return;
+
 	switch(AvP.PlayerType) 
 	{
 		case(I_Marine):
@@ -384,6 +400,9 @@ void GodMode(void)
 {
 	PLAYER_STATUS *psPtr = (PLAYER_STATUS *) (Player->ObStrategyBlock->SBdataptr);
 	LOCALASSERT(psPtr);
+
+	if (AvP.Network != I_No_Network)
+		return;
 
 	if (psPtr->IsImmortal)
 	{
@@ -528,12 +547,14 @@ extern void AddNetMsg_ChatBroadcast(char *string,BOOL same_species_only);
 
 static void DoMultiplayerSay(char* string)
 {
-	AddNetMsg_ChatBroadcast(string,FALSE);
+	//if (PlayerStatusPtr->IsAlive) // anti-cheat
+		AddNetMsg_ChatBroadcast(string,FALSE);
 }
 
 static void DoMultiplayerSaySpecies(char* string)
 {
-	AddNetMsg_ChatBroadcast(string,TRUE);
+	//if (PlayerStatusPtr->IsAlive) // anti-cheat
+		AddNetMsg_ChatBroadcast(string,TRUE);
 }
 
 static void ForceAssertionFailure(void)
@@ -622,10 +643,18 @@ static void Trash_Frame_Rate(void)
 }
 
 
-static void RestartMultiplayer(void)
+void RestartMultiplayer(void)
 {
+	extern EnoughPlayersAreHere(void);
+
 	/* obviously have to be in a network game... */
 	if (AvP.Network==I_No_Network) return;
+
+	/* AND be the host! */
+	if (AvP.Network!=I_Host) return;
+
+	/* Must also be enough players */
+	if (!EnoughPlayersAreHere()) return;
 
 	int seed=FastRandom();
 	AddNetMsg_RestartNetworkGame(seed);
@@ -634,6 +663,9 @@ static void RestartMultiplayer(void)
 
 static void CompleteLevel(void)
 {
+	if (AvP.Network != I_No_Network)
+		return;
+
 	AvP.LevelCompleted = 1;
 }
 
@@ -1105,18 +1137,18 @@ void CreateGameSpecificConsoleCommands(void)
 	);
 	ConsoleCommand::Make
 	(
-		"GIVESTUFF",
-		"GIVES YOU LOTSA NEW STUFF.",
-		GiveAllWeaponsCheat
-	);
-	ConsoleCommand::Make
-	(
 		"KICK",
 		"Kick a player.",
 		KickPlayer
 	);
 
-	#if 1
+	#if NOT_PUBLIC_RELEASE
+	ConsoleCommand::Make
+	(
+		"GIVESTUFF",
+		"GIVES YOU LOTSA NEW STUFF.",
+		GiveAllWeaponsCheat
+	);
 	ConsoleCommand::Make
 	(
 		"GOD",
@@ -1129,7 +1161,6 @@ void CreateGameSpecificConsoleCommands(void)
 		"Restore full Armor and Health.",
 		Restore
 	);
-	#endif
 	ConsoleCommand::Make
 	(
 		"APC",
@@ -1153,6 +1184,13 @@ void CreateGameSpecificConsoleCommands(void)
 		"THIRDPERSON",
 		"Change to 3rd-person viewmode.",
 		Toggle3rdPerson
+	);
+	#endif
+	ConsoleCommand::Make
+	(
+		"MPRESTART",
+		"RESTARTS A NETWORK GAME FROM SCRATCH",
+		RestartMultiplayer
 	);
 }	
 

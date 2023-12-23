@@ -287,6 +287,10 @@ typedef struct netgame_gamedata
 	/* Alien Lifecycle -- Eld */
 	BOOL LifeCycle;		//forces aliens to start out as huggers... nasty!
 
+	BOOL InstantSpawn;	//forces instant spawn
+
+	int MinimumPlayers;	//minimum number of required players
+
 	//don't bother tring to synch strategies if the checksum values are different
 	int myStrategyCheckSum; 
 
@@ -395,6 +399,10 @@ typedef struct netmessage_gamedescription
 
 	/* Alien Lifecycle -- Eld */
 	unsigned int LifeCycle:1;
+
+	unsigned int InstantSpawn:1;
+
+	unsigned int MinimumPlayers:4;
 
 }NETMESSAGE_GAMEDESCRIPTION;
 
